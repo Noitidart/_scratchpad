@@ -50,23 +50,5 @@ function jsonToDOM(xml, doc, nodes) {
 
 var nodes = {};
 document.documentElement.appendChild(
-    jsonToDOM(
-                ["li", {},
-                    ["form",{
-                                'accept-charset': "UTF-8",
-                                method: "post",
-                                'data-method': "post",
-                                action: "/enjalot/3375156/fork"
-                            },
-                            ["button",  {
-                                            class: 'minibutton fork-button',
-                                            type: 'submit'
-                                        },
-                                        ['span',{
-                                                    class: 'octicon octicon-git-branch'
-                                                }
-                                        ],
-                                        'Fork'
-                            ]
-                    ]
-                ], document, nodes));
+    jsonToDOM(['span',{},'fork','awer','asdfe'], document, nodes)
+);

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html class="post  js flexbox canvas canvastext webgl no-touch geolocation postmessage no-websqldatabase indexeddb hashchange history draganddrop websockets rgba hsla multiplebgs backgroundsize borderimage borderradius boxshadow textshadow opacity cssanimations csscolumns cssgradients no-cssreflections csstransforms csstransforms3d csstransitions fontface generatedcontent video audio localstorage sessionstorage webworkers applicationcache svg inlinesvg smil svgclippaths"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checking Types in Javascript</title>
+<link rel="alternate" type="application/atom+xml" href="http://feeds.feedburner.com/tobyho">
+<link rel="stylesheet" media="screen" href="checking%20types%20of%20variables_files/style.css">
+<link href="checking%20types%20of%20variables_files/pygments.css" rel="stylesheet">
+<div class="fit-vids-style">­<style>               .fluid-width-video-wrapper {                 width: 100%;                              position: relative;                       padding: 0;                            }                                                                                   .fluid-width-video-wrapper iframe,        .fluid-width-video-wrapper object,        .fluid-width-video-wrapper embed {           position: absolute;                       top: 0;                                   left: 0;                                  width: 100%;                              height: 100%;                          }                                       </style></div><script src="checking%20types%20of%20variables_files/modernizer.js"></script>
+<script src="checking%20types%20of%20variables_files/embed.js" async="" type="text/javascript"></script><script charset="UTF-8" async="" src="checking%20types%20of%20variables_files/alfie.js"></script></head>
+<body>
+<header class="siteheader">
+	<a id="home" href="http://tobyho.com/">
+		<span class="title">Toby Ho</span>
+		<span class="smiley"></span>
+		<span class="subtitle">Javascript. WWW. Code.</span>
+	</a>
+</header>
+<div class="frame">
+<header class="articleheader">
+	<h1 style="font-size: 55px;">Checking Types in Javascript</h1>
+	<div style="font-size: 12px;" class="post-info">
+		Jan 28 ’11
+		·
+		
+			programming
+		
+			javascript
+		
+	
+	</div>
+</header>
+<article>
+
+	
+	<p>Have you ever wondered: <i>what is the correct way to check if a Javascript variable is an Array?</i></p>
+<p><i><br></i></p>
+<p>Do a Google search and you will get a great variety of answers. And, unfortunately, there's <i>is</i>&nbsp;no
+ correct answer. This is one of the sad things about Javascript, not 
+only are there many varying implementations of the language, there are 
+also many varying opinions about how things should be done.</p>
+<p>Enough philosophizing and feeling sorry about the state of things. 
+With this article, I will trying to give a comprehensive overview of the
+ different techniques of checking-types in Javascript, the pros and cons
+ of each and why they exist.</p>
+<h2><i>typeof</i>&nbsp;operator</h2>
+<p>In the beginning, there was <i>typeof. </i>This handy operator gives you the "type" of a Javascript value:</p>
+<pre><code>typeof 3 // "number"
+typeof "abc" // "string"
+typeof {} // "object"
+typeof true // "boolean"
+typeof undefined // "undefined"
+typeof function(){} // "function"</code></pre>
+<p>All is fine 'n dandy until</p>
+<pre><code>typeof [] // "object"</code></pre>
+<p>Huh? An array's type is <i>object</i>? I guess it <i>is</i>, if you want to get technical about it, but still, what the...</p>
+<pre><code>typeof null // "object"</code></pre>
+<p>Okay, <i>now</i>&nbsp;that's just <i>wrong!</i></p>
+<p><i><br></i></p>
+<p>Also, <i>typeof</i>&nbsp;will return "object" for Dates, RegExp, user defined objects, DOM elements, and pretty much anything else. So, <i>typeof</i>&nbsp;is pretty good at distinguishing between different kind of primitive values, and distinguish between them and <i>objects</i>, but is completely useless when it comes to distinguishing between different kinds of objects - <i>which includes arrays and nulls(WTF?!)</i>.</p>
+<h2><i>instanceof</i>&nbsp;operator</h2>
+<p>The <i>instanceof </i>operator tells you whether a object is an instance of a certain type. The so-called "type" is a constructor. For example</p>
+<pre><code>function Animal(){}
+var a = new Animal()
+a instanceof Animal // true</code></pre>
+<p>Alternatively, you could make this check using the <i>constructor</i>&nbsp;property of an object</p>
+<pre><code>a.constructor === Animal // true</code></pre>
+<p>However, the constructor check has two problems. First, it does not walk up the prototype chain</p>
+<pre><code>function Cat(){}
+Cat.prototype = new Animal
+Cat.prototype.constructor = Cat
+var felix = new Cat
+felix instanceof Cat // true
+felix instanceof Animal // true
+felix.constructor === Cat // true
+felix.constructor === Animal // false</code></pre>
+
+<p>The second problem is that it will bomb out if the object in question is null or undefined.</p>
+<pre><code>felix = null
+felix instanceof Animal // true
+felix.constructor === Animal // throws TypeError</code></pre>
+<div><i>instanceof&nbsp;</i>works for <i>all</i> native types!</div>
+
+<pre><code>[1, 2, 3] instanceof Array // true
+/abc/ instanceof RegExp // true
+({}) instanceof Object // true
+(function(){}) instanceof Function // true</code></pre>
+<p>or does it?</p>
+<pre><code>3 instanceof Number // false
+true instanceof Boolean // false
+'abc' instanceof String // false</code></pre>
+<p>Okay, what is going on here? It turns out that <i>instanceof</i>&nbsp;does not work with primitive values. The primitive types in Javascript are: <i>strings</i>, <i>numbers</i>, <i>booleans</i>, <i>null</i>, and <i>undefined</i>
+ - (Oh good! You can count them all on one hand!) Well actually, I 
+should have said it does not work with primitives with the exception of <i>null</i> and <i>undefined</i>, because they are not an instance of anything, and so <i>instanceof</i> correctly returns false when either is used on the left hand side.</p>
+<pre><code>null instanceof Boolean // false
+undefined instanceof Array // false</code></pre>
+<p>To top that off though, checking for the constructor property <i>will </i>work for the primitive types <i>number, string</i>&nbsp;and <i>boolean</i>.</p>
+<pre><code>(3).constructor === Number // true
+true.constructor === Boolean // true
+'abc'.constructor === String // true</code></pre>
+<p>This works because whenever you reference a property on a primitive 
+value, Javascript will automatically wrap the value with an object 
+wrapper, like so</p>
+<pre><code>var wrapper = new Number(3)</code></pre>
+<p>except you don't see this - it happens behind the scenes. The wrapper then will be an instance of - in this case <i>Number</i> - or a <i>Boolean</i> or a <i>String</i>&nbsp;depending
+ on the type of the primitive value, at which point it can walk up the 
+prototype-chain and get at the properties of the Number prototype, etc. 
+So, for example, creating a wrapper manually will make the <i>instanceof</i>&nbsp;operator work</p>
+<pre><code>new Number(3) instanceof Number // true
+new Boolean(true) instanceof Boolean // true
+new String('abc') instanceof String // true</code></pre>
+<p>But doing that would be pointless because it requires you to already 
+know the type of the value of which you are asking whether or not it is 
+of the type that you already know it is.</p>
+<h3>Cross-window Issues of <i>instanceof</i></h3>
+<p>It turns out that <i>instanceof</i>&nbsp;has another problem. It 
+breaks down when you try to test an object coming from another window. 
+You know? The ones that are&nbsp;created for each &lt;iframe&gt;, 
+&lt;frame&gt; or popup window that you create.&nbsp;</p>
+<pre><code>var iframe = document.createElement('iframe')
+document.body.appendChild(iframe)
+var iWindow = iframe.contentWindow // get a reference to the window object of the iframe
+iWindow.document.write('&lt;script&gt;var arr = [1, 2, 3]&lt;/script&gt;') // create an array var in iframe's window
+iWindow.arr // [1, 2, 3]
+iWindow.arr instanceof Array // false</code></pre>
+<p>Above, we created a variable&nbsp;<i>arr</i>&nbsp;inside the context of the iframe and set it to the array <i>[1, 2, 3]</i>. However, we get <i>false</i>&nbsp;when we ask whether it is a instance of Array. What is happening?!! Behold.</p>
+<pre><code>Array === iWindow.Array // false</code></pre>
+<p>The Array in the iframe is <i>not</i> the same Array as our Array! 
+This is true for all built-in objects: there are two versions of all of 
+them! Basically, we have parallel universes! OMG!</p>
+<p>What this means is that an array created within the iframe is only an instance of the Array constructor within the iframe</p>
+<pre><code>iWindow.arr instanceof iWindow.Array // true</code></pre>
+<p>The same phenomenon happens with windows created using the <i>open()</i>&nbsp;function.<i>&nbsp;</i>It is because of this cross-window problem that the use of <i>instanceof</i>&nbsp;is somewhat limited and discouraged within the Javascript community.</p>
+<h3>Duck-Typing</h3>
+<p>Because neither <i>typeof</i>&nbsp;or <i>instanceof </i>are satisfactory, many resort to duck-typing. This means checking the behavior: i<i>f it looks like a duck and quacks like a duck, then it is a duck as far as I am concerned</i>. Pretty sure I misquoted that...oh well.</p>
+<p>So, using duck-typing, an isArray check might look like</p>
+<pre><code>// source: http://forums.devshed.com/javascript-development-115/javascript-test-whether-a-variable-is-array-or-not-33051.html
+function isArray(obj){
+    return (typeof(obj.length)=="undefined") ?
+        false:true;
+}</code></pre>
+<p>or&nbsp;</p>
+<pre><code>// source: http://www.hunlock.com/blogs/Ten_Javascript_Tools_Everyone_Should_Have
+function isArray(testObject) {
+    return testObject &amp;&amp;
+	!(testObject.propertyIsEnumerable('length')) &amp;&amp;
+	typeof testObject === 'object' &amp;&amp;
+	typeof testObject.length === 'number';
+}</code></pre>
+<p>in jQuery, the function to check whether an object is a window is</p>
+<pre><code>isWindow: function( obj ) {
+    return obj &amp;&amp; typeof obj === "object" &amp;&amp; "setInterval" in obj;
+}
+</code></pre>
+<p>You could easily trick this function into returning true</p>
+<pre><code>$.isWindow({setInterval: 'bah!'}) // true</code></pre>
+<p>Clearly, the problem with this approach is that</p>
+<div>
+	<ol>
+		<li>it is inexact and can have false positives</li>
+		<li>the set of properties of the object to test is arbitrary, and so 
+it's unlikely for different people to agree on one way of doing it</li>
+	</ol>
+	<div>For the record, I don't like this approach.</div>
+</div>
+<h3><i>Object.prototype.toString</i> method</h3>
+<p>It turns out that, you can get type information about an object by using the <i>Object.prototype.toString</i>&nbsp;method.</p>
+<pre><code>Object.prototype.toString.call(3) // "[object Number]"
+Object.prototype.toString.call([1, 2, 3]) // "[object Array]"
+Object.prototype.toString.call({}) // "[object Object]"</code></pre>
+<p>This native method is rarely encountered normally because it's 
+usually shadowed by another toString method lower down in the prototype 
+chain(Array.prototype.toString, Number.prototype.toString, etc.). This 
+method reliably differentiates between native types, however, will 
+return "[object Object]" for all user-defined types</p>
+<pre><code>Object.prototype.toString.call(new Animal) // "[object Object]"</code></pre>
+<p>It does, however, work across different window contexts</p>
+<pre><code>Object.prototype.toString.call(iWindow.arr) === "[object Array]" // true
+</code></pre>
+<p>with one exception: different windows(as in popup window) in IE.<br></p>
+<pre><code>var pWindow = open("")
+pWindow.document.write('&lt;script&gt;var arr = [1, 2, 3]&lt;/script&gt;')
+Object.prototype.toString.call(pWindow.arr) // you get "[object Object]" in IE; "[object Array]" else where.</code></pre>
+<p>This is strange because for <i>iframes</i>&nbsp;it works just fine, 
+bummer!&nbsp;This method has become somewhat of a preferred way to 
+differentiate native types despite the IE bug. <i>Ehh, nobody uses popup windows anymore anyway.</i></p>
+<h3><i>Function.prototype.toString</i> method</h3>
+<p>Yet another way to test for type information is by using the <i>Function.prototype.toString </i>method.</p>
+<pre><code>Function.prototype.toString.call((3).constructor)
+// "function Number() {
+//    [native code]
+// }"</code></pre>
+<p>The method gives you the complete source of a function. In the case 
+of native functions, it just says "[native code]" in the body. One could
+ easily parse out the name of the function to figure out type of the 
+object using this helper function</p>
+<pre><code>function type(obj){
+	var text = Function.prototype.toString.call(obj.constructor)
+	return text.match(/function (.*)\(/)[1]
+}
+type("abc") // "String"</code></pre>
+<p>This one will work for user-defined types too</p>
+<pre><code>type(new Animal) // "Animal"</code></pre>
+<p>this code has a problem wrt popup windows in IE just like <i>instanceof.</i>&nbsp;It's because when <i>Function.prototype.toString</i>&nbsp;is
+ called with a constructor from another parallel universe, it can only 
+discern the constructor as an object("[object Object]"), and thus 
+rejects the argument and throws a "Function expected" error. This 
+problem can actually be worked around by referencing the toString method
+ indirectly</p>
+<pre><code>function type(obj){
+	var text = obj.constructor.toString()
+	return text.match(/function (.*)\(/)[1]
+}</code></pre>
+<p>Now, it works for popup windows in IE too! This fix makes it susceptible to shadowing</p>
+<pre><code>Array.toString = function(){ return "function NotArray(){ }" }
+type([1,2,3]) // "NotArray"</code></pre>
+<p>but still, I'd say this is pretty cool.</p>
+<p>Now, let's return to user-defined types for a minute. With this 
+approach, there's no way to distinguish between two different 
+user-defined types with the same name</p>
+<pre><code>var f = function Animal(){ "something" }
+
+var g = function Animal(){ "something entirely different" }
+type(new f) // "Animal"
+type(new g) // "Animal"</code></pre>
+<p>For this reason, this method is inferior to <i>instanceof</i>&nbsp;for
+ user-defined types. Another seemingly obvious problem with this 
+approach is performance, but I'd have to benchmark it(jsperf!) to make a
+ real claim.</p>
+<h2>DOM Elements and Host Objects</h2>
+<p>So far, I have not mentioned type checking for DOM elements and host objects. That's because it's <i>hard</i>.
+ With the exception of duck-typing, none of the methods mentioned above 
+will work for all browsers. If you drop IE7 and below, however, you can 
+actually get some of the things to work. The output below were created 
+using&nbsp;<a href="http://tutti.tobyho.com/">Tutti</a></p>
+<pre><code>&gt; var div = document.createElement('div')
+&gt; typeof div
+Safari 5.0 =&gt; object
+Firefox 3.6 =&gt; object
+IE 7.0 =&gt; object
+IE 8.0 =&gt; object
+Opera 11.01 =&gt; object
+&gt; div instanceof Element
+Safari 5.0 =&gt; true
+Firefox 3.6 =&gt; true
+IE 7.0 =&gt; Error: 'Element' is undefined
+IE 8.0 =&gt; true
+Opera 11.01 =&gt; true
+&gt; div instanceof HTMLDivElement
+Safari 5.0 =&gt; true
+Firefox 3.6 =&gt; true
+IE 8.0 =&gt; true
+IE 7.0 =&gt; Error: 'HTMLDivElement' is undefined
+Opera 11.01 =&gt; true
+</code></pre>
+<p>First up, <i>typeof</i> is useless, that was expected. Next, everyone but IE 7 recognizes that a div is an instance of&nbsp;<i>Element</i>&nbsp;as well as an <i>HTMLDivElem</i>ent<i>. </i>In IE7, those constructors aren't even present. Next,</p>
+<pre><code>&gt; Object.prototype.toString.call(div)
+Safari 5.0 =&gt; [object HTMLDivElement]
+Firefox 3.6 =&gt; [object HTMLDivElement]
+IE 7.0 =&gt; [object Object]
+IE 8.0 =&gt; [object Object]
+Opera 11.01 =&gt; [object HTMLDivElement]
+</code></pre>
+<p>The result of <i>Object.prototype.toString</i>&nbsp;in IE - even IE 8 - is particularly <i>un</i>helpful. What about</p>
+<pre><code>&gt; div.constructor.toString()
+Safari 5.0 =&gt; [object HTMLDivElementConstructor]
+Firefox 3.6 =&gt; [object HTMLDivElement]
+IE 7.0 =&gt; Error: 'div.constructor' is null or not an object
+IE 8.0 =&gt; [object HTMLDivElement]
+Opera 11.01 =&gt; function HTMLDivElement() { [native code] }
+</code></pre>
+<p><i>Function.prototype.toString: </i>it gives us something useful for IE8, but every browser has a slightly different output.</p>
+<p>Fun! Try another one? Allllllllllllllllrrrighty then!</p>
+<pre><code>&gt; typeof window
+Safari 5.0 =&gt; object
+Firefox 3.6 =&gt; object
+IE 8.0 =&gt; object
+IE 7.0 =&gt; object
+Opera 11.01 =&gt; object
+&gt; window instanceof Window
+Safari 5.0 =&gt; ReferenceError: Can't find variable: Window
+Firefox 3.6 =&gt; true
+IE 8.0 =&gt; true
+IE 7.0 =&gt; Error: 'Window' is undefined
+Opera 11.01 =&gt; ReferenceError: Undefined variable: Window
+&gt; Object.prototype.toString.call(window)
+Safari 5.0 =&gt; [object DOMWindow]
+Firefox 3.6 =&gt; [object Object]
+IE 8.0 =&gt; [object Object]
+IE 7.0 =&gt; [object Object]
+Opera 11.01 =&gt; [object Window]
+&gt; window.constructor
+Safari 5.0 =&gt; function Object() {
+    [native code]
+}
+Firefox 3.6 =&gt; function Object() {
+    [native code]
+}
+IE 8.0 =&gt; [object Window]
+IE 7.0 =&gt; undefined
+Opera 11.01 =&gt; function Object() { [native code] }
+</code></pre>
+<p>With <i>window</i> it is just <i>all</i> over the place, none of 
+these methods worked for all browsers. You can try testing out some 
+other host objects if you want, but in general it doesn't look doable. 
+However, in my testing, the XMLHttpRequest object and DOM and Text 
+elements look doable using <i>instanceof</i>, if you can drop support for IE7 and below.</p>
+<h2>What We've Learned</h2>
+<p>Checking types in Javascript is a big mess. Although it's really not 
+that hard to check for any one particular type, it is definitely not 
+consistent across types, and you probably have had to make a lot of 
+choices along the way. So it helps to know about all the different 
+options. In an upcoming post, I will try to make all of this easier with
+ a small piece of code. Stay tuned.</p>
+<h2>Sources</h2>
+<div>
+	<ul>
+		<li><a href="http://javascript.crockford.com/remedial.html">Remedial Javascript</a>&nbsp;by Crockford</li>
+		<li><a href="http://perfectionkills.com/instanceof-considered-harmful-or-how-to-write-a-robust-isarray/">instanceof considered harmful</a><br></li>
+		<li><a href="http://stackoverflow.com/questions/332422/how-do-i-get-the-name-of-an-objects-type-in-javascript">An SO question w some helpful info</a><br></li>
+		<li>Crockford&nbsp;<a href="http://groups.google.com/group/comp.lang.javascript/msg/1afbcb0da1cd4aef">calling instanceof useless</a></li>
+	</ul>
+</div>
+	
+</article>
+<div id="disqus_thread"><iframe verticalscrolling="no" horizontalscrolling="no" src="checking%20types%20of%20variables_files/a.htm" style="width: 100% ! important; border: medium none ! important; overflow: hidden ! important; height: 954px ! important;" title="Disqus" tabindex="0" allowtransparency="true" data-disqus-uid="2" id="dsq-2" frameborder="0" scrolling="no" width="100%"></iframe></div>
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'tobyho';
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+<footer class="about">
+	<div class="column odd">
+		<h2>About</h2>
+		<p>Hi! My name is Toby Ho. I am into Javascript, UI design, programming and just making things in general. <a id="home" href="http://tobyho.com/">More about me...</a></p>
+	</div>
+	<div class="column even">
+		<h2>More...</h2>
+		<ul>
+			<li><a id="rss" class="ico-link" href="http://feeds.feedburner.com/tobyho">
+				<span class="dsq-font">S</span><span class="text">Subscribe</span></a></li>
+			<li><a id="twitter" href="http://twitter.com/airportyh">@airportyh</a></li>
+		</ul>
+	</div>
+	<div class="clear"></div>
+</footer>
+</div>
+
+<script src="checking%20types%20of%20variables_files/jquery.js"></script>
+<script src="checking%20types%20of%20variables_files/fitvids.js"></script>
+<script src="checking%20types%20of%20variables_files/fittext.js"></script>
+<script>
+$('.frame article').fitVids()
+$('.articleheader h1').fitText(1.0, {
+	minFontSize: '25px',
+	maxFontSize: '55px'
+})
+$('.articleheader .post-info').fitText(1.5, {
+	minFontSize: '8px',
+	maxFontSize: '12px'
+})
+</script>
+<script type="text/javascript">
+var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script><script src="a_data/ga.js" type="text/javascript"></script>
+<script type="text/javascript">
+var pageTracker = _gat._getTracker("UA-3227150-3");
+pageTracker._trackPageview();
+</script>
+
+
+</body></html>

@@ -1,13 +1,16 @@
+var sswin = Services.wm.getMostRecentWindow(null);
+Cu.import('chrome://cdumpjsm/content/cDump.jsm');
 function Animal() {}
 var f = document.createElement('div');
-Services.wm.getMostRecentWindow(null).alert(uneval(cTypeof(null)));
-//Services.wm.getMostRecentWindow(null).alert(Object.prototype.toString.call(undefined)); //works for null and undefined
-//Services.wm.getMostRecentWindow(null).alert(Function.prototype.toString.call((undefined).constructor));
+cDump(cTypeof(null));
+//sswin.alert(typeof null);
+//sswin.alert(Object.prototype.toString.call(undefined)); //works for null and undefined
+//sswin.alert(Function.prototype.toString.call((undefined).constructor));
 
 function cTypeof(o, returnMethod) {
 	//returnMethod is array of methods you want returned
 	if (!returnMethod || (returnMethod.length !== undefined && returnMethod.length == 0)) {
-		returnMethod = ['obj', 'objS', 'func', 'funcS', 'nodeS'];
+		returnMethod = ['typeof', 'obj', 'objS', 'func', 'funcS', 'nodeS'];
 	}
 	var method = {};
 	var methodRetVals = {};
@@ -42,7 +45,7 @@ function cTypeof(o, returnMethod) {
 		}
 		return methodRetVals.objS;
 	}
-	method.funcS = function () { //obj string
+	method.funcS = function () { //func string
 		if (!('func' in methodRetVals)) {
 			method.func();
 		}
@@ -72,7 +75,7 @@ function cTypeof(o, returnMethod) {
 		return nodeName;
 	}
     */
-	method.nodeS = function () { //obj string
+	method.nodeS = function () { //node string
         try {
             var nodeType = o.nodeType;
             if (nodeType !== undefined && nodeType !== null) {
@@ -85,17 +88,25 @@ function cTypeof(o, returnMethod) {
         }
 		return nodeType;
 	}
+    method.typeof = function() {
+        try {
+           methodRetVals.typeof = typeof o; 
+        } catch (ex) {
+           methodRetVals.typeof = ex;
+        }
+        return methodRetVals.typeof;
+    }
     var retVal = {};
-    //var retStr = [];
+    var retStr = [];
     [].forEach.call(returnMethod, function(m) {
         if (m in method) {
           retVal[m] = method[m](); //so must return values in funcs above 
         } else {
             retVal[m] = 'METHOD_UNDEFINED';
         }
-        //retStr.push(retVal[m]);
+        retStr.push(retVal[m]);
     });
-    //alert(retStr.join('\n*'));
+    //alert(retStr.join('\n\n\n'));
 	return retVal;
 }
 //very indepth: http://tobyho.com/2011/01/28/checking-types-in-javascript/

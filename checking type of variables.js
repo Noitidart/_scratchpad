@@ -1,12 +1,12 @@
 var sswin = Services.wm.getMostRecentWindow(null);
 Cu.import('chrome://cdumpjsm/content/cDump.jsm');
 function Animal() {}
-var f = document.createElement('div');
-cDump(cTypeof(null));
+var f = new Animal;
+cDump(cTypeof(document.createElement('div')));
 //sswin.alert(typeof null);
 //sswin.alert(Object.prototype.toString.call(undefined)); //works for null and undefined
 //sswin.alert(Function.prototype.toString.call((undefined).constructor));
-
+var once = false;
 function cTypeof(o, returnMethod) {
 	//returnMethod is array of methods you want returned
 	if (!returnMethod || (returnMethod.length !== undefined && returnMethod.length == 0)) {
@@ -54,6 +54,10 @@ function cTypeof(o, returnMethod) {
 		} catch (ex) {
 			methodRetVals.funcS = ex;
 		}
+        if (!once) {
+            once = true;
+           cDump(cTypeof(methodRetVals.funcS));
+        }
 		return methodRetVals.funcS;
 	}/*
 	method.node = function () { //obj string
@@ -86,7 +90,7 @@ function cTypeof(o, returnMethod) {
         } catch (ex) {
             methodRetVals.nodeS = ex;
         }
-		return nodeType;
+		return methodRetVals.nodeS;
 	}
     method.typeof = function() {
         try {

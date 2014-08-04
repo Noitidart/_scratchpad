@@ -1,0 +1,29 @@
+// start - demo code to add a handler that will be handled by my extension to a protocol
+
+/*
+1. create your own handler of instance Ci.nsIWebHandlerApp
+2. insert your handler (from 1) into the list of valid handlers torrent protocol
+3. set the active handler for the torrent protocol to your inserted handler (from 2)
+*/
+
+var handlerService = Cc['@mozilla.org/uriloader/handler-service;1'].getService(Ci.nsIHandlerService);
+var listOfWrappedHandlers = handlerService.enumerate();
+var i = 0;
+while (listOfWrappedHandlers.hasMoreElements()) {
+  var handlerInfo = listOfWrappedHandlers.getNext().QueryInterface(Ci.nsIHandlerInfo);
+  //console.log(i, 'handler for', wrappedHandlerInfo.type, wrappedHandlerInfo);
+  if (handlerInfo.type == 'application/x-download') {
+    break;
+  }
+  i++;
+}
+console.log('handlerServicehandlerInfo=', handlerInfo); //is the mailto one as we broke the loop once it found that
+
+
+var mimeService = Cc['@mozilla.org/mime;1'].getService(Ci.nsIMIMEService);
+var CONTENT_TYPE = ''; //'application/x-download'; can leave this blank
+var TYPE_EXTENSION = 'torrent';
+
+var handlerInfo = mimeService.getFromTypeAndExtension(CONTENT_TYPE, TYPE_EXTENSION);
+console.info('handlerInfo:', handlerInfo); //http://i.imgur.com/dUKox24.png
+// end - demo code to add a handler that will be handled by my extension to a protocol

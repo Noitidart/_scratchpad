@@ -58,5 +58,5 @@ function clickXTimesWhereCursorIs(X, everyMs) {
 }
 
 setTimeout(function() {
-    clickXTimesWhereCursorIs(90, 100);
+    clickXTimesWhereCursorIs(150, 200);
 }, 3000)

@@ -1,0 +1,35 @@
+```/*add this on line 483*/
+
+ // fcntl command values
+  INT_CONSTANT(F_GETLK),
+  INT_CONSTANT(F_SETLK),
+  INT_CONSTANT(F_SETLKW),
+  
+ // flock type values
+  INT_CONSTANT(F_RDLCK),
+  INT_CONSTANT(F_WRLCK),
+  INT_CONSTANT(F_UNLCK),
+  
+```
+
+```/*add this on line 599*/
+
+  // Defining |flock|.
+  // Size
+  { "OSFILE_SIZEOF_FLOCK", INT_TO_JSVAL(sizeof (flock)) },
+
+  // Offset of field |d_name|.
+  { "OSFILE_OFFSETOF_DIRENT_D_NAME", INT_TO_JSVAL(offsetof (struct dirent, d_name)) },
+  // An upper bound to the length of field |d_name| of struct |dirent|.
+  // (may not be exact, depending on padding).
+  { "OSFILE_SIZEOF_DIRENT_D_NAME", INT_TO_JSVAL(sizeof (struct dirent) - offsetof (struct dirent, d_name)) }
+  
+  // Defining |flock|.
+  { "OSFILE_SIZEOF_FLOCK", INT_TO_JSVAL(sizeof (struct flock)) },
+  { "OSFILE_OFFSETOF_FLOCK_L_START", INT_TO_JSVAL(offsetof (struct flock, l_start)) },
+  { "OSFILE_OFFSETOF_FLOCK_L_LEN", INT_TO_JSVAL(offsetof (struct flock, l_len)) },
+  { "OSFILE_OFFSETOF_FLOCK_L_PID", INT_TO_JSVAL(offsetof (struct flock, l_pid)) },
+  { "OSFILE_OFFSETOF_FLOCK_L_TYPE", INT_TO_JSVAL(offsetof (struct flock, l_type)) },
+  { "OSFILE_OFFSETOF_FLOCK_L_WHENCE", INT_TO_JSVAL(offsetof (struct flock, l_whence)) },
+  
+```

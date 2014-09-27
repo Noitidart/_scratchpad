@@ -54,34 +54,44 @@ function enumHandles() {
     var res = {};
     var _enumBufSize = new ctypes.unsigned_long(0x4000);
     var buffer = ctypes.char.array(_enumBufSize.value)();
-
+/*
     while (true) {
         var status = NtQuerySystemInformation(SystemHandleInformation, buffer, _enumBufSize, _enumBufSize.address());
         if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH) {
             buffer = ctypes.char.array(_enumBufSize.value)();
         } else break;
     }
-
+*/
+	var sysInfo = new SYSTEM_HANDLE_INFORMATION();
+var status = NtQuerySystemInformation(SYSTEM_HANDLE_INFORMATION, sysInfo.address(),
+SYSTEM_HANDLE_INFORMATION.size, null);
     if (status < 0) return null;
     
-    var proc = ctypes.cast(buffer.address(), SYSTEM_HANDLE_INFORMATION.ptr).contents;
+    //var proc = ctypes.cast(buffer.address(), SYSTEM_HANDLE_INFORMATION.ptr).contents;
 
-    var NumberOfHandles = proc.NumberOfHandles.toString();
+  
+    var NumberOfHandles = sysInfo.NumberOfHandles.toString();
     console.log('NumberOfHandles:', NumberOfHandles);
 
-    var Handles = ctypes.cast(proc.Handles, SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(proc.NumberOfHandles).ptr).contents;
+    var Handles = ctypes.cast(sysInfo.Handles, SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(proc.NumberOfHandles).ptr).contents;
     console.log('Handles:', Handles);
     
+  return {};
+  
     for (var i=0; i<NumberOfHandles; i++) {
-        /*method 1*/
-        var pid = Handles.addressOfElement(i).contents; //this just crashes it, but if i remove the `.UniqueProcessId` it loops through all no problem
+        //start - method 1
+        //var upid = Handles.addressOfElement(i).contents; //this loops through all but if i add the `.UniqueProcessId` it loops through all no problem
+        //end - method 1
         
-        /*method 2*/
-        //var infoAtI = ctypes.cast(Handles.addressOfElement(i), SYSTEM_HANDLE_TABLE_ENTRY_INFO.ptr).contents;
+        //start - method 2
+        //var infoAtI = Handles.addressOfElement(i).contents;
+        var infoAtI = ctypes.cast(Handles.addressOfElement(i), SYSTEM_HANDLE_TABLE_ENTRY_INFO.ptr).contents;
         //console.log('infoAtI:', infoAtI);
-        //var UniqueProcessId = ctypes.cast(infoAtI.addressOfField('UniqueProcessId'), ctypes.unsigned_long.ptr); //add `.contents` to this line crashes it
+        var UniqueProcessId = ctypes.cast(infoAtI.addressOfField('UniqueProcessId'), ctypes.unsigned_long.ptr); //add `.contents` to this line crashes it
         //console.log('UniqueProcessId:', UniqueProcessId); //uncommenting this line crashes it
-        break;
+        //end - method 2
+        
+        //break;
     }
     return res;
 }

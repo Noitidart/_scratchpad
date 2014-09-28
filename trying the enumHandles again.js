@@ -1,6 +1,8 @@
-Cu.import("resource://gre/modules/ctypes.jsm"); 
-var lib_ntdll = ctypes.open("ntdll.dll");
-var lib_kernel32 = ctypes.open("kernel32.dll");
+Cu.import('resource://gre/modules/ctypes.jsm');
+var lib = {
+    ntdll: ctypes.open('ntdll.dll'),
+    kernel32: ctypes.open('kernel32.dll'),
+}
 
 var STATUS_BUFFER_TOO_SMALL = 0xC0000023>>0;
 var STATUS_INFO_LENGTH_MISMATCH = 0xC0000004>>0;
@@ -29,7 +31,7 @@ var SYSTEM_HANDLE_INFORMATION = new ctypes.StructType('SYSTEM_HANDLE_INFORMATION
     {'Handles': ctypes.ArrayType(SYSTEM_HANDLE_TABLE_ENTRY_INFO, 1)}
 ]);
 
-var NtQuerySystemInformation = lib_ntdll.declare("NtQuerySystemInformation", ctypes.winapi_abi, ctypes.long, // return //NTSTATUS 
+var NtQuerySystemInformation = lib.ntdll.declare("NtQuerySystemInformation", ctypes.winapi_abi, ctypes.long, // return //NTSTATUS 
     ctypes.int, // SystemInformationClass //SYSTEM_INFORMATION_CLASS
     ctypes.void_t.ptr, // SystemInformation //PVOID 
     ctypes.unsigned_long, // SystemInformationLength //ULONG 
@@ -43,7 +45,7 @@ var NtQuerySystemInformation = lib_ntdll.declare("NtQuerySystemInformation", cty
 * );
 */
 // NOT SUPPORTED BY WINXP so just doing this to test and then later will figure out how to get handle to path name then look in here
-var GetFinalPathNameByHandle = lib_kernel32.declare('GetFinalPathNameByHandleW', ctypes.winapi_abi, ctypes.uint32_t, //DWORD
+var GetFinalPathNameByHandle = lib.kernel32.declare('GetFinalPathNameByHandleW', ctypes.winapi_abi, ctypes.uint32_t, //DWORD
     ctypes.unsigned_short, // HANDLE
     ctypes.void_t.ptr, // LPTSTR
     ctypes.uint32_t, // DWORD
@@ -125,5 +127,6 @@ var allHandles = enumHandles();
 console.timeEnd('enumHandles');
 console.log('enumHandles:', Object.keys(allHandles).length, allHandles);
 
-lib_ntdll.close();
-lib_kernel32.close();
+for (var l in lib) {
+  lib[l].close();
+}

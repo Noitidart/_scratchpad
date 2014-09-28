@@ -26,7 +26,7 @@ var SYSTEM_HANDLE_TABLE_ENTRY_INFO = new ctypes.StructType('SYSTEM_HANDLE_TABLE_
 
 var SYSTEM_HANDLE_INFORMATION = new ctypes.StructType('SYSTEM_HANDLE_INFORMATION', [
     {'NumberOfHandles': ctypes.unsigned_long},
-    {'Handles': ctypes.ArrayType(SYSTEM_HANDLE_TABLE_ENTRY_INFO, 70000)}
+    {'Handles': ctypes.ArrayType(SYSTEM_HANDLE_TABLE_ENTRY_INFO, 1)}
 ]);
 
 var NtQuerySystemInformation = lib_ntdll.declare("NtQuerySystemInformation", ctypes.winapi_abi, ctypes.long, // return //NTSTATUS 
@@ -52,51 +52,77 @@ var GetFinalPathNameByHandle = lib_kernel32.declare('GetFinalPathNameByHandleW',
 
 function enumHandles() {
     var res = {};
+    /*
     var _enumBufSize = new ctypes.unsigned_long(0x4000);
     var buffer = ctypes.char.array(_enumBufSize.value)();
-/*
-    while (true) {
-        var status = NtQuerySystemInformation(SystemHandleInformation, buffer, _enumBufSize, _enumBufSize.address());
-        if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH) {
-            buffer = ctypes.char.array(_enumBufSize.value)();
-        } else break;
-    }
-*/
-	var sysInfo = new SYSTEM_HANDLE_INFORMATION();
-var status = NtQuerySystemInformation(SYSTEM_HANDLE_INFORMATION, sysInfo.address(),
-SYSTEM_HANDLE_INFORMATION.size, null);
-    if (status < 0) return null;
+    */
     
-    //var proc = ctypes.cast(buffer.address(), SYSTEM_HANDLE_INFORMATION.ptr).contents;
-
-  
-    var NumberOfHandles = sysInfo.NumberOfHandles.toString();
-    console.log('NumberOfHandles:', NumberOfHandles);
-
-    var Handles = ctypes.cast(sysInfo.Handles, SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(proc.NumberOfHandles).ptr).contents;
-    console.log('Handles:', Handles);
+    var buffer = new SYSTEM_HANDLE_INFORMATION(); //ctypes.char.array(_enumBufSize.value)();
+    var _enumBufSize = new ctypes.unsigned_long(buffer.constructor.size); //size when 1 element == 32. when 2 element == 60, 3 == 88// this is 32 - 4 / 4 == 7 fields. 60-4/4 == 14 fields
+    console.log('buffer:', buffer)
     
-  return {};
-  
-    for (var i=0; i<NumberOfHandles; i++) {
-        //start - method 1
-        //var upid = Handles.addressOfElement(i).contents; //this loops through all but if i add the `.UniqueProcessId` it loops through all no problem
-        //end - method 1
+    //var numFields = (32 - 4) / 7 / 4;
+    
+    //while (true) {
+        var status = NtQuerySystemInformation(SystemHandleInformation, buffer.address(), _enumBufSize, _enumBufSize.address());
+        //if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH) {
+        //    buffer = ctypes.char.array(_enumBufSize.value)();
+        //} else break;
+    //}
+    console.log('status:', status.toString(), 'STATUS_BUFFER_TOO_SMALL:', status == STATUS_BUFFER_TOO_SMALL, 'STATUS_INFO_LENGTH_MISMATCH:', status == STATUS_INFO_LENGTH_MISMATCH);
+    console.log('_enumBufSize:', _enumBufSize.value.toString());
+    console.log('NumberOfHandles:', buffer.NumberOfHandles.toString());
+    
+    ////////// rep it
+    SYSTEM_HANDLE_INFORMATION = new ctypes.StructType('SYSTEM_HANDLE_INFORMATION', [
+        {'NumberOfHandles': ctypes.unsigned_long},
+        {'Handles': ctypes.ArrayType(SYSTEM_HANDLE_TABLE_ENTRY_INFO, buffer.NumberOfHandles)}
+    ]);
+    
+    var buffer = new SYSTEM_HANDLE_INFORMATION(); //ctypes.char.array(_enumBufSize.value)();
+    var _enumBufSize = new ctypes.unsigned_long(buffer.constructor.size); //size when 1 element == 32. when 2 element == 60, 3 == 88// this is 32 - 4 / 4 == 7 fields. 60-4/4 == 14 fields
+    console.log('buffer:', buffer)
+    
+    //var numFields = (32 - 4) / 7 / 4;
+    
+    //while (true) {
+        var status = NtQuerySystemInformation(SystemHandleInformation, buffer.address(), _enumBufSize, _enumBufSize.address());
+        //if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH) {
+        //    buffer = ctypes.char.array(_enumBufSize.value)();
+        //} else break;
+    //}
+    console.log('status:', status.toString(), 'STATUS_BUFFER_TOO_SMALL:', status == STATUS_BUFFER_TOO_SMALL, 'STATUS_INFO_LENGTH_MISMATCH:', status == STATUS_INFO_LENGTH_MISMATCH);
+    console.log('_enumBufSize:', _enumBufSize.value.toString());
+    console.log('NumberOfHandles:', buffer.NumberOfHandles.toString());
+    
+    ///end rep
+    
+    if (status != 0) {
+        console.error('failed getting handles, numbero of hadles must have changed between the two reps in order to fail and get here, status:', status.toString());
+        return {};
+    } else {
+        console.info('succesfully got handles');
+        console.log('Handles:', buffer.Handles);
         
-        //start - method 2
-        //var infoAtI = Handles.addressOfElement(i).contents;
-        var infoAtI = ctypes.cast(Handles.addressOfElement(i), SYSTEM_HANDLE_TABLE_ENTRY_INFO.ptr).contents;
-        //console.log('infoAtI:', infoAtI);
-        var UniqueProcessId = ctypes.cast(infoAtI.addressOfField('UniqueProcessId'), ctypes.unsigned_long.ptr); //add `.contents` to this line crashes it
-        //console.log('UniqueProcessId:', UniqueProcessId); //uncommenting this line crashes it
-        //end - method 2
+        console.log('Handles[0]:', uneval(buffer.Handles[0]));
+        console.log('Handles[1]:', uneval(buffer.Handles[1]));
         
-        //break;
-    }
+        for (var i=0; i<buffer.NumberOfHandles; i++) {
+            var UniqueProcessId = buffer.Handles[i].UniqueProcessId.toString();
+            /*
+            if (UniqueProcessId == 5020) {
+                res
+            }
+            */
+        }
+    }    
+
     return res;
 }
 
+console.time('enumHandles');
 var allHandles = enumHandles();
+console.timeEnd('enumHandles');
 console.log('enumHandles:', Object.keys(allHandles).length, allHandles);
 
 lib_ntdll.close();

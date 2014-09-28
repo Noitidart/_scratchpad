@@ -1,5 +1,3 @@
-var me = Services.wm.getMostRecentWindow(null);
-
 Cu.import('resource://gre/modules/ctypes.jsm');
 var lib = {
   rstrtmgr: ctypes.open('Rstrtmgr.dll')
@@ -113,14 +111,14 @@ var jscharPtr = new ctypes.PointerType(ctypes.jschar);
 *   __in_opt_  LPCWSTR rgsServiceNames[ ]
 * );
 */
-var RmRegisterResources = lib.rstrtmgr.declare('RmRegisterResources', ctypes.winapi_abi, ctypes.unsigned_long, // DWORD
+var RmRegisterResources = lib.rstrtmgr.declare('RmRegisterResources', ctypes.winapi_abi, ctypes.uint32_t, // DWORD
     ctypes.uint32_t, // DWORD
     ctypes.unsigned_int, // UINT
-    ctypes.char.ptr.array(1), // LPCWSTR
+    ctypes.char.ptr.array(), // LPCWSTR
     ctypes.unsigned_int, // UINT
-    ctypes.ArrayType(struct_RM_UNIQUE_PROCESS, 1), // RM_UNIQUE_PROCESS
+    struct_RM_UNIQUE_PROCESS.ptr.array(), // RM_UNIQUE_PROCESS
     ctypes.unsigned_int, // UINT
-    ctypes.char.ptr.array(1) // LPCWSTR
+    ctypes.char.ptr.array() // LPCWSTR
 );
 
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/aa373661%28v=vs.85%29.aspx
@@ -134,9 +132,9 @@ var RmRegisterResources = lib.rstrtmgr.declare('RmRegisterResources', ctypes.win
 */
 var RmGetList = lib.rstrtmgr.declare('RmGetList', ctypes.winapi_abi, ctypes.uint32_t, // DWORD
     ctypes.uint32_t, // DWORD
-    ctypes.unsigned_int, // UINT
-    ctypes.unsigned_int, // UINT
-    ctypes.voidptr_t, // RM_PROCESS_INFO
+    ctypes.unsigned_int.ptr, // UINT
+    ctypes.unsigned_int.ptr, // UINT
+    struct_RM_PROCESS_INFO.ptr.array(), // RM_PROCESS_INFO rgAffectedApps[ ]
     ctypes.uint32_t.ptr // LPDWORD
 );
 
@@ -168,11 +166,10 @@ var dwSession = new ctypes.uint32_t; //DWORD
  * 3) var szSessionKey = ctypes.int16_t.array(CCH_RM_SESSION_KEY + 1)(); //this is a buffer //im using this way right now
  */
 var szSessionKey = ctypes.int16_t.array(CCH_RM_SESSION_KEY + 1)(); //this is a buffer
-console.log(uneval(szSessionKey))
 var dwError = RmStartSession(dwSession.address(), 0, szSessionKey);
+//console.log(uneval(szSessionKey))
 
-console.log('dwError:', dwError);
-var ERROR_SUCCESS = ctypes.Int64(0); //https://github.com/zonio/mozilla-3e/blob/2363e3cd0a1ce2d870fad75eaa95a1fe75878766/modules/resolv.jsm#L446
+var ERROR_SUCCESS = 0; //https://github.com/zonio/mozilla-3e/blob/2363e3cd0a1ce2d870fad75eaa95a1fe75878766/modules/resolv.jsm#L446
 
 if (dwError == ERROR_SUCCESS) {
   //var pszFile = argv[1]; // PCWSTR == new ctypes.PointerType(ctypes.jschar) //https://github.com/FunkMonkey/Loomo/blob/06a5881a4f520ede092059a4115bf117568b914f/Loomo/chrome/content/modules/Utils/COM/COM.jsm#L35
@@ -183,44 +180,91 @@ if (dwError == ERROR_SUCCESS) {
    * console.log('pszFile.contents:', pszFile);
    */
   
-  var rgsFilenamesType = ctypes.ArrayType(ctypes.char.ptr);
-  var rgsFilenames = new rgsFilenamesType(1);
+  //var rgsFilenamesType = ctypes.ArrayType(ctypes.char.ptr);
+  //var rgsFilenames = new rgsFilenamesType(1);
   //rgsFilenames[0] = OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock');
-  //var rgsFilenames = ctypes.jschar.array()(1);
-  //memset(rgsFilenames, OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock'), rgsFilenames.length);
+  ////var rgsFilenames = ctypes.jschar.array()(1);
+  ////memset(rgsFilenames, OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock'), rgsFilenames.length);
   
+  //let strings = [OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock')].map(s => ctypes.char.array()(s));
+  //let a = ctypes.char.ptr.array(strings.length);
+  //strings.forEach((s, i) => { a[i] = s; });
+  
+  /* same thing as rgsFilenames and rgsFilenamesNonCData i just adapted that below from here
   let strings = [OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock')].map(s => ctypes.char.array()(s));
-  let a = ctypes.char.ptr.array(strings.length);
+  let a = ctypes.char.ptr.array(strings.length)();
   strings.forEach((s, i) => { a[i] = s; });
-  
   console.log('a:', a);
+  */
   
-  dwError = RmRegisterResources(dwSession, a.length, a, 0, null, 0, null);
+  let rgsFilenamesNonCData = [OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock')].map(s => ctypes.char.array()(s));
+  console.log(OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock'))
+  let rgsFilenames = ctypes.char.ptr.array(rgsFilenamesNonCData.length)();
+  rgsFilenamesNonCData.forEach((s, i) => { rgsFilenames[i] = s; });
+  
+  console.log('rgsFilenames:', rgsFilenames);
+  
+  let rgsServiceNamesStrings = [].map(s => ctypes.char.array()(s));
+  let rgsServiceNames = ctypes.char.ptr.array(rgsServiceNamesStrings.length)();
+  rgsServiceNamesStrings.forEach((s, i) => { rgsServiceNames[i] = s; });
+  
+  
+  /*just showing how i create custom struct array, it seems to work
+  let rgApplicationsNonCData = struct_RM_UNIQUE_PROCESS.array(2)();
+  rgApplicationsNonCData[0].dwProcessId = 111;
+  rgApplicationsNonCData[0].ProcessStartTime = new struct_FILETIME();
+    rgApplicationsNonCData[0].ProcessStartTime.dwLowDateTime = 222;
+    rgApplicationsNonCData[0].ProcessStartTime.dwHighDateTime = 333;
+  
+  rgApplicationsNonCData[1].dwProcessId = 444;
+  rgApplicationsNonCData[1].ProcessStartTime = new struct_FILETIME();
+    rgApplicationsNonCData[1].ProcessStartTime.dwLowDateTime = 555;
+    rgApplicationsNonCData[1].ProcessStartTime.dwHighDateTime = 666;
+  
+  console.log('rgApplications:', rgApplicationsNonCData); //console logging these look exactly the same
+  
+  let rgApplications = struct_RM_UNIQUE_PROCESS.ptr.array(rgApplicationsNonCData.length)();
+  console.log('rgApplications:', rgApplications);  //console logging these look exactly the same
+  */
+  
+  let rgApplicationsNonCData = struct_RM_UNIQUE_PROCESS.array(0)();
+  let rgApplications = struct_RM_UNIQUE_PROCESS.ptr.array(rgApplicationsNonCData.length)();
+  
+  dwError = RmRegisterResources(dwSession, rgsFilenames.length, rgsFilenames, rgApplications.length, rgApplications, rgsServiceNames.length, rgsServiceNames); // using rgApplicationsNonCData will throw `Exception: expected type pointer, got RM_UNIQUE_PROCESS.array(2)([{"dwProcessId": 111, "ProcessStartTime": {"dwLowDateTime": 222, "dwHighDateTime": 333}}, {"dwProcessId": 444, "ProcessStartTime": {"dwLowDateTime": 555, "dwHighDateTime": 666}}])` very nice! and using `rgApplications` will not throw any error
   if (dwError == ERROR_SUCCESS) {
-    /*
-    var dwReason = new ctypes.uint32_t; //DWORD
-    var nProcInfo = 10;
-    var RM_PROCESS_INFO = rgpi[10];
+    var nProcInfoNeeded = new ctypes.unsigned_int; // UINT
+    var nProcInfo = ctypes.unsigned_int(10); //new ctypes.unsigned_int; // UINT
+    //var rgpi = struct_RM_PROCESS_INFO.ptr.array(10)();
+      let rgpiNonCData = struct_RM_PROCESS_INFO.array(10)();
+      let rgpi = struct_RM_PROCESS_INFO.ptr.array(rgApplicationsNonCData.length)();
+    var dwReason = new ctypes.uint32_t; // LPDWORD
+
+    //dwError = RmGetList(dwSession, null, 0, null, null); //Now the fun begins. Getting the list of affected processes is normally a two-step affair. First, you ask for the number of affected processes (by passing 0 as the nProcInfo), then allocate some memory and call a second time to get the data.
+    //console.log('RmGetList returned:', dwError);
+    
     dwError = RmGetList(dwSession, nProcInfoNeeded.address(), nProcInfo.address(), rgpi, dwReason.address());
-    console.log('RmGetList returned:', dwError);
     if (dwError == ERROR_SUCCESS) {
-      console.log('RmGetList returned %d infos (%d needed)\n', nProcInfo, nProcInfoNeeded);
+      console.log('RmGetList returned %d infos (%d needed)');
+      console.log('RmGetList returned d infos (d needed)', nProcInfo, nProcInfoNeeded);
+      /*
       for (var i = 0; i<nProcInfo; i++) {
         console.log('%d.ApplicationType = %d\n', i, rgpi[i].ApplicationType);
         console.log('%d.strAppName = %ls\n', i, rgpi[i].strAppName);
         console.log('%d.Process.dwProcessId = %d\n', i, rgpi[i].Process.dwProcessId);
         //can now get most recent window of dwProcessId or do whatever i want
       }
+      */
+    } else {
+      console.error('RmGetList, dwError was not ERROR_SUCCESS', 'dwError', dwError); //make sure to continue to RmEndSession
     }
-    */
   } else {
-    console.error('RmRegisterResources, dwError was not ERROR_SUCCESS', 'dwError', dwError); //need to do a finally to RmEndSession
+    console.error('RmRegisterResources, dwError was not ERROR_SUCCESS', 'dwError', dwError); //make sure to continue to RmEndSession
   }
   
   var rez = RmEndSession(dwSession);
   console.log('RmEndSession rez:', rez);
 } else {
-  console.error('RmStartSession, dwError was not ERROR_SUCCESS', 'dwError', dwError); //no need to do RmEndSession here
+  console.error('RmStartSession, dwError was not ERROR_SUCCESS', 'dwError', dwError.toString()); //no need to do RmEndSession here
 }
 
 for (var l in lib) {

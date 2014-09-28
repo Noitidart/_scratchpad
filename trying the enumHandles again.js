@@ -14,14 +14,26 @@ var UNICODE_STRING = new ctypes.StructType("UNICODE_STRING", [
     {'Buffer': ctypes.jschar.ptr}
 ]); //PWSTR  
 
+/* D:\SONY VAIO\Documents and Settings\SONY VAIO\My Documents\_Downloads\EnTeHandle\myntdll.h L#60
+ * typedef struct _TagHANDLEINFO
+{
+	USHORT dwPid;
+	USHORT CreatorBackTraceIndex;
+	BYTE   ObjType;
+	BYTE   HandleAttributes;
+	USHORT HndlOffset;
+	DWORD dwKeObject;
+	ULONG GrantedAccess;
+}HANDLEINFO, PHANDLEINFO;
+ */
 //https://github.com/tjguk/winsys/blob/5f11b308171382046ff0f67ef3129e47e9fee06c/random/file_handles.py#L100
 var SYSTEM_HANDLE_TABLE_ENTRY_INFO = new ctypes.StructType('SYSTEM_HANDLE_TABLE_ENTRY_INFO', [ //typedef struct _TagHANDLEINFO
-    {'UniqueProcessId': ctypes.unsigned_long}, //USHORT dwPid; //UniqueProcessId
-    {'CreatorBackTraceIndex': ctypes.unsigned_long}, //USHORT CreatorBackTraceIndex; //CreatorBackTraceIndex
-    {'ObjectTypeIndex': ctypes.unsigned_long}, //BYTE ObjType; //ObjectTypeIndex UCHAR
-    {'HandleAttributes': ctypes.unsigned_long}, //BYTE HandleAttributes; //im not sure if byte should be unsigned_long, maybe unsigned_char //HandleAttributes UCHAR
-    {'HandleValue': ctypes.unsigned_long}, //USHORT HndlOffset; //HandleValue USHORT
-    {'Object': ctypes.unsigned_long}, //DWORD dwKeObject; //Object PVOID
+    {'UniqueProcessId': ctypes.unsigned_short}, //USHORT dwPid; //UniqueProcessId
+    {'CreatorBackTraceIndex': ctypes.unsigned_short}, //USHORT CreatorBackTraceIndex; //CreatorBackTraceIndex
+    {'ObjectTypeIndex': ctypes.unsigned_char}, //BYTE ObjType; //ObjectTypeIndex UCHAR
+    {'HandleAttributes': ctypes.unsigned_char}, //BYTE HandleAttributes; //im not sure if byte should be unsigned_long, maybe unsigned_char //HandleAttributes UCHAR
+    {'HandleValue': ctypes.unsigned_short}, //USHORT HndlOffset; //HandleValue USHORT
+    {'Object': ctypes.uint32_t}, //DWORD dwKeObject; //Object PVOID
     {'GrantedAccess': ctypes.unsigned_long} //ULONG GrantedAccess; //GrantedAccess ULONG
 ]); //HANDLEINFO, PHANDLEINFO;
 
@@ -53,6 +65,8 @@ var GetFinalPathNameByHandle = lib.kernel32.declare('GetFinalPathNameByHandleW',
 );
 
 function enumHandles() {
+    
+    //return {};
     var res = {};
     /*
     var _enumBufSize = new ctypes.unsigned_long(0x4000);
@@ -109,13 +123,30 @@ function enumHandles() {
         console.log('Handles[0]:', uneval(buffer.Handles[0]));
         console.log('Handles[1]:', uneval(buffer.Handles[1]));
         
-        for (var i=0; i<buffer.NumberOfHandles; i++) {
-            var UniqueProcessId = buffer.Handles[i].UniqueProcessId.toString();
-            /*
-            if (UniqueProcessId == 5020) {
-                res
+        var parsedNum = buffer.NumberOfHandles.toString(); //this should at least avoid that error when buffer.NumberOfHandles changes to larger on os but when i created the array it was less so it will throw `invalid index` //this also seriously speeds up the for loop. it went from average of 250ms to 130ms
+        for (var i=0; i<parsedNum; i++) {
+            try {
+                var UniqueProcessId = buffer.Handles[i].UniqueProcessId.toString();
+            } catch (ex) {
+                if (ex.message == 'invalid index') {
+                    console.warn('i:', i, 'ex:', ex);
+                    console.warn('this usually happens towards end when i think NumberOfHandles changes, so I think maybe I should test if buffer.NumberOfHandles > str value of NumberOfHandles at start, then quit', 'buffer.NumberOfHandles:', buffer.NumberOfHandles.toString()); //cuz handles arre changing by about 100 every second or so it seems //so keep in mind the handles can also reduce so i can have handles that no longer exist by time loop is up, this is becuase loop takes couple hundred ms //and also because the buffer values are live they change as handles change
+                    break;
+                } else {
+                    console.error('i:', i, 'ex:', ex);
+                    throw ex;
+                }
+               throw ex;
             }
-            */
+            //verified that number of processes matches task manager by not targeting specific UniqueProcessId
+            //if (UniqueProcessId == 5020) {
+                var HandleValue = buffer.Handles[i].HandleValue.toString();
+                if (UniqueProcessId in res) {
+                    res[UniqueProcessId].push(new Date());
+                } else {
+                    res[UniqueProcessId] = [HandleValue];
+                }
+            //}
         }
     }    
 

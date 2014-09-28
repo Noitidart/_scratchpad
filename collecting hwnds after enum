@@ -50,6 +50,9 @@ function getRunningFFWindows() {
     GetClassName(hwnd, buf, 255);
     var className = buf.readString();
     if (className.indexOf('Mozilla') > -1) {
+        if (className == 'MozillaUIWindowClass') {
+          console.log('main browser window found:', className)
+        }
         var rez = GetWindowThreadProcessId(hwnd, PID.address());
         if (PID.value in ffPids) {
           ffPids[PID.value].push([hwnd.toString(), className]);

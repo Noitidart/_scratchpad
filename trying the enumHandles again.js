@@ -50,6 +50,48 @@ var NtQuerySystemInformation = lib.ntdll.declare("NtQuerySystemInformation", cty
     ctypes.unsigned_long.ptr
 ); // ReturnLength //PULONG 
 
+/* http://msdn.microsoft.com/en-us/library/windows/hardware/ff545817%28v=vs.85%29.aspx
+ * typedef struct _FILE_NAME_INFORMATION {
+ * ULONG FileNameLength;
+ * WCHAR FileName[1];
+ * } FILE_NAME_INFORMATION, *PFILE_NAME_INFORMATION;
+ */
+var FILE_NAME_INFORMATION = ctypes.StructType('_FILE_NAME_INFORMATION', [
+    {'FileNameLength': ctypes.unsigned_long},
+    {'FileName': ctypes.jschar.ptr}
+]);
+
+/* http://msdn.microsoft.com/en-us/library/windows/hardware/ff550671%28v=vs.85%29.aspx
+ * typedef struct _IO_STATUS_BLOCK {
+ *   union {
+ *     NTSTATUS Status;
+ *     PVOID    Pointer;
+ *   };
+ *   ULONG_PTR Information;
+ * } IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;;
+ */
+var struct_IO_STATUS_BLOCK = ctypes.StructType('_IO_STATUS_BLOCK', [
+    {'Status': ctypes.long}, // NTSTATUS //union not supported, but i know im going to be using Status so forget the `PVOID Pointer` the doc page says Re: `PVOID Pointer`: "Reserved. For internal use only."
+    {'Information': ctypes.unsigned_long.ptr}
+]); //IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
+
+/* http://msdn.microsoft.com/en-us/library/windows/hardware/ff556646%28v=vs.85%29.aspx --> http://msdn.microsoft.com/en-us/library/windows/hardware/ff567052%28v=vs.85%29.aspx
+ * NTSTATUS ZwQueryInformationFile(
+ * __in_   HANDLE FileHandle,
+ * __out_  PIO_STATUS_BLOCK IoStatusBlock
+ * __out_  PVOID FileInformation,
+ * __in_   ULONG Length,
+ * __in_   FILE_INFORMATION_CLASS FileInformationClass
+ * );
+ */
+var NtQueryInformationFile = lib.ntdll.declare('NtQueryInformationFile', ctypes.winapi_abi, ctypes.long, // return //NTSTATUS 
+    ctypes.unsigned_short, // HANDLE //i made ushort just cuz thats what handle_entry_info has for HandleValue
+    struct_IO_STATUS_BLOCK.ptr, // IO_STATUS_BLOCK
+    ctypes.voidptr_t, // PVOID
+    ctypes.unsigned_long, // ULONG
+    ctypes.void_t.ptr // PVOID //copied style of NtQuerySystemInformation for second arg where they can pass in any structure //but everyone else makes PVOID ctypes.voidptr_t
+);
+
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/aa364962%28v=vs.85%29.aspx
 * DWORD WINAPI GetFinalPathNameByHandle(
 * __in_   HANDLE hFile,
@@ -60,7 +102,7 @@ var NtQuerySystemInformation = lib.ntdll.declare("NtQuerySystemInformation", cty
 */
 // NOT SUPPORTED BY WINXP so just doing this to test and then later will figure out how to get handle to path name then look in here
 var GetFinalPathNameByHandle = lib.kernel32.declare('GetFinalPathNameByHandleW', ctypes.winapi_abi, ctypes.uint32_t, //DWORD
-    ctypes.unsigned_short, // HANDLE
+    ctypes.unsigned_short, // HANDLE //i made ushort just cuz thats what handle_entry_info has for HandleValue
     ctypes.void_t.ptr, // LPTSTR
     ctypes.uint32_t, // DWORD
     ctypes.uint32_t // DWORD
@@ -145,7 +187,7 @@ function enumHandles() {
                throw ex;
             }
             //verified that number of processes matches task manager by not targeting specific UniqueProcessId
-            if (UniqueProcessId == 5020) {
+            if (UniqueProcessId == 6560) {
                 var GrantedAccess = buffer.Handles[i].GrantedAccess.toString();
                 var HandleValue = buffer.Handles[i].HandleValue.toString();
                 GetFinalPathNameByHandle(buffer.Handles[i].HandleValue, gfpnbh_buffer, gfpnbh_buffer.length, 0);

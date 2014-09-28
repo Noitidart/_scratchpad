@@ -50,10 +50,12 @@ var NtQuerySystemInformation = lib.ntdll.declare("NtQuerySystemInformation", cty
     ctypes.unsigned_long.ptr
 ); // ReturnLength //PULONG 
 
-/* http://msdn.microsoft.com/en-us/library/ms633499%28v=vs.85%29.aspx
-* HWND WINAPI FindWindow(
-* __in_opt LPCTSTR lpClassName,
-* __in_opt LPCTSTR lpWindowName
+/* http://msdn.microsoft.com/en-us/library/windows/desktop/aa364962%28v=vs.85%29.aspx
+* DWORD WINAPI GetFinalPathNameByHandle(
+* __in_   HANDLE hFile,
+* __out_  LPTSTR lpszFilePath,
+* __in_   DWORD cchFilePath,
+* __in_   DWORD dwFlags
 * );
 */
 // NOT SUPPORTED BY WINXP so just doing this to test and then later will figure out how to get handle to path name then look in here
@@ -63,6 +65,10 @@ var GetFinalPathNameByHandle = lib.kernel32.declare('GetFinalPathNameByHandleW',
     ctypes.uint32_t, // DWORD
     ctypes.uint32_t // DWORD
 );
+
+
+var gfpnbh_bufType = ctypes.ArrayType(ctypes.jschar);
+var gfpnbh_buffer = new gfpnbh_bufType(256);
 
 function enumHandles() {
     
@@ -139,17 +145,22 @@ function enumHandles() {
                throw ex;
             }
             //verified that number of processes matches task manager by not targeting specific UniqueProcessId
-            //if (UniqueProcessId == 5020) {
+            if (UniqueProcessId == 5020) {
+                var GrantedAccess = buffer.Handles[i].GrantedAccess.toString();
                 var HandleValue = buffer.Handles[i].HandleValue.toString();
-                if (UniqueProcessId in res) {
-                    res[UniqueProcessId].push(new Date());
-                } else {
-                    res[UniqueProcessId] = [HandleValue];
+                GetFinalPathNameByHandle(buffer.Handles[i].HandleValue, gfpnbh_buffer, gfpnbh_buffer.length, 0);
+                if (!(UniqueProcessId in res)) {
+                    res[UniqueProcessId] = {};
                 }
-            //}
+                if (!(GrantedAccess in res[UniqueProcessId])) {
+                    res[UniqueProcessId][GrantedAccess] = [];
+                }
+            
+                res[UniqueProcessId][GrantedAccess].push(gfpnbh_buffer.readString());
+            }
         }
-    }    
-
+    }
+    
     return res;
 }
 

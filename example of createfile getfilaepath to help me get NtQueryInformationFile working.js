@@ -78,7 +78,7 @@ var FileNameInformation = 9; //https://github.com/dezelin/kBuild/blob/1046ac4032
  */
 var struct_FILE_NAME_INFORMATION = new ctypes.StructType('_FILE_NAME_INFORMATION', [
     {'FileNameLength': ctypes.unsigned_long},
-    {'FileName': ctypes.jschar.ptr}
+    {'FileName': ctypes.ArrayType(ctypes.jschar, 260)}
 ]);
 
 /* http://msdn.microsoft.com/en-us/library/windows/hardware/ff550671%28v=vs.85%29.aspx
@@ -116,20 +116,20 @@ var NTSTATUS_DEC_TO_NAME = {'0':'STATUS_SUCCESS','1':'STATUS_WAIT_1','2':'STATUS
 
 var unLo = ctypes.unsigned_long(0);
 var isb = new struct_IO_STATUS_BLOCK(0, unLo.address());
-var strBuf = ctypes.jschar.array(256)();
-var fni = struct_FILE_NAME_INFORMATION(0, strBuf)
+var strBuf = ctypes.jschar.array(260)();
+//var fni = struct_FILE_NAME_INFORMATION(0, ctypes.jschar.array(260))
+var fni = struct_FILE_NAME_INFORMATION()
 
-console.log('strBuf:', strBuf.constructor.size);
+console.log('strBuf.size:', strBuf.constructor.size);
 console.log('fni.size:', fni.constructor.size);
                             
-//var rez = NtQueryInformationFile(hFileInt.value, isb.address(), fni.address(), fni.constructor.size, FileNameInformation);
 //var rez = NtQueryInformationFile(hFileInt.value, isb.address(), strBuf, strBuf.constructor.size, FileNameInformation);
-var rez = NtQueryInformationFile(hFileInt.value, isb.address(), fni.address(), fni.constructor.size, FileNameInformation);
+var rez = NtQueryInformationFile(hFileInt.value, isb.address(), fni.address(), strBuf.constructor.size, FileNameInformation);
 console.log('rez:', rez.toString(), NTSTATUS_DEC_TO_NAME[isb.Status.toString()]);
 console.log('isb.Status:', isb.Status.toString(), NTSTATUS_DEC_TO_NAME[isb.Status.toString()]);
 console.log('fni.FileNameLength:', fni.FileNameLength.toString());
 console.log('fni.FileName:', fni.FileName, fni.FileName.readString());
-console.log('strBuf:', strBuf, strBuf.readString());
+//console.log('strBuf:', strBuf, strBuf.readString());
 //var casted = ctypes.cast(fni.FileName, ctypes.jschar.array(fni.FileNameLength).ptr);
 ////var casted = ctypes.cast(fni.FileName, ctypes.jschar.ptr).readString();
 //console.log('casted.contents.readString:', casted.contents.readString());
@@ -144,3 +144,12 @@ CloseHandle(hFile);
 for (var l in lib) {
   lib[l].close();
 }
+
+/*
+maybe you could do types.char.array()(casted.contents)
+22:08	jdm	er, ctypes. etc.
+22:09	jdm	that may give you a utf8 string
+22:09	noida	ok thanks man ill go to gym and then test this out when i get back, thanks a lot a lot !
+22:09	jdm	then you could probably use readString on the result of that
+22:09	jdm	since that expects utf8
+*/

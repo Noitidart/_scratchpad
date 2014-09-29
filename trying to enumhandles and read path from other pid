@@ -228,8 +228,7 @@ function enumHandles() {
     ///end rep
     
     if (status != 0) {
-        console.error('failed getting handles, numbero of hadles must have changed between the two reps in order to fail and get here, status:', status.toString());
-        return {};
+        console.warn('even more handles available now but not liekly the parent.lock as in like absolutely 0% chance they are the parent.lock, numbero of hadles must have changed between the two reps in order to fail and get here, status:', status.toString());
     } else {
         console.info('succesfully got handles');
         console.log('Handles:', system_handle_info.Handles);
@@ -302,7 +301,7 @@ function enumHandles() {
 console.time('enumHandles');
 //pidsToCollectHandlesFor is a list of pids we want with the opened process handle. if specific own pid then no need for specifing value on it of opened handle
 var pidsToCollectHandlesFor = {
-    '7680': 0
+    '7680': 0 //pid of firefox that you are not running this code from
 }
 for (var p in pidsToCollectHandlesFor) {
     if (p != currentProcessID) {

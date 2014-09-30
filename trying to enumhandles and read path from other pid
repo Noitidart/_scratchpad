@@ -63,6 +63,7 @@ var DUPLICATE_SAME_ACCESS = 0x00000002;
 var STATUS_BUFFER_TOO_SMALL = 0xC0000023>>0;
 var STATUS_INFO_LENGTH_MISMATCH = 0xC0000004>>0;
 var SystemHandleInformation = 16;
+var SystemExtendedHandleInformation = 64;
 
 var UNICODE_STRING = new ctypes.StructType("UNICODE_STRING", [
     {'Length': ctypes.unsigned_short}, //USHORT
@@ -89,7 +90,7 @@ var SYSTEM_HANDLE_TABLE_ENTRY_INFO = new ctypes.StructType('SYSTEM_HANDLE_TABLE_
     {'ObjectTypeIndex': ctypes.unsigned_char}, //BYTE ObjType; //ObjectTypeIndex UCHAR
     {'HandleAttributes': ctypes.unsigned_char}, //BYTE HandleAttributes; //im not sure if byte should be unsigned_long, maybe unsigned_char //HandleAttributes UCHAR
     {'HandleValue': ctypes.unsigned_short}, //USHORT HndlOffset; //HandleValue USHORT
-    {'Object': ctypes.uint32_t}, //DWORD dwKeObject; //Object PVOID
+    {'Object': ctypes.voidptr_t}, //DWORD dwKeObject; //Object PVOID
     {'GrantedAccess': ctypes.unsigned_long} //ULONG GrantedAccess; //GrantedAccess ULONG
 ]); //HANDLEINFO, PHANDLEINFO;
 
@@ -98,6 +99,23 @@ var HANDLE_TYPE_FILE = 3; //https://github.com/jmalak/open-watcom/blob/44578857e
 var SYSTEM_HANDLE_INFORMATION = new ctypes.StructType('SYSTEM_HANDLE_INFORMATION', [
     {'NumberOfHandles': ctypes.unsigned_long},
     {'Handles': ctypes.ArrayType(SYSTEM_HANDLE_TABLE_ENTRY_INFO, 1)}
+]);
+
+//http://processhacker.sourceforge.net/doc/struct___s_y_s_t_e_m___h_a_n_d_l_e___t_a_b_l_e___e_n_t_r_y___i_n_f_o___e_x.html
+var SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX = new ctypes.StructType('SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX', [ //typedef struct _TagHANDLEINFO
+    {'Object': ctypes.voidptr_t},
+    {'UniqueProcessId': ctypes.unsigned_long},
+    {'HandleValue': ctypes.unsigned_long},
+    {'GrantedAccess': ctypes.unsigned_long},
+    {'CreatorBackTraceIndex': ctypes.unsigned_short},
+    {'HandleAttributes': ctypes.unsigned_long},
+    {'Reserved': ctypes.unsigned_long}
+]);
+
+var SYSTEM_HANDLE_INFORMATION_EX = new ctypes.StructType('SYSTEM_HANDLE_INFORMATION_EX', [
+    {'NumberOfHandles': ctypes.unsigned_long},
+    {'Reserved': ctypes.unsigned_long},
+    {'Handles': ctypes.ArrayType(SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX, 1)}
 ]);
 
 var NtQuerySystemInformation = lib.ntdll.declare("NtQuerySystemInformation", ctypes.winapi_abi, ctypes.long, // return //NTSTATUS 
@@ -115,7 +133,7 @@ var NtQuerySystemInformation = lib.ntdll.declare("NtQuerySystemInformation", cty
  */
 var struct_FILE_NAME_INFORMATION = ctypes.StructType('_FILE_NAME_INFORMATION', [
     {'FileNameLength': ctypes.unsigned_long},
-    {'FileName': ctypes.ArrayType(ctypes.jschar, 1024)}
+    {'FileName': ctypes.ArrayType(ctypes.jschar, OS.Constants.Win.MAX_PATH)}
 ]);
 
 /* http://msdn.microsoft.com/en-us/library/windows/hardware/ff550671%28v=vs.85%29.aspx
@@ -160,49 +178,53 @@ var NtQueryInformationFile = lib.ntdll.declare('NtQueryInformationFile', ctypes.
 * );
 */
 // NOT SUPPORTED BY WINXP so just doing this to test and then later will figure out how to get handle to path name then look in here
+/*
 var GetFinalPathNameByHandle = lib.kernel32.declare('GetFinalPathNameByHandleW', ctypes.winapi_abi, ctypes.uint32_t, //DWORD
     ctypes.voidptr_t, // HANDLE //i made ushort just cuz thats what handle_entry_info has for HandleValue
     ctypes.void_t.ptr, // LPTSTR
     ctypes.uint32_t, // DWORD
     ctypes.uint32_t // DWORD
 );
+*/
 
 function enumHandles() {
     
     //return {};
     var res = {};
     
-    var system_handle_info = new SYSTEM_HANDLE_INFORMATION(); //ctypes.char.array(_enumBufSize.value)();
-    var _enumBufSize = new ctypes.unsigned_long(system_handle_info.constructor.size); //size when 1 element == 32. when 2 element == 60, 3 == 88// this is 32 - 4 / 4 == 7 fields. 60-4/4 == 14 fields
+    var system_handle_info_ex = SYSTEM_HANDLE_INFORMATION_EX(); //ctypes.char.array(_enumBufSize.value)();
+    var _enumBufSize = new ctypes.unsigned_long(system_handle_info_ex.constructor.size); //size when 1 element == 32. when 2 element == 60, 3 == 88// this is 32 - 4 / 4 == 7 fields. 60-4/4 == 14 fields
     //console.log('system_handle_info:', system_handle_info)
     
     //var numFields = (32 - 4) / 7 / 4;
     
     //while (true) {
-        var status = NtQuerySystemInformation(SystemHandleInformation, system_handle_info.address(), _enumBufSize, _enumBufSize.address());
+        var status = NtQuerySystemInformation(SystemExtendedHandleInformation, system_handle_info_ex.address(), _enumBufSize, _enumBufSize.address());
         //if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH) {
         //    system_handle_info = ctypes.char.array(_enumBufSize.value)();
         //} else break;
     //}
     //console.log('status:', status.toString(), 'STATUS_BUFFER_TOO_SMALL:', status == STATUS_BUFFER_TOO_SMALL, 'STATUS_INFO_LENGTH_MISMATCH:', status == STATUS_INFO_LENGTH_MISMATCH);
     //console.log('_enumBufSize:', _enumBufSize.value.toString());
-    //console.log('NumberOfHandles:', system_handle_info.NumberOfHandles.toString());
-    var parsedNum = parseInt(system_handle_info.NumberOfHandles); //this should at least avoid that error when system_handle_info.NumberOfHandles changes to larger on os but when i created the array it was less so it will throw `invalid index` //this also seriously speeds up the for loop. it went from average of 250ms to 130ms
+    //console.log('system_handle_info_ex.NumberOfHandles:', system_handle_info_ex.NumberOfHandles.toString())
+    var parsedNum = parseInt(system_handle_info_ex.NumberOfHandles); //this should at least avoid that error when system_handle_info.NumberOfHandles changes to larger on os but when i created the array it was less so it will throw `invalid index` //this also seriously speeds up the for loop. it went from average of 250ms to 130ms
+    console.log('NumberOfHandles:', parsedNum);
     
     ////////// rep it
-    SYSTEM_HANDLE_INFORMATION = new ctypes.StructType('SYSTEM_HANDLE_INFORMATION', [
+    SYSTEM_HANDLE_INFORMATION_EX = new ctypes.StructType('SYSTEM_HANDLE_INFORMATION_EX', [
         {'NumberOfHandles': ctypes.unsigned_long},
-        {'Handles': ctypes.ArrayType(SYSTEM_HANDLE_TABLE_ENTRY_INFO, parsedNum)}
+        {'Reserved': ctypes.unsigned_long},
+        {'Handles': ctypes.ArrayType(SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX, parsedNum)}
     ]);
     
-    var system_handle_info = new SYSTEM_HANDLE_INFORMATION(); //ctypes.char.array(_enumBufSize.value)();
-    var _enumBufSize = new ctypes.unsigned_long(system_handle_info.constructor.size); //size when 1 element == 32. when 2 element == 60, 3 == 88// this is 32 - 4 / 4 == 7 fields. 60-4/4 == 14 fields
+    var system_handle_info_ex = SYSTEM_HANDLE_INFORMATION_EX(); //ctypes.char.array(_enumBufSize.value)();
+    var _enumBufSize = new ctypes.unsigned_long(system_handle_info_ex.constructor.size); //size when 1 element == 32. when 2 element == 60, 3 == 88// this is 32 - 4 / 4 == 7 fields. 60-4/4 == 14 fields
     //console.log('system_handle_info:', system_handle_info)
     
     //var numFields = (32 - 4) / 7 / 4;
     
     //while (true) {
-        var status = NtQuerySystemInformation(SystemHandleInformation, system_handle_info.address(), _enumBufSize, _enumBufSize.address());
+        var status = NtQuerySystemInformation(SystemExtendedHandleInformation, system_handle_info_ex.address(), _enumBufSize, _enumBufSize.address());
         //if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH) {
         //    system_handle_info = ctypes.char.array(_enumBufSize.value)();
         //} else break;
@@ -216,10 +238,12 @@ function enumHandles() {
     if (status != 0) {
         console.warn('even more handles available now but not liekly the parent.lock as in like absolutely 0% chance they are the parent.lock, numbero of hadles must have changed between the two reps in order to fail and get here, status:', status.toString());
     }
+    var isb;
+    var fni;
         
         for (var i=0; i<parsedNum; i++) {
             try {
-                var UniqueProcessId = system_handle_info.Handles[i].UniqueProcessId.toString();
+                var UniqueProcessId = system_handle_info_ex.Handles[i].UniqueProcessId.toString();
             } catch (ex) {
                 if (ex.message == 'invalid index') {
                     console.warn('i:', i, 'ex:', ex);
@@ -233,10 +257,10 @@ function enumHandles() {
             }
             //verified that number of processes matches task manager by not targeting specific UniqueProcessId
             if (UniqueProcessId in pidsToCollectHandlesFor) {
-                    if (system_handle_info.Handles[i].UniqueProcessId != currentProcessID) {
+                    if (system_handle_info_ex.Handles[i].UniqueProcessId != currentProcessID) {
                         //need to duplicate handle
                         var useHandle = ctypes.voidptr_t();
-                        var duped = DuplicateHandle(pidsToCollectHandlesFor[UniqueProcessId], ctypes.voidptr_t(system_handle_info.Handles[i].HandleValue), currentProcessHandle, useHandle.address(), 0, false, DUPLICATE_SAME_ACCESS);
+                        var duped = DuplicateHandle(pidsToCollectHandlesFor[UniqueProcessId], ctypes.voidptr_t(system_handle_info_ex.Handles[i].HandleValue), currentProcessHandle, useHandle.address(), 0, false, DUPLICATE_SAME_ACCESS);
                         if (!duped) {
                             continue;
                             //console.warn('failed to dupe handle of id:', UniqueProcessId, 'winLastError:', ctypes.winLastError, 'useHandle:', useHandle.toString());
@@ -245,13 +269,13 @@ function enumHandles() {
                             //console.log('suc dup, useHandle:', useHandle);
                         }
                     } else {
-                       var useHandle = ctypes.voidptr_t(system_handle_info.Handles[i].HandleValue);
+                       var useHandle = ctypes.voidptr_t(system_handle_info_ex.Handles[i].HandleValue);
                     }
                     //var gfpnbh_bufType = ctypes.ArrayType(ctypes.jschar);
                     //var gfpnbh_buffer = new gfpnbh_bufType(1024);
                     //GetFinalPathNameByHandle(useHandle, gfpnbh_buffer, gfpnbh_buffer.length, 0);
-                    var isb = struct_IO_STATUS_BLOCK();
-                    var fni = struct_FILE_NAME_INFORMATION();
+                    isb = struct_IO_STATUS_BLOCK();
+                    fni = struct_FILE_NAME_INFORMATION();
                     var rez = NtQueryInformationFile(useHandle, isb.address(), fni.address(), fni.addressOfField('FileName').contents.constructor.size, FileNameInformation);
                 //console.log('gfpnbh_buffer:', gfpnbh_buffer.readString());
                 if (rez == -2147483643) {

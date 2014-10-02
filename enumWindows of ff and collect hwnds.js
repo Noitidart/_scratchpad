@@ -38,15 +38,6 @@ var GetWindowThreadProcessId = lib.user32.declare('GetWindowThreadProcessId', ct
   ctypes.uint32_t.ptr //LPDWORD
 );
 
-/* http://msdn.microsoft.com/en-us/library/ms633539%28v=vs.85%29.aspx
-* BOOL WINAPI SetForegroundWindow(
-* __in HWND hWnd
-* );
-*/
-var SetForegroundWindow = user32.declare('SetForegroundWindow', ctypes.winapi_abi, ctypes.bool,
-  ctypes.voidptr_t
-);
-
 // code to run it
 
 function getRunningPids() {
@@ -59,8 +50,16 @@ function getRunningPids() {
     GetClassName(hwnd, buf, 255);
     var className = buf.readString();
     if (className == 'MozillaWindowClass') {
+        //console.log('className', className)
         var rez = GetWindowThreadProcessId(hwnd, PID.address());
-        ffPids[PID.value] = 0;
+        if (rez > 0) {
+          if (!(PID.value in ffPids)) {
+           ffPids[PID.value] = [];
+          }
+          ffPids[PID.value].push(hwnd);
+        } else {
+          console.warn('rez is <=0, rez:', rez);
+        }
     };
     return true; //let enum continue till nothing to enum
   }
@@ -71,13 +70,53 @@ function getRunningPids() {
   EnumWindows(SearchPD_ptr, ctypes.cast(wnd.address(), LPARAM));
   console.timeEnd('EnumWindows');
   
-  return Object.keys(ffPids);
+  return ffPids;
   
 }
 
 console.time('getRunningPids');
 var pids = getRunningPids();
-console.timeEnd('getRunningPids');
+console.timeEnd('getRunningPids', pids);
+///// start - check if vis
+/* http://msdn.microsoft.com/en-us/library/ms633515%28v=vs.85%29.aspx
+ * LONG_PTR WINAPI GetWindowLongPtr(
+ *  __in_  HWND hWnd,
+ *  __in_  int nIndex
+ * );
+ */
+if (ctypes.voidptr_t.size == 4 /* 32-bit */) {
+  var GetWindowLong = lib.user32.declare('GetWindowLongW', ctypes.winapi_abi, ctypes.unsigned_long,
+    HWND,
+    ctypes.int
+  );
+} else if (ctypes.voidptr_t.size == 8 /* 64-bit */) {
+  var GetWindowLong = lib.user32.declare('GetWindowLongPtrW', ctypes.winapi_abi, ctypes.unsigned_long.ptr,
+    HWND,
+    ctypes.int
+  );
+}
+var GWL_STYLE = -16;
+var WS_VISIBLE = 0x10000000;
+var WS_CAPTION = 0x00C00000;
+var altTabStyle = WS_CAPTION | WS_VISIBLE;
+var hwndStyle;
+///// end - check if vis
+for (var p in pids) {
+  for (var i=0; i<pids[p].length; i++) {
+    if (ctypes.voidptr_t.size == 8) {
+      //use ptr for hwndStyle
+      hwndStyle = GetWindowLong(pids[p][i], GWL_STYLE);
+      hwndStyle = hwndStyle.value; // untested note: i need to test or verify this somehow
+    } else {
+      //DONT use ptr for hwndStyle
+      hwndStyle = GetWindowLong(pids[p][i], GWL_STYLE);
+    }
+    console.log(i, hwndStyle.toString())
+    if (hwndStyle & WS_VISIBLE) {
+      pids[p][i] = null;
+    }
+  }
+}
 console.log('pids:', pids);
 
 for (var l in lib) {

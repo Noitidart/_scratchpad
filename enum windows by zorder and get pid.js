@@ -27,6 +27,7 @@ var GetWindow = lib.user32.declare('GetWindow', ctypes.winapi_abi, ctypes.voidpt
 );
 var GW_HWNDNEXT = 2;
 
+
 /* http://msdn.microsoft.com/en-us/library/ms633515%28v=vs.85%29.aspx
  * LONG_PTR WINAPI GetWindowLongPtr(
  *  __in_  HWND hWnd,
@@ -34,7 +35,7 @@ var GW_HWNDNEXT = 2;
  * );
  */
 if (ctypes.voidptr_t.size == 4 /* 32-bit */) {
-  var GetWindowLong = lib.user32.declare('GetWindowLongW', ctypes.winapi_abi, ctypes.unsigned_long.ptr,
+  var GetWindowLong = lib.user32.declare('GetWindowLongW', ctypes.winapi_abi, ctypes.unsigned_long,
     ctypes.voidptr_t,
     ctypes.int
   );
@@ -47,7 +48,7 @@ if (ctypes.voidptr_t.size == 4 /* 32-bit */) {
 var GWL_STYLE = -16;
 var WS_VISIBLE = 0x10000000;
 var WS_CAPTION = 0x00C00000;
-
+var styleIsInAltTab = WS_VISIBLE | WS_CAPTION;
 
 var GetClassName = lib.user32.declare('GetClassNameW', ctypes.winapi_abi, ctypes.int,
   ctypes.voidptr_t, // HWND
@@ -74,28 +75,6 @@ var GetWindowThreadProcessId = lib.user32.declare('GetWindowThreadProcessId', ct
 var SetForegroundWindow = lib.user32.declare('SetForegroundWindow', ctypes.winapi_abi, ctypes.bool,
   ctypes.voidptr_t // HWND
 );
-
-/* http://msdn.microsoft.com/en-us/library/ms633515%28v=vs.85%29.aspx
- * LONG_PTR WINAPI GetWindowLongPtr(
- *  __in_  HWND hWnd,
- *  __in_  int nIndex
- * );
- */
-if (ctypes.voidptr_t.size == 4 /* 32-bit */) {
-  var GetWindowLong = lib.user32.declare('GetWindowLongW', ctypes.winapi_abi, ctypes.unsigned_long,
-    ctypes.voidptr_t,
-    ctypes.int
-  );
-} else if (ctypes.voidptr_t.size == 8 /* 64-bit */) {
-  var GetWindowLong = lib.user32.declare('GetWindowLongPtrW', ctypes.winapi_abi, ctypes.unsigned_long.ptr,
-    ctypes.voidptr_t,
-    ctypes.int
-  );
-}
-var GWL_STYLE = -16;
-var WS_VISIBLE = 0x10000000;
-var WS_CAPTION = 0x00C00000;
-var styleIsInAltTab = WS_VISIBLE | WS_CAPTION;
 
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/ms633507%28v=vs.85%29.aspx
 * BOOL WINAPI IsIconic(
@@ -146,7 +125,7 @@ function winFocusWindow(hwnd) {
 }
 
 
-var hwndC = GetTopWindow(NULL);
+var hwndC = GetTopWindow(null);
 
 var hwndStyle;
 var i = 0;

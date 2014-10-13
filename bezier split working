@@ -1,0 +1,81 @@
+function splitCubicBezier(options) {
+  var z = options.z,
+      cz = z-1,
+      z2 = z*z,
+      cz2 = cz*cz,
+      z3 = z2*z,
+      cz3 = cz2*cz,
+      x = options.x,
+      y = options.y;
+
+  var left = [
+    x[0],
+    y[0],
+    z*x[1] - cz*x[0], 
+    z*y[1] - cz*y[0], 
+    z2*x[2] - 2*z*cz*x[1] + cz2*x[0],
+    z2*y[2] - 2*z*cz*y[1] + cz2*y[0],
+    z3*x[3] - 3*z2*cz*x[2] + 3*z*cz2*x[1] - cz3*x[0],
+    z3*y[3] - 3*z2*cz*y[2] + 3*z*cz2*y[1] - cz3*y[0]];
+
+  var right = [
+    z3*x[3] - 3*z2*cz*x[2] + 3*z*cz2*x[1] - cz3*x[0],
+    z3*y[3] - 3*z2*cz*y[2] + 3*z*cz2*y[1] - cz3*y[0],
+                    z2*x[3] - 2*z*cz*x[2] + cz2*x[1],
+                    z2*y[3] - 2*z*cz*y[2] + cz2*y[1],
+                                    z*x[3] - cz*x[2], 
+                                    z*y[3] - cz*y[2], 
+                                                x[3],
+                                                y[3]];
+  
+  if ('extrapTo' in options) {
+    return {
+      left: left.map(function(el, i) {
+        if (i % 2 == 0) {
+          return el * (options.extrapTo / left[6])
+        } else {
+          return el * (options.extrapTo / left[7])
+        }
+      }),
+      right: right.map(function(el, i) {
+        if (i % 2 == 0) {
+          return (el * (options.extrapTo / left[6])) - left[6];
+        } else {
+          return (el * (options.extrapTo / left[7])) - left[7];
+        }
+      })
+    }
+  } else {
+   return { left: left, right: right};
+  }
+}
+
+var easeInOut = {
+  xs: [0, .42, .58, 1],
+  ys: [0,   0,   1, 1]
+};
+
+[0.5, 0.5, 0.645, 0.75, 0.79, 1, 1, 1]
+[  0,   0,  0.29,  0.5, 0.58, 1, 1, 1]
+
+var splitRes = splitCubicBezier({
+  z: .5,
+  x: easeInOut.xs,
+  y: easeInOut.ys,
+  extrapTo: 1
+});
+
+Services.wm.getMostRecentWindow(null).alert(splitRes.toSource())
+
+var easeInOutSine = {
+  xs: [0, .44, .55, 1],
+  ys: [0, .05, .95, 1]
+};
+var split_easeInOutSine_50 = split({
+    z: .3,
+    x: easeInOutSine.xs,
+    y: easeInOutSine.ys
+});
+
+var easeInSineCALCD = 'cubic-bezier(' + split_easeInOutSine_50.left/*.slice(2, 6).map(function(el){return el * 2})*/ + ')'
+//Services.ww.activeWindow.alert(easeInSineCALCD)

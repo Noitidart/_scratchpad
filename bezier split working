@@ -28,20 +28,36 @@ function splitCubicBezier(options) {
                                                 x[3],
                                                 y[3]];
   
-  if ('extrapTo' in options) {
+  if (options.fitUnitSquare) {
     return {
       left: left.map(function(el, i) {
         if (i % 2 == 0) {
-          return el * (options.extrapTo / left[6])
+          //return el * (1 / left[6])
+          var Xmin = left[0];
+          var Xmax = left[6]; //should be 1
+          var Sx = 1 / (Xmax - Xmin);
+          return (el - Xmin) * Sx;
         } else {
-          return el * (options.extrapTo / left[7])
+          //return el * (1 / left[7])
+          var Ymin = left[1];
+          var Ymax = left[7]; //should be 1
+          var Sy = 1 / (Ymax - Ymin);
+          return (el - Ymin) * Sy;
         }
       }),
       right: right.map(function(el, i) {
         if (i % 2 == 0) {
-          return (el * (options.extrapTo / left[6])) - left[6];
+          //xval
+          var Xmin = right[0]; //should be 0
+          var Xmax = right[6];
+          var Sx = 1 / (Xmax - Xmin);
+          return (el - Xmin) * Sx;
         } else {
-          return (el * (options.extrapTo / left[7])) - left[7];
+          //yval
+          var Ymin = right[1]; //should be 0
+          var Ymax = right[7];
+          var Sy = 1 / (Ymax - Ymin);
+          return (el - Ymin) * Sy;
         }
       })
     }
@@ -59,10 +75,10 @@ var easeInOut = {
 [  0,   0,  0.29,  0.5, 0.58, 1, 1, 1]
 
 var splitRes = splitCubicBezier({
-  z: .5,
+  z: .1,
   x: easeInOut.xs,
   y: easeInOut.ys,
-  extrapTo: 1
+  fitUnitSquare: false
 });
 
 Services.wm.getMostRecentWindow(null).alert(splitRes.toSource())
@@ -71,11 +87,8 @@ var easeInOutSine = {
   xs: [0, .44, .55, 1],
   ys: [0, .05, .95, 1]
 };
-var split_easeInOutSine_50 = split({
-    z: .3,
-    x: easeInOutSine.xs,
-    y: easeInOutSine.ys
-});
 
-var easeInSineCALCD = 'cubic-bezier(' + split_easeInOutSine_50.left/*.slice(2, 6).map(function(el){return el * 2})*/ + ')'
-//Services.ww.activeWindow.alert(easeInSineCALCD)
+var ease = { //cubic-bezier(0.25, 0.1, 0.25, 1.0)
+  xs: [0, .25, .25, 1],
+  ys: [0, .1, 1, 1]
+};

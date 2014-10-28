@@ -2,11 +2,11 @@
 //var img_path_fileuri = OS.Path.toFileURI(img_path);
 
 var promise_16_data = fetchImgARGB('http://mxr.mozilla.org/mozilla-release/source/browser/branding/official/default16.png?raw=1');
-var promise_32_data = fetchImgARGB('http://mxr.mozilla.org/mozilla-release/source/browser/branding/official/default32.png?raw=1');
-var promise_48_data = fetchImgARGB('http://mxr.mozilla.org/mozilla-release/source/browser/branding/official/default48.png?raw=1');
+//var promise_32_data = fetchImgARGB('http://mxr.mozilla.org/mozilla-release/source/browser/branding/official/default32.png?raw=1');
+//var promise_48_data = fetchImgARGB('http://mxr.mozilla.org/mozilla-release/source/browser/branding/official/default48.png?raw=1');
 //var promise_64_data = fetchImgARGB('http://mxr.mozilla.org/mozilla-release/source/browser/branding/official/default64.png?raw=1');
 //var promise_128_data = fetchImgARGB('http://mxr.mozilla.org/mozilla-release/source/browser/branding/official/default128.png?raw=1');
-var promise_alls_data = Promise.all([promise_16_data, promise_32_data, promise_48_data]);
+var promise_alls_data = Promise.all([promise_16_data]);
 //var promise_alls_data = Promise.all([promise_16_data, promise_32_data]);
 
 function fetchImgARGB(img_path) {
@@ -94,7 +94,7 @@ function getARGB_data_old(ctx, w, h) {
   return pixelsAs32Bits;
 }
 
-function getARGB_data(ctx, w, h) {
+function getARGB_data_middle(ctx, w, h) {
   var imageData = ctx.getImageData(0, 0, w, h);
   var pixelsRGBA = imageData.data;
   var pixelCount = pixelsRGBA.length / 4;
@@ -113,4 +113,44 @@ function getARGB_data(ctx, w, h) {
 
   console.log(w, 'pixelsARGBPacked:', pixelsARGBPacked);
   return pixelsARGBPacked;
+}
+
+function getARGB_data(ctx, w, h) {
+  // Getting pixels as a byte (uint8) array
+  var imageData = ctx.getImageData(0, 0, w, h);
+  var pixels8BitsRGBA = imageData.data;
+
+  var size = 2 + w * h;
+  console.log('size:', size);
+  var buffer = new ArrayBuffer(size);
+  var view = new DataView(buffer);
+  
+  // Reverting bytes from RGBA to ARGB
+  //var pixels8BitsARGB = new Uint8Array(pixels8BitsRGBA.length + 8); // +8 bytes for the two leading 32 bytes integers
+  view.setUint8(0, w);
+  view.setUint8(1, h);
+  var j = 2;
+  for(var i = 0 ; i < pixels8BitsRGBA.length ; i += 4) {
+      //pixels8BitsARGB[i+8 ] = pixels8BitsRGBA[i+3];
+      //pixels8BitsARGB[i+9 ] = pixels8BitsRGBA[i  ];
+      //pixels8BitsARGB[i+10] = pixels8BitsRGBA[i+1];
+      //pixels8BitsARGB[i+11] = pixels8BitsRGBA[i+2];
+    try {
+      view.setUint32(j, pixels8BitsRGBA[i+3] + pixels8BitsRGBA[i] + pixels8BitsRGBA[i+1] + pixels8BitsRGBA[i+2]);
+    } catch(ex) {
+      console.error('j:', j);
+      throw ex;
+    }
+  }
+  //console.log('pixels8BitsRGBA:', pixels8BitsRGBA);
+
+  console.log('view:', view.getUint32(0));
+  // Converting array buffer to a uint32 one, and adding leading width and height
+  //var pixelsAs32Bits = new Uint32Array(pixels8BitsARGB.buffer);
+  //pixelsAs32Bits[0] = w;
+  //pixelsAs32Bits[1] = h;
+
+  //console.log('pixelsAs32Bits:', pixelsAs32Bits);
+  
+  return view;
 }

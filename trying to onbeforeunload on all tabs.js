@@ -1,7 +1,28 @@
 var ignoreFrames = true;
 
 function beforeUnloader(e) {
-   return 'warning rawr';
+	//console.log('beforeUnload e:', e); //http://i.imgur.com/AbUn20J.png
+	var DOMWindow = e.target.defaultView.QueryInterface(Ci.nsIInterfaceRequestor)
+													 .getInterface(Ci.nsIWebNavigation)
+													 .QueryInterface(Ci.nsIDocShellTreeItem)
+													 .rootTreeItem
+													 .QueryInterface(Ci.nsIInterfaceRequestor)
+													 .getInterface(Ci.nsIDOMWindow);
+	DOMWindow.setTimeout(function() {
+		try {
+			if (DOMWindow.gBrowser) {
+				var linkedBrowser = DOMWindow.gBrowser.getBrowserForDocument(e.target);
+			} else {
+				var linkedBrowser = DOMWindow.document;
+			}
+			var modal = linkedBrowser.parentNode.querySelector('tabmodalprompt');
+			var warnTxtNode = modal.ownerDocument.getAnonymousElementByAttribute(modal, 'anonid', 'info.body').firstChild;
+			warnTxtNode.textContent = 'rawr';
+		} catch (ex) {
+			console.warn('excpetion occured when trying to modify warn text, ex:', ex);
+		}
+	}, 10);
+	return 'dummy text so it shows unloader'; //see third bullet here: https://developer.mozilla.org/en-US/docs/WindowEventHandlers.onbeforeunload it says "Note that in Firefox 4 and later the returned string is not displayed to the user. Instead, Firefox displays the string "This page is asking you to confirm that you want to leave - data you have entered may not be saved." See bug 588292."
 };
 
 function addInjections(theDoc) {

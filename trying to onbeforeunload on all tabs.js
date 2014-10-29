@@ -1,7 +1,7 @@
 var ignoreFrames = true;
 
 function beforeUnloader(e) {
-	//console.log('beforeUnload e:', e); //http://i.imgur.com/AbUn20J.png
+	console.log('beforeUnload e:', e); //http://i.imgur.com/AbUn20J.png
 	var DOMWindow = e.target.defaultView.QueryInterface(Ci.nsIInterfaceRequestor)
 													 .getInterface(Ci.nsIWebNavigation)
 													 .QueryInterface(Ci.nsIDocShellTreeItem)

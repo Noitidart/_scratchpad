@@ -1,0 +1,1 @@
+Services.wm.getMostRecentWindow('navigator:browser').document.documentElement.getAttribute('windowtype')

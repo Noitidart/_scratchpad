@@ -301,7 +301,7 @@ function GetProperty(win, propertyName, trueForReturnData_else_falseForReturnBoo
 	}
 }
 
-function GetXWindowStack(window) {
+function GetXWindowStack(window, windowsStack) {
 	var type = ostypes.ATOM;
 	var format = ostypes.INT;
 	var count = ostypes.UNSIGNED_LONG;
@@ -311,8 +311,9 @@ function GetXWindowStack(window) {
 		return false;
 	}
 	
-	var result = false;
-	if (type == ostypes.XA_WINDOW
+	console.info('debug-msg :: XWindowStack is available');
+	//var result = false;
+	//if (type == ostypes.XA_WINDOW
 		/*
 		1078 
 		1079 bool GetXWindowStack(Window window, std::vector<XID>* windows) {
@@ -347,14 +348,176 @@ function GetXWindowStack(window) {
 		1108 }
 		*/
 }
-function EnumerateTopLevelWindows() {
-	var stack = ostypes.XID();
-	if (!GetXWindowStack(GetX11RootWindow(), &stack)) {
+
+function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth) {
+	//shouldStopIteratingDelegate is pointer to EnumerateWindowsDelegate*
+	//window is ostypes.XID
+	//max_depth is ostypes.INT
+	//depth is ostypes.INT
+	if (depth > max_depth) {
+		return false;
+	}
+
+	var windows; // ostypes.XID
+	if (depth == 0) {
+		//i dont understand this menu crap, i cant find it in the freecode docs: 
+		/*
+		1012     XMenuList::GetInstance()->InsertMenuWindowXIDs(&windows);
+		1013     // Enumerate the menus first.
+		1014     for (iter = windows.begin(); iter != windows.end(); iter++) {
+		1015       if (delegate->ShouldStopIterating(*iter))
+		1016         return true;
+		1017     }
+		1018     windows.clear();
+		*/
+	}
+	
+	var root; //ostypes.XID
+	var parent; //ostypes.XID
+	var children; //ostypes.XID.array().ptr
+	
+	var num_children; //ostypes.INT
+	var rez_XQT = _dec('XQueryTree')(GetXDisplay(), window, root.address(), parent.address(), children.address(), num_children.address);
+	
+	if (!rez_XQT) {
+		return false;
+	}
+	
+	for (var i=num_children-1; i>=0; i--) {
+		windows.push(children[i]);
+	}
+	
+	var rez_XF = _dec('XFree')(children);
+	if (!rez_XF) {
+		console.warn('Faild to XFree children, mem leak imminent');
+	}
+	
+	// XQueryTree returns the children of |window| in bottom-to-top order, so reverse-iterate the list to check the windows from top-to-bottom.
+	for (var i=0; i<windows.length; i++) {
+		if (IsWindowNamed(window[i]) && shouldStopIteratingDelegate(window[i])) {
+			return true;
+		}
+	}
+	
+	// If we're at this point, we didn't find the window we're looking for at the current level, so we need to recurse to the next level.  We use a second loop because the recursion and call to XQueryTree are expensive and is only needed for a small number of cases.
+	if (depth++ <= max_depth) {
+		for (var i=0; i<windows.length; i++) {
+			if (EnumerateChildren(delegate, windows[i], max_depth, depth))
+				return true;
+			}
+		}
+	}
+
+	return false;
+/*
+1004 bool EnumerateChildren(EnumerateWindowsDelegate* delegate, XID window,
+1005                        const int max_depth, int depth) {
+1006   if (depth > max_depth)
+1007     return false;
+1008 
+1009   std::vector<XID> windows;
+1010   std::vector<XID>::iterator iter;
+1011   if (depth == 0) {
+1012     XMenuList::GetInstance()->InsertMenuWindowXIDs(&windows);
+1013     // Enumerate the menus first.
+1014     for (iter = windows.begin(); iter != windows.end(); iter++) {
+1015       if (delegate->ShouldStopIterating(*iter))
+1016         return true;
+1017     }
+1018     windows.clear();
+1019   }
+1020 
+1021   XID root, parent, *children;
+1022   unsigned int num_children;
+1023   int status = XQueryTree(gfx::GetXDisplay(), window, &root, &parent, &children,
+1024                           &num_children);
+1025   if (status == 0)
+1026     return false;
+1027 
+1028   for (int i = static_cast<int>(num_children) - 1; i >= 0; i--)
+1029     windows.push_back(children[i]);
+1030 
+1031   XFree(children);
+1032 
+1033   // XQueryTree returns the children of |window| in bottom-to-top order, so
+1034   // reverse-iterate the list to check the windows from top-to-bottom.
+1035   for (iter = windows.begin(); iter != windows.end(); iter++) {
+1036     if (IsWindowNamed(*iter) && delegate->ShouldStopIterating(*iter))
+1037       return true;
+1038   }
+1039 
+1040   // If we're at this point, we didn't find the window we're looking for at the
+1041   // current level, so we need to recurse to the next level.  We use a second
+1042   // loop because the recursion and call to XQueryTree are expensive and is only
+1043   // needed for a small number of cases.
+1044   if (++depth <= max_depth) {
+1045     for (iter = windows.begin(); iter != windows.end(); iter++) {
+1046       if (EnumerateChildren(delegate, *iter, max_depth, depth))
+1047         return true;
+1048     }
+1049   }
+1050 
+1051   return false;
+1052 }
+*/
+}
+
+function EnumerateAllWindows(shouldStopIteratingDelegate, max_depth) {
+	//delegate is pointer to EnumerateWindowsDelegate*
+	//max_depth is ostypes.INT
+
+	var root = GetX11RootWindow();
+	return EnumerateChildren(shouldStopIteratingDelegate, root, max_depth, 0);
+/*
+bool EnumerateAllWindows(EnumerateWindowsDelegate* delegate, int max_depth) {
+1055   XID root = GetX11RootWindow();
+1056   return EnumerateChildren(delegate, root, max_depth, 0);
+1057 }
+*/
+}
+
+function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
+	//var stack = ostypes.XID(); //std::vector<XID> stack; // for the new school method
+	if (/**/true || /**/ /*i cant figure out what they are doing in the else part of this so im just going with old school method*/ !GetXWindowStack(GetX11RootWindow(), stack.address())) {
 		// Window Manager doesn't support _NET_CLIENT_LIST_STACKING, so fall back to old school enumeration of all X windows.  Some WMs parent 'top-level' windows in unnamed actual top-level windows (ion WM), so extend the search depth to all children of top-level windows.
 		var kMaxSearchDepth = 1;
-		EnumerateAllWindows(delegate, kMaxSearchDepth);
+		var rez_EAW = EnumerateAllWindows(delegate, kMaxSearchDepth);
+		console.info('debug-msg :: rez_EAW:', rez_EAW);
+	} else {
+		// Window Manager supports _NET_CLIENT_LIST_STACK so lets go with new school method
+		//i dont udnerstand this i cant find XMenu functions anywhere in x11
+		/*
+		XMenuList::GetInstance()->InsertMenuWindowXIDs(&stack);
+		std::vector<XID>::iterator iter;
+		for (iter = stack.begin(); iter != stack.end(); iter++) {
+			if (delegate->ShouldStopIterating(*iter)) {
+				return;
+			}
+		}
+		*/
 	}
 }
+
+function IsWindowVisible(window) {
+
+}
+
+function IsScreensaverWindow(window) {
+
+}
+
+function IsWindowNamed(window) {
+
+}
+
+var finderDelegate = function(window) { //no special reason to make this a var func, other then personal preference as it makes it look like its not a main func but something utilized in sub, which it is utilized in subscope
+	//delegate telling when to stop
+	if (!IsWindowVisible(window) || !IsScreensaverWindow(window)) {
+		return false;
+	} else {
+		return true;
+	}
+};
 
 function ScreensaverWindowExists() {
 	//returns bool
@@ -365,7 +528,9 @@ function ScreensaverWindowExists() {
 		// windows in unnamed actual top-level windows (ion WM), so extend the
 		// search depth to all children of top-level windows.
 		const int kMaxSearchDepth = 1;
-		ui::EnumerateAllWindows(delegate, kMaxSearchDepth);
+		
+		var rez_ETLW = EnumerateTopLevelWindows(finderDelegate.address()); //EnumerateAllWindows(shouldStopIteratingDelegate, kMaxSearchDepth);
+		console.info('debug-msg :: rez_ETLW:', rez_ETLW);
 		return;
 	}
 

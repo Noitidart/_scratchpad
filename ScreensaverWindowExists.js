@@ -26,7 +26,8 @@ var nixtypesInit = function() {
 
 	// CONSTANTS
 	this.ANYPROPERTYTYPE = this.ATOM(0);
-	this.NONE = 0;
+	this.NONE = 0; // /usr/include/X11/X.h:120 // https://github.com/hazelnusse/sympy-old/blob/65f802573e5963731a3e7e643676131b6a2500b8/sympy/thirdparty/pyglet/pyglet/window/xlib/xlib.py#L88
+	this.SUCCESS = 0 // # /usr/include/X11/X.h:354
 	this.XA_WINDOW = 33;
 }
 var ostypes = new nixtypesInit();
@@ -225,16 +226,6 @@ function GetAtom(name) {
 	return GetAtomCache[name];
 }
 
-function GetProperty(window, property_name, max_length, type, format, num_items, property) {
-	// Note: The caller of this function, `GetProperty`, should free the resulting value data.
-	// returns bool
-	var property_atom = GetAtom(property_name);
-	var remaining_bytes = new ostypes.UNSIGNED_LONG();
-	var rez_XGWP = _dec('XGetWindowProperty')(GetXDisplay(), window, property_atom, 0 /*offset into property data to read*/, max_length, false /*deleted*/, ostypes.ANYPROPERTYTYPE, type, format, num_items, remaining_bytes.address(), property);
-	
-	console.info('debug-msg :: rez_XGWP:', rez_XGWP);
-	
-	return rez_XGWP;
 	/*
 	85 // Note: The caller should free the resulting value data.
 	86 bool GetProperty(XID window, const std::string& property_name, long max_length,
@@ -256,13 +247,20 @@ function GetProperty(window, property_name, max_length, type, format, num_items,
 	102                             property);
 	103 }
 	*/
+function GetPropertyError(message) {
+    this.name = 'GetPropertyError';
+    this.message = message || '';
+    this.stack = new Error().stack; //this gives the line of the throw
 }
+GetPropertyError.prototype = Error.prototype;
 
 function GetProperty(win, propertyName, trueForReturnData_else_falseForReturnBool, propertyType) {
+	//propertyType is ostypes.INT
+	
 	// this function is a combination of chromium's GetProperty (http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#86) and zotero's (_X11GetProperty https://github.com/zotero/zotero/blob/15108eea3f099a5a39a145ed55043d1ed9889e6a/chrome/content/zotero/xpcom/integration.js#L571) // the reason i did this, i was originally going by chromium but i couldnt see where they were XFree'ing the data, it could be that because bytes returned was -1 there was no need to XFree, but this function also returns data which i can use in future
 	// Fourth argument of `propertyType` is optional, if its undefined then `ostypes.ANYPROPERTYTYPE` is used
-	// if `trueForReturnData_else_falseForReturnBool` is `true ` then returns array, first element is non-casted data (DataReturned), second element is number of elements (NItemsReturned)
-		// also if true then IMPORANT Note: The caller of this function, `GetProperty`, should free the resulting value DataReturned (first element returned).
+	// if `trueForReturnData_else_falseForReturnBool` is `true ` then returns obj, returns object with 4 keys: DataReturned, NItemsReturnedValue, 
+		// also if true then IMPORANT Note: The caller of this function, `GetProperty`, should free the resulting value DataReturned (key in returned obj).
 	// if `trueForReturnData_else_falseForReturnBool` is `false` then returns if `XGetWindowProperty` was successful or not
 		// if false this will release the data
 
@@ -273,10 +271,11 @@ function GetProperty(win, propertyName, trueForReturnData_else_falseForReturnBoo
 	var actualFormatReturned = new ostypes.INT();
 	var NItemsReturned = new ostypes.UNSIGNED_LONG();
 	var BytesAfterReturn = new ostypes.UNSIGNED_LONG();
-	var DataReturned = new ostypes.UNSIGNED_CHAR.ptr();
-	var max_length = trueForReturnData_else_falseForReturnBool ? 1024 : -1;
+	var DataReturned = new ostypes.UNSIGNED_CHAR.ptr()
+	;
+	var max_length = trueForReturnData_else_falseForReturnBool ? 1024 : -1; // 1024 because two places use it, for string prop on chromium: mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#830 // and zotero //chromium uses -1 for just returning bool and i dont see an xfree
 	var usePropType = !propertyType ? ostypes.ANYPROPERTYTYPE : propertyType;
-	var rez_XGWP = _dec('XGetWindowProperty')(GetXDisplay(), win, GetAtom(propertyName), 0 /*offset into property data to read*/, max_length, false /*deleted*/, usePropType, actualTypeReturned.address(), actualFormatReturned.address(), NItemsReturned.address(), BytesAfterReturn.address(), DataReturned.addres());
+	var rez_XGWP = _dec('XGetWindowProperty')(GetXDisplay(), win, GetAtom(propertyName), 0 /*offset into property data to read*/, max_length, false /*deleted*/, usePropType, actualTypeReturned.address(), actualFormatReturned.address(), NItemsReturned.address(), BytesAfterReturn.address(), DataReturned.address());
 	
 	console.info('debug-msg :: rez_XGWP:', rez_XGWP);
 	
@@ -285,13 +284,21 @@ function GetProperty(win, propertyName, trueForReturnData_else_falseForReturnBoo
 		if (rez_XGWP) {
 			var NItemsReturnedValue = ctypes.cast(nItemsReturned, ostypes.UNSIGNED_INT).value;
 			//important note: make sure to XFree DataReturned
-			return [DataReturned, NItemsReturnedValue];
+			return {DataReturned:DataReturned, NItemsReturnedValue:NItemsReturnedValue, actualTypeReturnedVal:actualTypeReturned.value, actualFormatReturnedVal:actualFormatReturned.value];
 		} else {
-			console.error('XGetWindowProperty failed!', 'rez_XGWP:', rez_XGWP, uneval(rez_XGWP), rez_XGWP.toString());
-			throw new Error('XGetWindowProperty failed! rez_XGWP: "' + rez_XGWP + '" toString: "' rez_XGWP.toString() + '"');
+			console.error('XGetWindowProperty failed to get data!', 'rez_XGWP:', rez_XGWP, uneval(rez_XGWP), rez_XGWP.toString());
+			throw new Error('XGetWindowProperty failed to get data! rez_XGWP: "' + rez_XGWP + '" toString: "' rez_XGWP.toString() + '"');
 		}
+		
+		/*
+		what to do with rez of this func: https://github.com/zotero/zotero/blob/15108eea3f099a5a39a145ed55043d1ed9889e6a/chrome/content/zotero/xpcom/integration.js#L627
+		ctypes.cast(rez.DataReturned, ostypes.WINDOW.array(rez.NItemsReturnedValue).ptr).contents;
+		XFree(rez.DataReturned);
+		*/
+		
 	} else {
 		//return bool, free the DataReturned here
+		//note: may not need to xfree as we request -1 for max_length
 		var rez_XF = _dec('XFree')(DataReturned);
 		console.info('debug-msg :: rez_XF:', rez_XF);
 		if (!rez_XF) {
@@ -301,17 +308,21 @@ function GetProperty(win, propertyName, trueForReturnData_else_falseForReturnBoo
 	}
 }
 
-function GetXWindowStack(window, windowsStack) {
-	var type = ostypes.ATOM;
-	var format = ostypes.INT;
-	var count = ostypes.UNSIGNED_LONG;
-	var data = ostypes.UNSIGNED_CHAR.ptr;
-	var rez_GP = GetProperty(window, '_NET_CLIENT_LIST_STACKING', ~0, )
+function GetXWindowStack(window) {
+	try {
+		var rez_GP = GetProperty(window, '_NET_CLIENT_LIST_STACKING', true)
+	} catch (ex if ex instanceof GetPropertyError) { // have to do this because i need to make GetProperty return data if succesful, but if false then i just need to return the bool in this getxwindowstack func. but i still want getprop func to throw error when dev asks it to return data and it cant
+		return false;
+	}
+
 	if (!rez_GP) {
 		return false;
 	}
 	
 	console.info('debug-msg :: XWindowStack is available');
+	if (rez_GP.actualTypeReturned == ostypes.XA_WINDOW && rez_GP.actualFormatReturnedVal == 32 && rez_GP.NItemsReturnedValue > 0) {
+	
+	}
 	//var result = false;
 	//if (type == ostypes.XA_WINDOW
 		/*
@@ -361,6 +372,8 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 	var windows; // ostypes.XID
 	if (depth == 0) {
 		//i dont understand this menu crap, i cant find it in the freecode docs: 
+		//i think its this: https://github.com/v-fox/live_opensuse_hsf/blob/61ecaa23b0885e8c28e3a56046faa114a51424f1/source/root/home/hacker/.thunderbird/mcos93yg.hacker/extensions/%7B9533f794-00b4-4354-aa15-c2bbda6989f8%7D/modules/linux/FiretrayWindow.jsm#L625
+		// or this: https://github.com/v-fox/live_opensuse_hsf/blob/61ecaa23b0885e8c28e3a56046faa114a51424f1/source/root/home/hacker/.thunderbird/mcos93yg.hacker/extensions/%7B9533f794-00b4-4354-aa15-c2bbda6989f8%7D/modules/linux/FiretrayWindow.jsm#L57
 		/*
 		1012     XMenuList::GetInstance()->InsertMenuWindowXIDs(&windows);
 		1013     // Enumerate the menus first.
@@ -478,7 +491,8 @@ bool EnumerateAllWindows(EnumerateWindowsDelegate* delegate, int max_depth) {
 
 function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	//var stack = ostypes.XID(); //std::vector<XID> stack; // for the new school method
-	if (/**/true || /**/ /*i cant figure out what they are doing in the else part of this so im just going with old school method*/ !GetXWindowStack(GetX11RootWindow(), stack.address())) {
+	var rez_GXWS = GetXWindowStack(GetX11RootWindow(), stack.address())
+	if (/**/true || /**/ /*i cant figure out what they are doing in the else part of this so im just going with old school method*/ ) {
 		// Window Manager doesn't support _NET_CLIENT_LIST_STACKING, so fall back to old school enumeration of all X windows.  Some WMs parent 'top-level' windows in unnamed actual top-level windows (ion WM), so extend the search depth to all children of top-level windows.
 		var kMaxSearchDepth = 1;
 		var rez_EAW = EnumerateAllWindows(delegate, kMaxSearchDepth);
@@ -486,6 +500,8 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	} else {
 		// Window Manager supports _NET_CLIENT_LIST_STACK so lets go with new school method
 		//i dont udnerstand this i cant find XMenu functions anywhere in x11
+		//i think its this: https://github.com/v-fox/live_opensuse_hsf/blob/61ecaa23b0885e8c28e3a56046faa114a51424f1/source/root/home/hacker/.thunderbird/mcos93yg.hacker/extensions/%7B9533f794-00b4-4354-aa15-c2bbda6989f8%7D/modules/linux/FiretrayWindow.jsm#L625
+		// or this: https://github.com/v-fox/live_opensuse_hsf/blob/61ecaa23b0885e8c28e3a56046faa114a51424f1/source/root/home/hacker/.thunderbird/mcos93yg.hacker/extensions/%7B9533f794-00b4-4354-aa15-c2bbda6989f8%7D/modules/linux/FiretrayWindow.jsm#L57
 		/*
 		XMenuList::GetInstance()->InsertMenuWindowXIDs(&stack);
 		std::vector<XID>::iterator iter;
@@ -495,11 +511,48 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 			}
 		}
 		*/
+		ctypes.cast(rez.DataReturned, ostypes.WINDOW.array(rez.NItemsReturnedValue).ptr).contents;
+		XFree(rez.DataReturned);
 	}
 }
 
 function GetStringProperty(window, property_name, value) {
-	
+		//returns bool
+		//window is ostypes.XID
+		//property_name is ostypes.CHAR.array()('Original string.');
+		//value is ostypes.CHAR.array(256)() i think, MAYBE: ostypes.CHAR.array(256).ptr
+		
+		var type = ostypes.NONE;
+		var format = ostypes.INT; // size in bits of each item in 'property'
+		var num_items = ostypes.UNSIGNED_LONG;
+		var property = new ostypes.UNSIGNED_CHAR();
+		
+		var rez_GP = 
+		
+		
+/*
+830 bool GetStringProperty(
+831     XID window, const std::string& property_name, std::string* value) {
+832   XAtom type = None;
+833   int format = 0;  // size in bits of each item in 'property'
+834   unsigned long num_items = 0;
+835   unsigned char* property = NULL;
+836 
+837   int result = GetProperty(window, property_name, 1024,
+838                            &type, &format, &num_items, &property);
+839   if (result != Success)
+840     return false;
+841 
+842   if (format != 8) {
+843     XFree(property);
+844     return false;
+845   }
+846 
+847   value->assign(reinterpret_cast<char*>(property), num_items);
+848   XFree(property);
+849   return true;
+850 }
+*/
 }
 
 function PropertyExists(window, property_name) {
@@ -528,12 +581,13 @@ function IsScreensaverWindow(window) {
 	}
 	
 	// For all others, like gnome-screensaver, the window's WM_CLASS property should contain "screensaver".
-	var value; //std::string ???
+	var value = new ostypes.CHAR(); //std::string ???
 	if (!GetStringProperty(window, 'WM_CLASS', value.address)) {
 		return false;
 	}
 	
-	//return value.find("screensaver") != std::string::npos;
+	var valueStr = value.readString();
+	return valueStr.indexOf('screensaver') > -1; //return value.find("screensaver") != std::string::npos; //this c++ returns true if value contains "screensaver"
 	
 }
 

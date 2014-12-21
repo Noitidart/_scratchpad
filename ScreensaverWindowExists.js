@@ -176,6 +176,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 	}
 }
 
+/* start - main display and root window get and hold constant functions */
 function OpenNewXDisplay() {
 	//returns ostypes.DISPLAY	
 	//consider: http://mxr.mozilla.org/chromium/source/src/ui/gfx/x/x11_types.cc#26
@@ -186,13 +187,28 @@ function OpenNewXDisplay() {
 	return _dec('XOpenDisplay')(null);
 }
 
-var GetXDisplayConst; // runtime defined constants
-function GetXDisplay() {
+var GetXDisplayConst; //ostypes.DISPLAY // runtime defined constants
+function GetXDisplay() { //two functions that hold const, GetX11RootWindow and GetXDisplay because some functions need the root window (like XFindWindow and XSendEvent) and others need the root display (like XGetWindowProperty and XSendEvent)
 	if (!GetXDisplayConst) {
 		GetXDisplayConst = OpenNewXDisplay();
 	}
 	return GetXDisplayConst;
 }
+
+var DefaultRootWindowConst; // ostypes.XID // runtime defined constants
+function DefaultRootWindow(disp) {
+	// returns XID
+	//i cant find this function in chromium codebase so im just going to guess
+	if (!DefaultRootWindow) {
+		DefaultRootWindowConst = _dec('XDefaultRootWindow')(disp);
+	}
+	return DefaultRootWindowConst;
+}
+
+function GetX11RootWindow() { //two functions that hold const, GetX11RootWindow and GetXDisplay because some functions need the root window (like XFindWindow and XSendEvent) and others need the root display (like XGetWindowProperty and XSendEvent)
+	return DefaultRootWindow(GetXDisplay());
+}
+/* end - main display and root window get and hold constant functions */
 
 var GetAtomCache = {};
 function GetAtom(name) {
@@ -243,6 +259,7 @@ function GetProperty(window, property_name, max_length, type, format, num_items,
 }
 
 function GetProperty(win, propertyName, trueForReturnData_else_falseForReturnBool, propertyType) {
+	// this function is a combination of chromium's GetProperty (http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#86) and zotero's (_X11GetProperty https://github.com/zotero/zotero/blob/15108eea3f099a5a39a145ed55043d1ed9889e6a/chrome/content/zotero/xpcom/integration.js#L571) // the reason i did this, i was originally going by chromium but i couldnt see where they were XFree'ing the data, it could be that because bytes returned was -1 there was no need to XFree, but this function also returns data which i can use in future
 	// Fourth argument of `propertyType` is optional, if its undefined then `ostypes.ANYPROPERTYTYPE` is used
 	// if `trueForReturnData_else_falseForReturnBool` is `true ` then returns array, first element is non-casted data (DataReturned), second element is number of elements (NItemsReturned)
 		// also if true then IMPORANT Note: The caller of this function, `GetProperty`, should free the resulting value DataReturned (first element returned).
@@ -282,10 +299,6 @@ function GetProperty(win, propertyName, trueForReturnData_else_falseForReturnBoo
 		}
 		return rez_XGWP;
 	}
-}
-
-function GetX11RootWindow() {
-
 }
 
 function GetXWindowStack(window) {
@@ -334,9 +347,13 @@ function GetXWindowStack(window) {
 		1108 }
 		*/
 }
-
-function GetXWindowStack() {
-
+function EnumerateTopLevelWindows() {
+	var stack = ostypes.XID();
+	if (!GetXWindowStack(GetX11RootWindow(), &stack)) {
+		// Window Manager doesn't support _NET_CLIENT_LIST_STACKING, so fall back to old school enumeration of all X windows.  Some WMs parent 'top-level' windows in unnamed actual top-level windows (ion WM), so extend the search depth to all children of top-level windows.
+		var kMaxSearchDepth = 1;
+		EnumerateAllWindows(delegate, kMaxSearchDepth);
+	}
 }
 
 function ScreensaverWindowExists() {
@@ -353,28 +370,7 @@ function ScreensaverWindowExists() {
 	}
 
 	////////////////
-	if (!SystemParametersInfo) {
-		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms724947%28v=vs.85%29.aspx
-		 * BOOL WINAPI SystemParametersInfo(
-		 *   __in_     UINT uiAction,
-		 *   __in_     UINT uiParam,
-		 *   __inout_  PVOID pvParam,
-		 *   __in_     UINT fWinIni
-		 * );
-		 */
-		SystemParametersInfo = _lib('user32.dll').declare('SystemParametersInfoW', ctypes.winapi_abi,
-			ostypes.BOOL, // return
-			ostypes.UINT, // uiAction
-			ostypes.UINT, // uiParam
-			ostypes.PVOID, // pvParam
-			ostypes.UINT // fWinIni
-		);
-	}
-
-	var result = ostypes.DWORD();
-	var rez_SPI = SystemParametersInfo(ostypes.SPI_GETSCREENSAVERRUNNING, 0, result.address(), 0);
-	console.info('debug-msg :: rez_SPI:', rez_SPI, uneval(rez_SPI));
-	console.info('debug-msg :: result:', result, uneval(result));
+	EnumerateTopLevelWindows(); //stop when have iterated through all windows at depth of 1 or have found screenscaever
 
 	if (!rez_SPI) {
 		throw new Error('An error occured in SystemParametersInfo, ctypes.winLastError: ' + ctypes.winLastError);

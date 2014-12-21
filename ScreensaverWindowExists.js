@@ -498,16 +498,47 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	}
 }
 
-function IsWindowVisible(window) {
+function GetStringProperty(window, property_name, value) {
+	
+}
 
+function PropertyExists(window, property_name) {
+	
+}
+
+function IsWindowFullScreen(window) {
+	//window is ostypes.XID
+}
+
+function IsWindowVisible(window) {
+	//window is ostypes.XID
 }
 
 function IsScreensaverWindow(window) {
-
+	//window is ostypes.XID
+	
+	// It should occupy the full screen.
+	if (!IsWindowFullScreen(window)) {
+		return false;
+	}
+	
+	// For xscreensaver, the window should have _SCREENSAVER_VERSION property.
+	if (PropertyExists(window, '_SCREENSAVER_VERSION')) {
+		return true;
+	}
+	
+	// For all others, like gnome-screensaver, the window's WM_CLASS property should contain "screensaver".
+	var value; //std::string ???
+	if (!GetStringProperty(window, 'WM_CLASS', value.address)) {
+		return false;
+	}
+	
+	//return value.find("screensaver") != std::string::npos;
+	
 }
 
 function IsWindowNamed(window) {
-
+	//window is ostypes.XID
 }
 
 var finderDelegate = function(window) { //no special reason to make this a var func, other then personal preference as it makes it look like its not a main func but something utilized in sub, which it is utilized in subscope

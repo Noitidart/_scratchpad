@@ -450,7 +450,7 @@ function GetIntProperty(window, property_name) {
 	}
 	
 	if (rez_GP.data_descriptor.count > 1) {
-		console.warn('debug-msg :: in GetIntProperty more then 1 element returned in rez_GP.data array, will just return first element');
+		console.warn('debug-msg :: in GetIntProperty more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count);
 	} else if (rez_GP.data_descriptor.count == 0) {
 		console.warn('debug-msg :: in GetIntProperty 0 elements returned in rez_GP.data array so return false, try XFree');
 		var rez_DXF = doXFree(rez_GP.data);
@@ -511,7 +511,7 @@ function GetStringProperty(window, property_name) {
 	}
 	
 	if (rez_GP.data_descriptor.count > 1) {
-		console.warn('debug-msg :: in GetStringProperty more then 1 element returned in rez_GP.data array, will just return first element');
+		console.warn('debug-msg :: in GetStringProperty more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count);
 	} else if (rez_GP.data_descriptor.count == 0) {
 		console.warn('debug-msg :: in GetStringProperty 0 elements returned in rez_GP.data array so return false, try XFree');
 		var rez_DXF = doXFree(rez_GP.data);
@@ -561,7 +561,7 @@ function GetAtomArrayProperty(window, property_name, ) {
 	//window is ostypes.WINDOW
 	//property_name is js string;
 
-	var rez_GP = GetProperty(window, property_name, {free_data:false, max_length:~0}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
+	var rez_GP = GetProperty(window, property_name, {free_data:false, max_length: -0x80000000 /*(~0L)*/}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
 	if (rez_GP === false) {
 		//nothing returned so no need to free
 		return false;
@@ -573,7 +573,7 @@ function GetAtomArrayProperty(window, property_name, ) {
 	}
 	
 	if (rez_GP.data_descriptor.count > 1) {
-		console.warn('debug-msg :: in GetStringProperty more then 1 element returned in rez_GP.data array, will just return first element');
+		console.warn('debug-msg :: in GetStringProperty more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count);
 	} else if (rez_GP.data_descriptor.count == 0) {
 		console.warn('debug-msg :: in GetStringProperty 0 elements returned in rez_GP.data array so return false, try XFree');
 		var rez_DXF = doXFree(rez_GP.data);
@@ -583,7 +583,7 @@ function GetAtomArrayProperty(window, property_name, ) {
 		return false;
 	}
 	
-	var dataCasted = ctypes.cast(rez_GP.data, ostypes.CHAR.array(rez_GP.data_descriptor.count).ptr).contents;
+	var dataCasted = ctypes.cast(rez_GP.data, ostypes.ATOM.array(rez_GP.data_descriptor.count).ptr).contents;
 	var val = [];
 	for (var i=0; i<rez_GP.data_descriptor.count; i++) {
 		val.push(dataCasted.addressOfElement(i).contents);
@@ -854,7 +854,7 @@ function IsWindowFullScreen(window) {
 	//window is ostypes.XID
 }
 
-function GetWindowDesktop(window, desktop) {
+function GetWindowDesktop(window) {
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#984
 	984 bool GetWindowDesktop(XID window, int* desktop) {
 	985   return GetIntProperty(window, "_NET_WM_DESKTOP", desktop);
@@ -869,13 +869,13 @@ function GetWindowDesktop(window, desktop) {
 	}
 }
 
-function GetCurrentDesktop(desktop) {
+function GetCurrentDesktop() {
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#508
 	508 bool GetCurrentDesktop(int* desktop) {
 	509   return GetIntProperty(GetX11RootWindow(), "_NET_CURRENT_DESKTOP", desktop);
 	510 }
 	*/
-	var rez_GIP = GetIntProperty(window, '_NET_CURRENT_DESKTOP');
+	var rez_GIP = GetIntProperty(GetX11RootWindow(), '_NET_CURRENT_DESKTOP');
 	if (rez_GIP !== false) {
 		return rez_GIP;
 	} else {
@@ -887,6 +887,51 @@ function GetCurrentDesktop(desktop) {
 function IsWindowVisible(window) {
 	//window is ostypes.XID
 	
+	var win_attributes = new ostypes.XWINDOWATTRIBUTES();
+	var rez_XGWA = _dec('XGetWindowAttributes')(GetXDisplay(), window, win_attributes.ptr);
+	if (!rez_XGWA || rez_XGWA.isNull()) {
+		return false;
+	} else {
+		if (win_attributes.map_state != ostypes.ISVIEWABLE) {
+			return false;
+		}
+	}
+	
+	// Minimized windows are not visible.
+	var wm_states = GetAtomArrayProperty(window, '_NET_WM_STATE');
+	if (wm_states === false) {
+		//GetAtomArrayProperty error'ed probably
+		return false;
+	} else {
+		var hidden_atom = GetAtom('_NET_WM_STATE_HIDDEN');
+		for (var i=0; i<wm_states.length; i++) {
+			if (wm_states[i] == hidden_atom) {
+				return false;
+			}
+		}
+	}
+	
+	// Some compositing window managers (notably kwin) do not actually unmap windows on desktop switch, so we also must check the current desktop.
+	var kAlLDesktops = 0; // this is kwin constant i guess based on this comment in chromium here: http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#565
+	var window_desktop = GetWindowDesktop(window);
+	if (window_desktop === false) {
+		return false;
+	}
+	var current_desktop = GetCurrentDesktop();
+	if (current_desktop === false) {
+		//weird user has no desktop O_O
+		return false;
+	}
+	if (window_desktop == kAllDesktops || window_desktop == current_desktop) {
+		return true;
+	} else {
+		return false;
+	}
+	/* http://mxr.mozilla.org/chromium/source/src/ui/views/widget/desktop_aura/desktop_window_tree_host_x11.cc#76
+		74 // Special value of the _NET_WM_DESKTOP property which indicates that the window
+		75 // should appear on all desktops.
+		76 const int kAllDesktops = 0xFFFFFFFF;
+	*/
 	
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#546
 546 bool IsWindowVisible(XID window) {

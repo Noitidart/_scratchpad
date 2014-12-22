@@ -133,7 +133,29 @@ function _dec(declaration) { // it means ensureDeclared and return declare. if i
 	return dec[declaration];
 }
 
-var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be pre-populated by dev
+var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be pre-populated by dev // do it alphabateized by key so its ez to look through
+	DefaultRootWindow: function() {
+		/* http://www.xfree86.org/4.4.0/DefaultRootWindow.3.html
+		 * Window DefaultRootWindow(
+		 *   Display	*display
+		 * );
+		 */
+		return _lib('x11').declare('XDefaultRootWindow', ctypes.default_abi,
+			ostypes.WINDOW,		// return
+			ostypes.DISPLAY.ptr	// *display_name
+		);
+	},
+	DefaultScreenOfDisplay: function() {
+		/* http://www.xfree86.org/4.4.0/DefaultScreenOfDisplay.3.html
+		 * Screen *DefaultScreenOfDisplay(
+		 *   Display	*display
+		 * );
+		 */
+		return _lib('x11').declare('XDefaultScreenOfDisplay', ctypes.default_abi,
+			ostypes.SCREEN,		// return
+			ostypes.DISPLAY.ptr	// *display_name
+		);
+	},
 	XCloseDisplay: function() {
 		/* http://www.xfree86.org/4.4.0/XCloseDisplay.3.html
 		 * int XCloseDisplay(
@@ -255,18 +277,51 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DISPLAY.ptr,	// return
 			ostypes.CHAR.ptr		// *display_name
 		); 
+	},
+	XQueryTree: function() {
+		/* http://www.xfree86.org/4.4.0/XQueryTree.3.html
+		 * Status XQueryTree(
+		 *   Display		*display,
+		 *   Window			w,
+		 *   Window			*root_return,
+		 *   Window			*parent_return,
+		 *   Window			**children_return,
+		 *   unsigned int	*nchildren_return
+		 * );
+		 */
+		return _lib('x11').declare('XQueryTree', ctypes.default_abi,
+			ostypes.STATUS,				// return
+			ostypes.DISPLAY.ptr,		// *display
+			ostypes.WINDOW,				// w
+			ostypes.WINDOW.ptr,			// *root_return
+			ostypes.WINDOW.ptr,			// *parent_return
+			ostypes.WINDOW.ptr.ptr,		// **children_return
+			ostypes.UNSIGNED_INT.ptr	// *nchildren_return
+		); 
 	}
 }
 
 /* start - main display and root window get and hold constant functions */
 function OpenNewXDisplay() {
-	//returns ostypes.DISPLAY	
+	//returns ostypes.DISPLAY
 	//consider: http://mxr.mozilla.org/chromium/source/src/ui/gfx/x/x11_types.cc#26
 	  // std::string display_str = base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(switches::kX11Display);
 	  // return XOpenDisplay(display_str.empty() ? NULL : display_str.c_str());
 	  // i asked about it here: https://ask.mozilla.org/question/1321/proper-way-to-xopendisplay/
 	
 	return _dec('XOpenDisplay')(null);
+	
+	/* http://mxr.mozilla.org/chromium/source/src/ui/gfx/x/x11_types.cc#22
+	22 XDisplay* OpenNewXDisplay() {
+	23 #if defined(OS_CHROMEOS)
+	24   return XOpenDisplay(NULL);
+	25 #else
+	26   std::string display_str = base::CommandLine::ForCurrentProcess()->
+	27                             GetSwitchValueASCII(switches::kX11Display);
+	28   return XOpenDisplay(display_str.empty() ? NULL : display_str.c_str());
+	29 #endif
+	30 }
+	*/
 }
 
 var GetXDisplayConst; //ostypes.DISPLAY // runtime defined constants
@@ -275,20 +330,43 @@ function GetXDisplay() { //two functions that hold const, GetX11RootWindow and G
 		GetXDisplayConst = OpenNewXDisplay();
 	}
 	return GetXDisplayConst;
+	/* http://mxr.mozilla.org/chromium/source/src/ui/gfx/x/x11_types.cc#15
+	15 XDisplay* GetXDisplay() {
+	16   static XDisplay* display = NULL;
+	17   if (!display)
+	18     display = OpenNewXDisplay();
+	19   return display;
+	20 }
+	*/
+}
+
+function DefaultScreenOfDisplay(display) { //macro helper to the XDefaultScreenOfDisplay defined in _preDec
+	//not defined in chromium, i figured out this is XDefaultScreenOfDisplay from the xfree86 docs page
+		//its described as: "The DefaultScreenOfDisplay macro returns the default screen of the specified display."
+	
+	//because the description says "of the specified display" i am not doing this like `DefaultRootWindow` func where i define global `DefaultRootWindowConst` and on future calls to `DefaultRootWindow` it recalls from the global if available
+	return _dec('DefaultScreenOfDisplay')(display);
 }
 
 var DefaultRootWindowConst; // ostypes.XID // runtime defined constants
-function DefaultRootWindow(disp) {
+function DefaultRootWindow(disp) {  //macro helper to the XDefaultRootWindow defined in _preDec
 	// returns XID
-	//i cant find this function in chromium codebase so im just going to guess
-	if (!DefaultRootWindow) {
-		DefaultRootWindowConst = _dec('XDefaultRootWindow')(disp);
+	//not defined in chromium, i figured out this is XDefaultRootWindow from the xfree86 docs page
+		//its described as: "The DefaultRootWindow macro returns the root window for the default screen."
+	if (!DefaultRootWindowConst) {
+		DefaultRootWindowConst = _dec('DefaultRootWindow')(disp);
 	}
 	return DefaultRootWindowConst;
 }
 
+
 function GetX11RootWindow() { //two functions that hold const, GetX11RootWindow and GetXDisplay because some functions need the root window (like XFindWindow and XSendEvent) and others need the root display (like XGetWindowProperty and XSendEvent)
 	return DefaultRootWindow(GetXDisplay());
+	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#504
+	504 XID GetX11RootWindow() {
+	505   return DefaultRootWindow(gfx::GetXDisplay());
+	506 }
+	*/
 }
 /* end - main display and root window get and hold constant functions */
 
@@ -297,9 +375,9 @@ function GetAtom(name) {
 	// name is ostypes.CHAR.ptr
 	// returns ostypes.ATOM
 	if (!(name in GetAtomCache)) {		
-		var atom = _dec('XInternAtom')(GetXDisplay(), name, false);
-		if(atom == ostypes.NONE) {
-			console.error('No atom with name:', name, 'return val of atom:', atom, uneval(atom), atom.toString());
+		var atom = _dec('XInternAtom')(GetXDisplay(), name, false); //passing 3rd arg of false, means even if atom doesnt exist it returns a created atom, this can be used with GetProperty to see if its supported etc, this is how Chromium does it
+		if (atom == ostypes.NONE) { //will never equal ostypes.NONE because i pass 3rd arg of `false` to XInternAtom
+			console.warn('No atom with name:', name, 'return val of atom:', atom, uneval(atom), atom.toString());
 			throw new Error('No atom with name "' + name + '"), return val of atom:"' +  atom + '" toString:"' + atom.toString() + '"');
 		}
 		GetAtomCache[name] = atom;
@@ -734,7 +812,7 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 	}
 
 	
-	var windows; // ostypes.XID
+	var windows = []; // ostypes.XID
 	if (depth == 0) {
 		//this block is not needed: http://stackoverflow.com/questions/27587122/menu-enumeration-functions-in-x11#comment43604147_27587122
 			// menu windows are just windows with _NET_WM_WINDOW_TYPE of _NET_WM_WINDOW_TYPE_MENU
@@ -750,34 +828,40 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 		*/
 	}
 	
-	var root; //ostypes.XID
-	var parent; //ostypes.XID
-	var children; //ostypes.XID.array().ptr
+	var root = new ostypes.WINDOW(); //ostypes.XID
+	var parent = new ostypes.WINDOW();; //ostypes.XID
+	var children = new ostypes.WINDOW.ptr(); //ostypes.XID.array().ptr
+	var num_children = new ostypes.UNSIGNED_INT();
 	
-	var num_children; //ostypes.INT
 	var rez_XQT = _dec('XQueryTree')(GetXDisplay(), window, root.address(), parent.address(), children.address(), num_children.address);
 	
-	if (!rez_XQT) {
+	if (rez_XQT == 0) {
 		return false;
 	}
 	
-	for (var i=num_children-1; i>=0; i--) {
-		windows.push(children[i]);
-	}
-	
+	var num_children_value = ctypes.cast(num_children, ostypes.UNSIGNED_INT).value;
+	var children_casted = ctypes.cast(children, ostypes.WINDOW.array(num_children_casted).ptr).contents;
+	//i think now that it has been casted, its safe to free, im not sure
+	console.info('debug-msg :: pre free children_casted:', uneval(children_casted));
 	doXFree(children);
+	console.info('debug-msg :: post free children_casted:', uneval(children_casted));
+	//may need to do free after pushing into windows arr block here:	
+	for (var i=num_children_value-1; i>=0; i--) {
+		windows.push(children_casted.addressOfElement(i).contents);
+	}
 	
 	// XQueryTree returns the children of |window| in bottom-to-top order, so reverse-iterate the list to check the windows from top-to-bottom.
 	for (var i=0; i<windows.length; i++) {
-		if (IsWindowNamed(window[i]) && shouldStopIteratingDelegate(window[i])) {
+		if (IsWindowNamed(windows[i]) && shouldStopIteratingDelegate(windows[i])) {
 			return true;
 		}
 	}
 	
 	// If we're at this point, we didn't find the window we're looking for at the current level, so we need to recurse to the next level.  We use a second loop because the recursion and call to XQueryTree are expensive and is only needed for a small number of cases.
-	if (depth++ <= max_depth) {
+	depth++
+	if (depth <= max_depth) {
 		for (var i=0; i<windows.length; i++) {
-			if (EnumerateChildren(delegate, windows[i], max_depth, depth))
+			if (EnumerateChildren(shouldStopIteratingDelegate, windows[i], max_depth, depth)) {
 				return true;
 			}
 		}
@@ -858,7 +942,7 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	if (!rez_GXWS) {
 		// Window Manager doesn't support _NET_CLIENT_LIST_STACKING, so fall back to old school enumeration of all X windows.  Some WMs parent 'top-level' windows in unnamed actual top-level windows (ion WM), so extend the search depth to all children of top-level windows.
 		var kMaxSearchDepth = 1;
-		var rez_EAW = EnumerateAllWindows(delegate, kMaxSearchDepth);
+		var rez_EAW = EnumerateAllWindows(shouldStopIteratingDelegate, kMaxSearchDepth);
 		console.info('debug-msg :: rez_EAW:', rez_EAW);
 	} else {
 		// Window Manager supports _NET_CLIENT_LIST_STACK so lets go with new school method
@@ -882,8 +966,91 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	}
 }
 
-function IsWindowFullScreen(window) {
+var WmSupportsHintCache = {};
+function WmSupportsHint(atom_name) {
+	// returns js bool
+	if (!(atom_name in WmSupportsHintCache)) {
+		var atom = GetAtom(atom_name);
+		var rez_GAAP = GetAtomArrayProperty(GetX11RootWindow(), '_NET_SUPPORTED');
+		if (rez_GAAP === false) {
+			//atom_name passed to GAAP is not supported
+			return false;
+		} else {
+			for (var i=0; i<rez_GAAP.length; i++) {
+				if (rez_GAAP[i] == atom) {
+					WmSupportsHintCache[atom_name] = true;
+					break;
+				}
+			}
+			//if got here then it doesnt support this atom_name
+			WmSupportsHintCache[atom_name] = false;
+		}
+	}
+	return WmSupportsHintCache[atom_name];
+	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#1259
+	1259 bool WmSupportsHint(XAtom atom) {
+	1260   std::vector<XAtom> supported_atoms;
+	1261   if (!GetAtomArrayProperty(GetX11RootWindow(),
+	1262                             "_NET_SUPPORTED",
+	1263                             &supported_atoms)) {
+	1264     return false;
+	1265   }
+	1266 
+	1267   return std::find(supported_atoms.begin(), supported_atoms.end(), atom) !=
+	1268       supported_atoms.end();
+	1269 }
+	*/
+}
+
+function IsX11WindowFullScreen(window) {
 	//window is ostypes.XID
+	// If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine whether we're fullscreen.
+	var fullscreen_atom = GetAtom('_NET_WM_STATE_FULLSCREEN');
+	if (WmSupportsHint('_NET_WM_STATE_FULLSCREEN')) {
+		
+	}
+	
+	var window_rect = GetWindowRect(window);
+	if (window_rect === false) {
+		return false;
+	}
+	
+	var disp = GetXDisplay();
+	var screen = DefaultScreenOfDisplay(disp);
+	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#1226
+	1226 bool IsX11WindowFullScreen(XID window) {
+	1227   // If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or
+	1228   // absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine
+	1229   // whether we're fullscreen.
+	1230   XAtom fullscreen_atom = GetAtom("_NET_WM_STATE_FULLSCREEN");
+	1231   if (WmSupportsHint(fullscreen_atom)) {
+	1232     std::vector<XAtom> atom_properties;
+	1233     if (GetAtomArrayProperty(window,
+	1234                              "_NET_WM_STATE",
+	1235                              &atom_properties)) {
+	1236       return std::find(atom_properties.begin(),
+	1237                        atom_properties.end(),
+	1238                        fullscreen_atom) !=
+	1239           atom_properties.end();
+	1240     }
+	1241   }
+	1242 
+	1243   gfx::Rect window_rect;
+	1244   if (!ui::GetWindowRect(window, &window_rect))
+	1245     return false;
+	1246 
+	1247   // We can't use gfx::Screen here because we don't have an aura::Window. So
+	1248   // instead just look at the size of the default display.
+	1249   //
+	1250   // TODO(erg): Actually doing this correctly would require pulling out xrandr,
+	1251   // which we don't even do in the desktop screen yet.
+	1252   ::XDisplay* display = gfx::GetXDisplay();
+	1253   ::Screen* screen = DefaultScreenOfDisplay(display);
+	1254   int width = WidthOfScreen(screen);
+	1255   int height = HeightOfScreen(screen);
+	1256   return window_rect.size() == gfx::Size(width, height);
+	1257 }
+	*/
 }
 
 function GetWindowDesktop(window) {
@@ -1000,7 +1167,7 @@ function IsScreensaverWindow(window) {
 	//window is ostypes.XID
 	
 	// It should occupy the full screen.
-	if (!IsWindowFullScreen(window)) {
+	if (!IsX11WindowFullScreen(window)) {
 		return false;
 	}
 	
@@ -1010,14 +1177,38 @@ function IsScreensaverWindow(window) {
 	}
 	
 	// For all others, like gnome-screensaver, the window's WM_CLASS property should contain "screensaver".
-	var value = new ostypes.CHAR(); //std::string ???
-	if (!GetStringProperty(window, 'WM_CLASS', value.address)) {
+	var rez_GSP = GetStringProperty(window, 'WM_CLASS');
+	if (rez_GSP === false) {
 		return false;
+	} else {
+		for (var i=0; i<rez_GSP.length; i++) {
+			if (rez_GSP[o].indexOf('screensaver') > -1) {
+				return true;
+			}
+		}
+		//return valueStr.indexOf('screensaver') > -1; //return value.find("screensaver") != std::string::npos; //this c++ returns true if value contains "screensaver"
 	}
-	
-	var valueStr = value.readString();
-	return valueStr.indexOf('screensaver') > -1; //return value.find("screensaver") != std::string::npos; //this c++ returns true if value contains "screensaver"
-	
+	/* http://mxr.mozilla.org/chromium/source/src/chrome/browser/screensaver_window_finder_x11.cc#29
+	28 
+	29 bool ScreensaverWindowFinder::IsScreensaverWindow(XID window) const {
+	30   // It should occupy the full screen.
+	31   if (!ui::IsX11WindowFullScreen(window))
+	32     return false;
+	33 
+	34   // For xscreensaver, the window should have _SCREENSAVER_VERSION property.
+	35   if (ui::PropertyExists(window, "_SCREENSAVER_VERSION"))
+	36     return true;
+	37 
+	38   // For all others, like gnome-screensaver, the window's WM_CLASS property
+	39   // should contain "screensaver".
+	40   std::string value;
+	41   if (!ui::GetStringProperty(window, "WM_CLASS", &value))
+	42     return false;
+	43 
+	44   return value.find("screensaver") != std::string::npos;
+	45 }
+	46 
+	*/
 }
 
 function IsWindowNamed(window) {
@@ -1027,7 +1218,7 @@ function IsWindowNamed(window) {
 	var prop = new ostypes.XTextProperty();
 	var rez_XGWN = _dec('XGetWMName')(GetXDisplay(), window, prop.address());
 	
-	if (rez_XGWN === false) {
+	if (rez_XGWN == 0) { //on success it is non-0
 		console.warn('debug-msg :: XGetWMName failed due to error maybe, rez_XGWN:', rez_XGWN);
 		return false;
 	}
@@ -1035,8 +1226,8 @@ function IsWindowNamed(window) {
 	console.info('debug-msg :: prop.value:', prop.value);
 	console.info('debug-msg :: prop:', uneval(prop));
 	
-	if (prop.value == false) {
-		return false
+	if (prop.value.isNull()) {
+		return false;
 	} else {		
 		//chromium does XFree(prop.value) but in my github searches i see this is only done if they do a `Xutf8TextPropertyToTextList` then they do XFree on prop.value or if they do `XmbTextPropertyToTextList` they they use `XFreeStringList`
 		//so i dont think i have to: but i just do it to see what the free ret value is on it
@@ -1068,7 +1259,7 @@ var finderDelegate = function(window) { //no special reason to make this a var f
 
 function ScreensaverWindowExists() {
 	//returns js bool
-	var rez_ETLW = EnumerateTopLevelWindows(finderDelegate.address());
+	var rez_ETLW = EnumerateTopLevelWindows(finderDelegate);
 	console.info('debug-msg :: rez_ETLW:', rez_ETLW);
 	return rez_ETLW;
 }

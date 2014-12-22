@@ -128,13 +128,15 @@ function _lib(path) {
 var dec = {};
 function _dec(declaration) { // it means ensureDeclared and return declare. if its not declared it declares it. else it returns the previously declared.
 	if (!(declaration in dec)) {
-		dec[declaration] = preDec[declaration](); //if declaration is not in _preDec then dev messed up
+		dec[declaration] = preDec[declaration](); //if declaration is not in preDec then dev messed up
 	}
 	return dec[declaration];
 }
 
 var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be pre-populated by dev // do it alphabateized by key so its ez to look through
 	DefaultRootWindow: function() {
+		// MACRO
+		// I created a  macro helper function in body outside of preDec, see it
 		/* http://www.xfree86.org/4.4.0/DefaultRootWindow.3.html
 		 * Window DefaultRootWindow(
 		 *   Display	*display
@@ -146,6 +148,8 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		);
 	},
 	DefaultScreenOfDisplay: function() {
+		// MACRO
+		// I created a  macro helper function in body outside of preDec, see it
 		/* http://www.xfree86.org/4.4.0/DefaultScreenOfDisplay.3.html
 		 * Screen *DefaultScreenOfDisplay(
 		 *   Display	*display
@@ -154,6 +158,30 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		return _lib('x11').declare('XDefaultScreenOfDisplay', ctypes.default_abi,
 			ostypes.SCREEN,		// return
 			ostypes.DISPLAY.ptr	// *display_name
+		);
+	},
+	HeightOfScreen: function() {
+		// MACRO
+		/* http://www.xfree86.org/4.4.0/HeightOfScreen.3.html
+		 * int HeightOfScreen(
+		 *   Screen	*screen 
+		 * );
+		 */
+		return _lib('x11').declare('XHeightOfScreen', ctypes.default_abi,
+			ostypes.INT,		// return
+			ostypes.SCREEN.ptr	// *display_name
+		);
+	},
+	WidthOfScreen: function() {
+		// MACRO
+		/* http://www.xfree86.org/4.4.0/WidthOfScreen.3.html
+		 * int WidthOfScreen(
+		 *   Screen	*screen 
+		 * );
+		 */
+		return _lib('x11').declare('XWidthOfScreen', ctypes.default_abi,
+			ostypes.INT,		// return
+			ostypes.SCREEN.ptr	// *display_name
 		);
 	},
 	XCloseDisplay: function() {
@@ -326,6 +354,9 @@ function OpenNewXDisplay() {
 
 var GetXDisplayConst; //ostypes.DISPLAY // runtime defined constants
 function GetXDisplay() { //two functions that hold const, GetX11RootWindow and GetXDisplay because some functions need the root window (like XFindWindow and XSendEvent) and others need the root display (like XGetWindowProperty and XSendEvent)
+	//http://stackoverflow.com/questions/27602246/is-this-a-global
+		//i posted here asking why are they doing if (!display) when they set display to null on line before, i want to know if i should make my `GetXDisplay` function have an argument of `getFreshDisp` meaning, even if display is held in `GetXDisplayConst` i open a new x display and overwrite the one in global
+			//answer was, no dont override, get it into global once and hold it forever, on future calls to this func just return that global
 	if (!GetXDisplayConst) {
 		GetXDisplayConst = OpenNewXDisplay();
 	}
@@ -340,23 +371,33 @@ function GetXDisplay() { //two functions that hold const, GetX11RootWindow and G
 	*/
 }
 
-function DefaultScreenOfDisplay(display) { //macro helper to the XDefaultScreenOfDisplay defined in _preDec
+function DefaultScreenOfDisplay(display) { //macro helper to the XDefaultScreenOfDisplay defined in preDec
 	//not defined in chromium, i figured out this is XDefaultScreenOfDisplay from the xfree86 docs page
 		//its described as: "The DefaultScreenOfDisplay macro returns the default screen of the specified display."
 	
-	//because the description says "of the specified display" i am not doing this like `DefaultRootWindow` func where i define global `DefaultRootWindowConst` and on future calls to `DefaultRootWindow` it recalls from the global if available
+	//because the description says "of the specified display" i am not doing this like `GetXDisplay` func where i define global `GetXDisplayConst` and on future calls to `GetXDisplay` it recalls from the global if available
+		//so i guess that this macro is NOT used JUST for the root display (which is: returned by `GetXDisplay`/held in `GetXDisplayConst`)
+		//also im thinking a reason for not storing defaultscreen of the GetXDisplayConst (main/root display) is because it may be changing (like user changes monitor setup) but root never changes so we can just store that to global forever, thats why in c codes the make this GetXDisplayConst static (todo: could be worth asking about this someday, but not high priority as this is probably little overhead for possible better accuracy if my thinking [what i typed here in comments] is correct)
 	return _dec('DefaultScreenOfDisplay')(display);
 }
 
 var DefaultRootWindowConst; // ostypes.XID // runtime defined constants
-function DefaultRootWindow(disp) {  //macro helper to the XDefaultRootWindow defined in _preDec
+function DefaultRootWindow(disp) {  //macro helper to the XDefaultRootWindow defined in preDec
 	// returns XID
 	//not defined in chromium, i figured out this is XDefaultRootWindow from the xfree86 docs page
 		//its described as: "The DefaultRootWindow macro returns the root window for the default screen."
+	
+	// im not sure if i should do the DefaultRootWindowConst technique that i do with GetXDisplay, GetXDisplay for sure is static GetXDisplayConst
+	// for same reasoning in DefaultScreenOfDisplay, im thinking user may be able change the root window, but the main display (GetXDisplay/GetXDisplayConst) are not changeable
+	// but DefaultRootWindow is ALWAYS called with GetXDisplay which is static. but maybe still user can change root window around so maybe dont do DefaultRootWindowConst
+	
+	/* // todo: worth asking in future, the overhead is low probably so priority is low
 	if (!DefaultRootWindowConst) {
 		DefaultRootWindowConst = _dec('DefaultRootWindow')(disp);
 	}
 	return DefaultRootWindowConst;
+	*/
+	return _dec('DefaultRootWindow')(disp);
 }
 
 
@@ -1002,6 +1043,10 @@ function WmSupportsHint(atom_name) {
 	*/
 }
 
+function Size() {
+
+}
+
 function IsX11WindowFullScreen(window) {
 	//window is ostypes.XID
 	// If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine whether we're fullscreen.
@@ -1017,6 +1062,11 @@ function IsX11WindowFullScreen(window) {
 	
 	var disp = GetXDisplay();
 	var screen = DefaultScreenOfDisplay(disp);
+	
+	var width = WidthOfScreen(screen);
+	var height = HeightOfScreen(screen);
+	return window_rect.size() == Size(width, height);
+	
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#1226
 	1226 bool IsX11WindowFullScreen(XID window) {
 	1227   // If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or

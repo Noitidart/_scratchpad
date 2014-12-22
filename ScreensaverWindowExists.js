@@ -26,6 +26,8 @@ var nixtypesInit = function() {
 	} else {
 		this.CARD32 = this.UNSIGNED_LONG;
 	}
+	/* https://github.com/foudfou/FireTray/blob/a0c0061cd680a3a92b820969b093cc4780dfb10c/src/modules/ctypes/linux/x11.jsm#L168
+	 */
 	this.XWINDOWATTRIBUTES = ctypes.StructType('XWindowAttributes', [
 		{ 'x': this.INT },
 		{ 'y': this.INT },							/* location of window */
@@ -50,6 +52,20 @@ var nixtypesInit = function() {
 		{ 'do_not_propagate_mask': this.LONG },		/* set of events that should not propagate */
 		{ 'override_redirect': this.BOOL },			/* boolean value for override-redirect */
 		{ 'screen': this.SCREEN.ptr }				/* back pointer to correct screen */
+	]);
+	/* http://www.man-online.org/page/3-XTextProperty/
+	 * typedef struct {
+	 *   unsigned char	*value;		// property data
+	 *   Atom			encoding;	// type of property
+	 *   int			format;		// 8, 16, or 32
+	 *   unsigned long	nitems;		// number of items in value
+	 * );
+	 */
+	this.XTEXTPROPERTY = ctypes.StructType('XTextProperty', [
+		{ value: this.UNSIGNED_CHAR.ptr },	// *value
+		{ encoding: this.ATOM },			// encoding
+		{ format: this.INT },				// format
+		{ nitems: this.UNSIGNED_LONG }		// nitems
 	]);
 	
 	
@@ -151,6 +167,21 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DATA	// *data
 		);
 	},
+	XGetWindowAttributes: function() {
+		/* http://www.xfree86.org/4.4.0/XGetWindowAttributes.3.html
+		 * Status XGetWindowAttributes(
+		 *   Display			*display,
+		 *   Window 			w,
+		 *   XWindowAttributes	*window_attributes_return
+		 * );
+		 */
+		return _lib('x11').declare('XGetWindowAttributes', ctypes.default_abi,
+			ostypes.STATUS,					// return
+			ostypes.DISPLAY.ptr,			// *display
+			ostypes.WINDOW,					// *display_name
+			ostypes.XWINDOWATTRIBUTES.ptr	// *window_attributes_return
+		); 
+	},
 	XGetWindowProperty: function() {
 		/* http://www.xfree86.org/4.4.0/XGetWindowProperty.3.html
 		 * int XGetWindowProperty(
@@ -184,6 +215,21 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.UNSIGNED_CHAR.ptr.ptr	// **prop_return
 		);
 	},
+	XGetWMName: function() {
+		/* http://www.xfree86.org/4.4.0/XGetWMName.3.html
+		 * Status XGetWMName(
+		 *   Display		*display,
+		 *   Window			w,
+		 *   XTextProperty	*text_prop_return 
+		 * );
+		 */
+		 return _lib('x11').declare('XGetWMName', ctypes.default_abi,
+			ostypes.STATUS,			// return
+			ostypes.DISPLAY.ptr,	// *display
+			ostypes.WINDOW,			// w
+			ostypes.XTextProperty	// *text_prop_return
+		);
+	},
 	XInternAtom: function() {
 		/* http://www.xfree86.org/4.4.0/XInternAtom.3.html
 		 * Atom XInternAtom(
@@ -208,22 +254,6 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		return _lib('x11').declare('XOpenDisplay', ctypes.default_abi,
 			ostypes.DISPLAY.ptr,	// return
 			ostypes.CHAR.ptr		// *display_name
-		); 
-	},
-	//550   if (!XGetWindowAttributes(gfx::GetXDisplay(), window, &win_attributes))
-	XGetWindowAttributes: function() {
-		/* http://www.xfree86.org/4.4.0/XGetWindowAttributes.3.html
-		 * Status XGetWindowAttributes(
-		 *   Display			*display,
-		 *   Window 			w,
-		 *   XWindowAttributes	*window_attributes_return
-		 * );
-		 */
-		return _lib('x11').declare('XGetWindowAttributes', ctypes.default_abi,
-			ostypes.STATUS,					// return
-			ostypes.DISPLAY.ptr,			// *display
-			ostypes.WINDOW,					// *display_name
-			ostypes.XWINDOWATTRIBUTES.ptr	// *window_attributes_return
 		); 
 	}
 }
@@ -632,6 +662,8 @@ function doXFree(data) {
 }
 
 function GetXWindowStack(window) {
+	// returns stack on success
+	// returns js false on fail
 	var rez_GP = GetProperty(window, '_NET_CLIENT_LIST_STACKING', {max_length:~0, free_data:false})
 	if (!rez_GP) {
 		return false;
@@ -640,10 +672,10 @@ function GetXWindowStack(window) {
 	console.info('debug-msg :: XWindowStack is available');
 	var result = false;
 	if (rez_GP.data_descriptor.type == ostypes.XA_WINDOW && rez_GP.data_descriptor.format == 32 && rez_GP.data_descriptor.count > 0) {
-		result = true;
+		var result = [];
 		var prestack_casted = ctypes.cast(rez_GP.data, ostypes.XID.array(rez_GP.data_descriptor.count).ptr).contents;
 		for(var i=0; i<rez_GP.data_descriptor.count; i++) {
-			stack.push(prestack_casted.addressOfElement(i).contents);
+			result.push(prestack_casted.addressOfElement(i).contents);
 		}
 		/*
 		XID* stack = reinterpret_cast<XID*>(data);
@@ -820,8 +852,9 @@ bool EnumerateAllWindows(EnumerateWindowsDelegate* delegate, int max_depth) {
 }
 
 function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
-	var stack = []; //js array of ostypes.XID // not: ostypes.XID.array(); //std::vector<XID> stack; // for the new school method
-	var rez_GXWS = GetXWindowStack(GetX11RootWindow(), stack)
+	//returns js bool based on delegate
+
+	var rez_GXWS = GetXWindowStack(GetX11RootWindow())
 	if (!rez_GXWS) {
 		// Window Manager doesn't support _NET_CLIENT_LIST_STACKING, so fall back to old school enumeration of all X windows.  Some WMs parent 'top-level' windows in unnamed actual top-level windows (ion WM), so extend the search depth to all children of top-level windows.
 		var kMaxSearchDepth = 1;
@@ -830,22 +863,21 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	} else {
 		// Window Manager supports _NET_CLIENT_LIST_STACK so lets go with new school method
 		// this block below inserts the menu window items into the stack, we dont need this, i have no idea why chromium checks it
-		/*
-		XMenuList::GetInstance()->InsertMenuWindowXIDs(&stack);
-		std::vector<XID>::iterator iter;
-		for (iter = stack.begin(); iter != stack.end(); iter++) {
-			if (delegate->ShouldStopIterating(*iter)) {
-				return;
+			/*
+			XMenuList::GetInstance()->InsertMenuWindowXIDs(&stack);
+			std::vector<XID>::iterator iter;
+			for (iter = stack.begin(); iter != stack.end(); iter++) {
+				if (delegate->ShouldStopIterating(*iter)) {
+					return;
+				}
 			}
-		}
-		*/
-		for (var i=0; i<stack.length; i++) {
-			if (shouldStopIteratingDelegate(stack[i])) {
-				//screensaver window found!
+			*/
+		for (var i=0; i<rez_GXWS.length; i++) {
+			if (shouldStopIteratingDelegate(rez_GXWS[i])) {
 				return true;
 			}
 		}
-		//if it got here it didnt find the screensaver window
+		//if got to this point then screensaver window not found
 		return false;
 	}
 }
@@ -888,8 +920,8 @@ function IsWindowVisible(window) {
 	//window is ostypes.XID
 	
 	var win_attributes = new ostypes.XWINDOWATTRIBUTES();
-	var rez_XGWA = _dec('XGetWindowAttributes')(GetXDisplay(), window, win_attributes.ptr);
-	if (!rez_XGWA || rez_XGWA.isNull()) {
+	var rez_XGWA = _dec('XGetWindowAttributes')(GetXDisplay(), window, win_attributes.address());
+	if (!rez_XGWA) {
 		return false;
 	} else {
 		if (win_attributes.map_state != ostypes.ISVIEWABLE) {
@@ -989,7 +1021,40 @@ function IsScreensaverWindow(window) {
 }
 
 function IsWindowNamed(window) {
+	//returns js bool
 	//window is ostypes.XID
+	
+	var prop = new ostypes.XTextProperty();
+	var rez_XGWN = _dec('XGetWMName')(GetXDisplay(), window, prop.address());
+	
+	if (rez_XGWN === false) {
+		console.warn('debug-msg :: XGetWMName failed due to error maybe, rez_XGWN:', rez_XGWN);
+		return false;
+	}
+	
+	console.info('debug-msg :: prop.value:', prop.value);
+	console.info('debug-msg :: prop:', uneval(prop));
+	
+	if (prop.value == false) {
+		return false
+	} else {		
+		//chromium does XFree(prop.value) but in my github searches i see this is only done if they do a `Xutf8TextPropertyToTextList` then they do XFree on prop.value or if they do `XmbTextPropertyToTextList` they they use `XFreeStringList`
+		//so i dont think i have to: but i just do it to see what the free ret value is on it
+		var rez_DXF = doXFree(prop.value);
+		console.info('debug-msg :: XFree on prop.value result is, rez_DXF:', rez_DXF, 'im expecting it should maybe fail due to my comment two lines above');
+		return true;
+	}
+	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#994
+	994 // Returns true if |window| is a named window.
+	995 bool IsWindowNamed(XID window) {
+	996   XTextProperty prop;
+	997   if (!XGetWMName(gfx::GetXDisplay(), window, &prop) || !prop.value)
+	998     return false;
+	999 
+	1000   XFree(prop.value);
+	1001   return true;
+	1002 }
+	*/
 }
 
 var finderDelegate = function(window) { //no special reason to make this a var func, other then personal preference as it makes it look like its not a main func but something utilized in sub, which it is utilized in subscope
@@ -1002,28 +1067,10 @@ var finderDelegate = function(window) { //no special reason to make this a var f
 };
 
 function ScreensaverWindowExists() {
-	//returns bool
-
-	if (!ui::GetXWindowStack(ui::GetX11RootWindow(), & stack)) {
-		// Window Manager doesn't support _NET_CLIENT_LIST_STACKING, so fall back
-		// to old school enumeration of all X windows.  Some WMs parent 'top-level'
-		// windows in unnamed actual top-level windows (ion WM), so extend the
-		// search depth to all children of top-level windows.
-		const int kMaxSearchDepth = 1;
-		
-		var rez_ETLW = EnumerateTopLevelWindows(finderDelegate.address()); //EnumerateAllWindows(shouldStopIteratingDelegate, kMaxSearchDepth);
-		console.info('debug-msg :: rez_ETLW:', rez_ETLW);
-		return;
-	}
-
-	////////////////
-	EnumerateTopLevelWindows(); //stop when have iterated through all windows at depth of 1 or have found screenscaever
-
-	if (!rez_SPI) {
-		throw new Error('An error occured in SystemParametersInfo, ctypes.winLastError: ' + ctypes.winLastError);
-	} else {
-		return result.value != 0;
-	}
+	//returns js bool
+	var rez_ETLW = EnumerateTopLevelWindows(finderDelegate.address());
+	console.info('debug-msg :: rez_ETLW:', rez_ETLW);
+	return rez_ETLW;
 }
 
 //setTimeout(function() {

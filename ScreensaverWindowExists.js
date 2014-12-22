@@ -427,7 +427,7 @@ function GetAtom(name) {
 }
 
 //start - GetProperty and variants
-function GetProperty(win, propertyName, params) {
+function GetProperty(win, propertyName, max_length, params) {
 
 	// ON SUCCESS: returns obj, returns object with key of data, and data_descriptor
 	// ON FAIL: returns false
@@ -443,9 +443,12 @@ function GetProperty(win, propertyName, params) {
 	//max_length just js number
 	//property_type is ostypes.INT
 	
+	if (!params) {
+		params = {};
+	}
 	var paramsDefaults = {
 		free_data: true,
-		max_length: 1024, // 1024 because two places use it, for string prop on chromium: mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#830 // and zotero //chromium uses -1 for just returning bool and i dont see an xfree
+		//max_length: 1024, // 1024 because two places use it, for string prop on chromium: mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#830 // and zotero // but i think its cuz both the places i looked were looking to expect single string returned so maybe make this a required arg
 		property_type: ostypes.ANYPROPERTYTYPE
 	}
 	for (var p in paramsDefaults) {
@@ -464,11 +467,12 @@ function GetProperty(win, propertyName, params) {
 	var BytesAfterReturn = new ostypes.UNSIGNED_LONG();
 	var DataReturned = new ostypes.UNSIGNED_CHAR.ptr()
 	
-	var rez_XGWP = _dec('XGetWindowProperty')(GetXDisplay(), win, GetAtom(propertyName), 0 /*offset into property data to read*/, params.max_length, false /*deleted*/, params.property_type, actualTypeReturned.address(), actualFormatReturned.address(), NItemsReturned.address(), BytesAfterReturn.address(), DataReturned.address());
+	var rez_XGWP = _dec('XGetWindowProperty')(GetXDisplay(), win, GetAtom(propertyName), 0 /*offset into property data to read*/, max_length, false /*deleted*/, params.property_type, actualTypeReturned.address(), actualFormatReturned.address(), NItemsReturned.address(), BytesAfterReturn.address(), DataReturned.address());
 	console.info('debug-msg :: rez_XGWP:', rez_XGWP);
 
 	if (rez_XGWP) {
 		//important note: make sure to XFree DataReturned
+		//note: if params.free_data is true, then i might need to cast the DataReturned before freeing, which may still be too early, so if need data returned and freed, i probably have to cast the DataReturned and then push to array as values by doing .addresOfElement(i) on the casted THEN i can free it im pretty sure - so ill have to ask for dev to supply type they wanted it casted to
 		var ret = {
 			data: DataReturned,
 			data_descriptor: {
@@ -491,7 +495,7 @@ function GetProperty(win, propertyName, params) {
 			}
 		}
 	} else {
-		console.warn('debug-msg :: make sure you remember to free the data then');
+		console.info('debug-msg :: make sure you remember to free the data then');
 	}
 		
 	return ret;
@@ -553,7 +557,7 @@ function PropertyExists(window, property_name) {
 	//window is ostypes.WINDOW
 	//property_name is js string;
 	
-	var rez_GP = GetProperty(window, property_name, false, {max_length:1});
+	var rez_GP = GetProperty(window, property_name, false, 1); //by default will XFree the data
 	if (rez_GP === false) {
 		console.info('debug-msg :: PropertyExists - FALSE');
 		return false;
@@ -580,28 +584,68 @@ function PropertyExists(window, property_name) {
 	*/
 }
 
-function GetIntProperty(window, property_name) {
+function GetTypeProperty(window, property_name, type, ret_array) {
+	//this function gets a certain type, it checks the format, and count, and it returns it in js readable and frees the data
+	
 	//returns
-		//success: array of js int
+		//success: js int if !ret_array
+		//success: array js int if ret_array
 		//fail: js false
 	//window is ostypes.WINDOW
 	//property_name is js string;
 
-	var rez_GP = GetProperty(window, property_name, {free_data:false, max_length:1}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
+	switch (type) {
+		case 'Atom':
+			var castTo = ostypes.ATOM;
+			var useMaxLenForNonRetArray = 1; //im guessing on this one, chromium never does GetProp for just one atom, ostypes.ATOM is = to ctypes.unsigned_long, so maybe whatever is the size of that
+			var useFormatCheck = null;
+			var useTypeCheck = ostypes.XA_ATOM;
+			break;
+		case 'Int':
+			var castTo = ostypes.LONG; //i would expect ostypes.INT here but Chromium wants it casted to long
+			var useMaxLenForNonRetArray = 1;
+			var useFormatCheck = 32;
+			var useTypeCheck = null;
+			break;
+		case 'String':
+			var castTo = ostypes.CHAR;
+			var useMaxLenForNonRetArray = 1024;
+			var useFormatCheck = 8;
+			var useTypeCheck = null;
+			break;
+		default:
+			throw new Error('type not valid');
+	}
+	
+	var rez_GP = GetProperty(window, property_name, ret_array ? useMaxLenForNotRetArray : -0x80000000 /*(~0L)*/ /*(all of them)*/, {free_data:false}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
 	if (rez_GP === false) {
 		//nothing returned so no need to free
 		return false;
 	}
 	
-	if (rez_GP.data_descriptor.format != 8) {
-		doXFree(rez_GP.data);
-		return false;
+	if (useFormatCheck !== null) {
+		if (rez_GP.data_descriptor.format != useFormatCheck) {
+			console.warn('debug-msg :: returnedFormatCheck fail');
+			doXFree(rez_GP.data);
+			return false;
+		}
+	}
+	if (useTypeCheck !== null) {
+		if (rez_GP.data_descriptor.type != useTypeCheck) {
+			console.warn('debug-msg :: returnedTypeCheck fail');
+			doXFree(rez_GP.data);
+			return false;
+		}
 	}
 	
 	if (rez_GP.data_descriptor.count > 1) {
-		console.warn('debug-msg :: in GetIntProperty more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count);
+		if (!ret_array) {
+			console.warn('debug-msg :: more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count, 'i will force fail this func');
+			doXFree(rez_GP.data);
+			return false;
+		}
 	} else if (rez_GP.data_descriptor.count == 0) {
-		console.warn('debug-msg :: in GetIntProperty 0 elements returned in rez_GP.data array so return false, try XFree');
+		console.warn('debug-msg :: 0 elements returned in rez_GP.data array so return false, try XFree');
 		var rez_DXF = doXFree(rez_GP.data);
 		if (rez_DXF) {
 			console.warn('debug-msg :: odd: DXF was success when reutrned count was 0');
@@ -610,13 +654,16 @@ function GetIntProperty(window, property_name) {
 	}
 	
 	var dataCasted = ctypes.cast(rez_GP.data, ostypes.LONG.array(rez_GP.data_descriptor.count).ptr).contents;
-	var val = [];
-	for (var i=0; i<rez_GP.data_descriptor.count; i++) {
-		val.push(dataCasted.addressOfElement(i).contents);
+	if (ret_array) {
+		var val = [];
+		for (var i=0; i<rez_GP.data_descriptor.count; i++) {
+			val.push(dataCasted.addressOfElement(i).contents);
+		}
+	} else {
+		var val = dataCasted.addressOfElement(0).contents;
+		doXFree(rez_GP.data);
 	}
-	doXFree(rez_GP.data);
 	return val;
-	
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#734
 	734 bool GetIntProperty(XID window, const std::string& property_name, int* value) {
 	735   XAtom type = None;
@@ -641,14 +688,84 @@ function GetIntProperty(window, property_name) {
 	*/
 }
 
-function GetStringProperty(window, property_name) {
+function GetIntProperty(window, property_name, ret_array) {
 	//returns
-		//success: array of js strings
+		//success: js int if !ret_array
+		//success: array js int if ret_array
 		//fail: js false
 	//window is ostypes.WINDOW
 	//property_name is js string;
 
-	var rez_GP = GetProperty(window, property_name, {free_data:false}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
+	var rez_GP = GetProperty(window, property_name, ret_array ? 1 : -0x80000000 /*(~0L)*/ /*(all of them)*/, {free_data:false}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
+	if (rez_GP === false) {
+		//nothing returned so no need to free
+		return false;
+	}
+	
+	if (rez_GP.data_descriptor.format != 32) {
+		doXFree(rez_GP.data);
+		return false;
+	}
+	
+	if (rez_GP.data_descriptor.count > 1) {
+		if (!ret_array) {
+			console.warn('debug-msg :: more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count, 'i will force fail this func');
+			doXFree(rez_GP.data);
+			return false;
+		}
+	} else if (rez_GP.data_descriptor.count == 0) {
+		console.warn('debug-msg :: 0 elements returned in rez_GP.data array so return false, try XFree');
+		var rez_DXF = doXFree(rez_GP.data);
+		if (rez_DXF) {
+			console.warn('debug-msg :: odd: DXF was success when reutrned count was 0');
+		}
+		return false;
+	}
+	
+	var dataCasted = ctypes.cast(rez_GP.data, ostypes.LONG.array(rez_GP.data_descriptor.count).ptr).contents;
+	if (ret_array) {
+		var val = [];
+		for (var i=0; i<rez_GP.data_descriptor.count; i++) {
+			val.push(dataCasted.addressOfElement(i).contents);
+		}
+	} else {
+		var val = dataCasted.addressOfElement(0).contents;
+		doXFree(rez_GP.data);
+	}
+	return val;
+	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#734
+	734 bool GetIntProperty(XID window, const std::string& property_name, int* value) {
+	735   XAtom type = None;
+	736   int format = 0;  // size in bits of each item in 'property'
+	737   unsigned long num_items = 0;
+	738   unsigned char* property = NULL;
+	739 
+	740   int result = GetProperty(window, property_name, 1,
+	741                            &type, &format, &num_items, &property);
+	742   if (result != Success)
+	743     return false;
+	744 
+	745   if (format != 32 || num_items != 1) {
+	746     XFree(property);
+	747     return false;
+	748   }
+	749 
+	750   *value = static_cast<int>(*(reinterpret_cast<long*>(property)));
+	751   XFree(property);
+	752   return true;
+	753 }
+	*/
+}
+
+function GetStringProperty(window, property_name, ret_array) {
+	//returns
+		//success: js int if !ret_array
+		//success: array js int if ret_array
+		//fail: js false
+	//window is ostypes.WINDOW
+	//property_name is js string;
+
+	var rez_GP = GetProperty(window, property_name, ret_array ? 1024 : -0x80000000 /*(~0L)*/ /*(all of them)*/, {free_data:false}); //chromium uses type of NONE which is just 0
 	if (rez_GP === false) {
 		//nothing returned so no need to free
 		return false;
@@ -660,7 +777,52 @@ function GetStringProperty(window, property_name) {
 	}
 	
 	if (rez_GP.data_descriptor.count > 1) {
-		console.warn('debug-msg :: in GetStringProperty more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count);
+		if (!ret_array) {
+			console.warn('debug-msg :: more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count, 'i will force fail this func');
+			doXFree(rez_GP.data);
+			return false;
+		}
+	} else if (rez_GP.data_descriptor.count == 0) {
+		console.warn('debug-msg :: 0 elements returned in rez_GP.data array so return false, try XFree');
+		var rez_DXF = doXFree(rez_GP.data);
+		if (rez_DXF) {
+			console.warn('debug-msg :: odd: DXF was success when reutrned count was 0');
+		}
+		return false;
+	}
+	
+	var dataCasted = ctypes.cast(rez_GP.data, ostypes.CHAR.array(rez_GP.data_descriptor.count).ptr).contents;
+	if (ret_array) {
+		var val = [];
+		for (var i=0; i<rez_GP.data_descriptor.count; i++) {
+			val.push(dataCasted.addressOfElement(i).contents);
+		}
+	} else {
+		var val = dataCasted.addressOfElement(0).contents;
+		doXFree(rez_GP.data);
+	}
+	return val;
+	////////////////////////
+	/* //this was the orig GetStringProperty but i modded to be a merge of GetStringArrayProperty (although chromium doesnt seem to use GetStringArrayProperty, they dont have it defined)
+	//returns
+		//success: js string
+		//fail: js false
+	//window is ostypes.WINDOW
+	//property_name is js string;
+
+	var rez_GP = GetProperty(window, property_name, {free_data:false, max_length:1024}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
+	if (rez_GP === false) {
+		//nothing returned so no need to free
+		return false;
+	}
+	
+	if (rez_GP.data_descriptor.format != 8) {
+		doXFree(rez_GP.data);
+		return false;
+	}
+	
+	if (rez_GP.data_descriptor.count > 1) {
+		console.warn('debug-msg :: in GetStringProperty more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count, 'will just return first one');
 	} else if (rez_GP.data_descriptor.count == 0) {
 		console.warn('debug-msg :: in GetStringProperty 0 elements returned in rez_GP.data array so return false, try XFree');
 		var rez_DXF = doXFree(rez_GP.data);
@@ -671,13 +833,14 @@ function GetStringProperty(window, property_name) {
 	}
 	
 	var dataCasted = ctypes.cast(rez_GP.data, ostypes.CHAR.array(rez_GP.data_descriptor.count).ptr).contents;
-	var val = [];
-	for (var i=0; i<rez_GP.data_descriptor.count; i++) {
-		val.push(dataCasted.addressOfElement(i).contents);
-	}
+	//var val = [];
+	//for (var i=0; i<rez_GP.data_descriptor.count; i++) {
+		//val.push(dataCasted.addressOfElement(i).contents);
+	//}
+	var val = dataCasted.addressOfElement(0).contents;
 	doXFree(rez_GP.data);
 	return val;
-		
+	*/
 /*
 830 bool GetStringProperty(
 831     XID window, const std::string& property_name, std::string* value) {
@@ -703,14 +866,14 @@ function GetStringProperty(window, property_name) {
 */
 }
 
-function GetAtomArrayProperty(window, property_name, ) {
+function GetAtomArrayProperty(window, property_name) {
 	//returns
 		//success: array of ostypes.ATOMS
 		//fail: js false
 	//window is ostypes.WINDOW
 	//property_name is js string;
 
-	var rez_GP = GetProperty(window, property_name, {free_data:false, max_length: -0x80000000 /*(~0L)*/}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
+	var rez_GP = GetProperty(window, property_name, -0x80000000 /*(~0L)*/ /*(all of them)*/, {free_data:false}); //will be using defaults of type //chromium uses type of NONE which is just 0
 	if (rez_GP === false) {
 		//nothing returned so no need to free
 		return false;
@@ -721,9 +884,9 @@ function GetAtomArrayProperty(window, property_name, ) {
 		return false;
 	}
 	
-	if (rez_GP.data_descriptor.count > 1) {
+	/*if (rez_GP.data_descriptor.count > 1) {
 		console.warn('debug-msg :: in GetStringProperty more then 1 element returned in rez_GP.data array, count:', rez_GP.data_descriptor.count);
-	} else if (rez_GP.data_descriptor.count == 0) {
+	} else */if (rez_GP.data_descriptor.count == 0) {
 		console.warn('debug-msg :: in GetStringProperty 0 elements returned in rez_GP.data array so return false, try XFree');
 		var rez_DXF = doXFree(rez_GP.data);
 		if (rez_DXF) {
@@ -783,8 +946,9 @@ function doXFree(data) {
 function GetXWindowStack(window) {
 	// returns stack on success
 	// returns js false on fail
-	var rez_GP = GetProperty(window, '_NET_CLIENT_LIST_STACKING', {max_length:~0, free_data:false})
-	if (!rez_GP) {
+	var rez_GP = GetProperty(window, '_NET_CLIENT_LIST_STACKING', -0x80000000 /*(~0L)*/ /*(all of them)*/, {free_data:false});
+	if (rez_GP === false) {
+		//GP got no DataReturned so nothing to free
 		return false;
 	}
 	
@@ -1047,12 +1211,58 @@ function Size() {
 
 }
 
+function GetWindowRect(window) {
+	
+	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#574
+	574 bool GetWindowRect(XID window, gfx::Rect* rect) {
+	575   Window root, child;
+	576   int x, y;
+	577   unsigned int width, height;
+	578   unsigned int border_width, depth;
+	579 
+	580   if (!XGetGeometry(gfx::GetXDisplay(), window, &root, &x, &y,
+	581                     &width, &height, &border_width, &depth))
+	582     return false;
+	583 
+	584   if (!XTranslateCoordinates(gfx::GetXDisplay(), window, root,
+	585                              0, 0, &x, &y, &child))
+	586     return false;
+	587 
+	588   *rect = gfx::Rect(x, y, width, height);
+	589 
+	590   std::vector<int> insets;
+	591   if (GetIntArrayProperty(window, "_NET_FRAME_EXTENTS", &insets) &&
+	592       insets.size() == 4) {
+	593     rect->Inset(-insets[0], -insets[2], -insets[1], -insets[3]);
+	594   }
+	595   // Not all window managers support _NET_FRAME_EXTENTS so return true even if
+	596   // requesting the property fails.
+	597 
+	598   return true;
+	599 }
+	*/
+}
+
 function IsX11WindowFullScreen(window) {
 	//window is ostypes.XID
 	// If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine whether we're fullscreen.
 	var fullscreen_atom = GetAtom('_NET_WM_STATE_FULLSCREEN');
 	if (WmSupportsHint('_NET_WM_STATE_FULLSCREEN')) {
-		
+		///
+		var atom_properties = GetAtomArrayProperty(window, '_NET_WM_STATE');
+		if (atom_properties === false) {
+			//GetAtomArrayProperty error'ed probably
+			return false;
+		} else {
+			for (var i=0; i<atom_properties.length; i++) {
+				if (atom_properties[i] == fullscreen_atom) {
+					return true;
+				}
+			}
+			//if got here then its not full screen
+			return false;
+		}
+		///
 	}
 	
 	var window_rect = GetWindowRect(window);
@@ -1231,11 +1441,13 @@ function IsScreensaverWindow(window) {
 	if (rez_GSP === false) {
 		return false;
 	} else {
+		/*
 		for (var i=0; i<rez_GSP.length; i++) {
 			if (rez_GSP[o].indexOf('screensaver') > -1) {
 				return true;
 			}
 		}
+		*/
 		//return valueStr.indexOf('screensaver') > -1; //return value.find("screensaver") != std::string::npos; //this c++ returns true if value contains "screensaver"
 	}
 	/* http://mxr.mozilla.org/chromium/source/src/chrome/browser/screensaver_window_finder_x11.cc#29

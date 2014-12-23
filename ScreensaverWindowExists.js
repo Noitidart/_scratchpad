@@ -217,6 +217,33 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DATA	// *data
 		);
 	},
+	XGetGeometry: function() {
+		/* http://www.xfree86.org/4.4.0/XGetGeometry.3.html
+		 * Status XGetGeometry(
+		 *   Display 		*display,
+		 *   Drawable		d,
+		 *   Window			*root_return,
+		 *   int			*x_return,
+		 *   int			*y_return,
+		 *   unsigned int	*width_return,
+		 *   unsigned int	*height_return,
+		 *   unsigned int	*border_width_return,
+		 *   unsigned int	*depth_return
+		 * );
+		 */
+		return _lib('x11').declare('XGetGeometry', ctypes.default_abi,
+			ostypes.STATUS,				// return
+			ostypes.DISPLAY.ptr,		// *display
+			ostypes.DRAWABLE,			// d
+			ostypes.WINDOW.ptr,			// *root_return
+			ostypes.INT.ptr,			// *x_return
+			ostypes.INT.ptr,			// *y_return
+			ostypes.UNSIGNED_INT.ptr,	// *width_return
+			ostypes.UNSIGNED_INT.ptr,	// *height_return
+			ostypes.UNSIGNED_INT.ptr,	// *border_width_return
+			ostypes.UNSIGNED_INT.ptr	// *depth_return
+		); 
+	},
 	XGetWindowAttributes: function() {
 		/* http://www.xfree86.org/4.4.0/XGetWindowAttributes.3.html
 		 * Status XGetWindowAttributes(
@@ -326,7 +353,32 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.WINDOW.ptr.ptr,		// **children_return
 			ostypes.UNSIGNED_INT.ptr	// *nchildren_return
 		); 
-	}
+	},
+	XTranslateCoordinates: function() {
+		/* http://www.xfree86.org/4.4.0/XTranslateCoordinates.3.html
+		 * Bool XTranslateCoordinates(
+		 *   Display	*display,
+		 *   Window		src_w,
+		 *   Window		dest_w,
+		 *   int		src_x,
+		 *   int		src_y,
+		 *   int		*dest_x_return,
+		 *   int		*dest_y_return,
+		 *   Window		*child_return
+		 * );
+		 */
+		return _lib('x11').declare('XTranslateCoordinates', ctypes.default_abi,
+			ostypes.BOOL,			// return
+			ostypes.DISPLAY.ptr,	// *display
+			ostypes.WINDOW,			// src_w
+			ostypes.WINDOW,			// dest_w
+			ostypes.INT,			// src_x
+			ostypes.INT,			// src_y
+			ostypes.INT.ptr,		// *dest_x_return
+			ostypes.INT.ptr,		// *dest_y_return
+			ostypes.WINDOW.ptr		// *child_return
+		); 
+	},
 }
 
 /* start - main display and root window get and hold constant functions */
@@ -653,7 +705,7 @@ function GetTypeProperty(window, property_name, type, ret_array) {
 		return false;
 	}
 	
-	var dataCasted = ctypes.cast(rez_GP.data, ostypes.LONG.array(rez_GP.data_descriptor.count).ptr).contents;
+	var dataCasted = ctypes.cast(rez_GP.data, castTo.array(rez_GP.data_descriptor.count).ptr).contents;
 	if (ret_array) {
 		var val = [];
 		for (var i=0; i<rez_GP.data_descriptor.count; i++) {
@@ -661,8 +713,8 @@ function GetTypeProperty(window, property_name, type, ret_array) {
 		}
 	} else {
 		var val = dataCasted.addressOfElement(0).contents;
-		doXFree(rez_GP.data);
 	}
+	doXFree(rez_GP.data);
 	return val;
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#734
 	734 bool GetIntProperty(XID window, const std::string& property_name, int* value) {
@@ -1248,7 +1300,6 @@ function IsX11WindowFullScreen(window) {
 	// If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine whether we're fullscreen.
 	var fullscreen_atom = GetAtom('_NET_WM_STATE_FULLSCREEN');
 	if (WmSupportsHint('_NET_WM_STATE_FULLSCREEN')) {
-		///
 		var atom_properties = GetAtomArrayProperty(window, '_NET_WM_STATE');
 		if (atom_properties === false) {
 			//GetAtomArrayProperty error'ed probably

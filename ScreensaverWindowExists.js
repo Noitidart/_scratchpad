@@ -20,12 +20,13 @@ var nixtypesInit = function() {
 	this.XID = ctypes.unsigned_long;
 	
 	// ADVANCED TYPES (ones that are equal to something predefined by me)
-	this.COLORMAP = this.XID;
 	if (/^(Alpha|hppa|ia64|ppc64|s390|x86_64)-/.test(Services.appinfo.XPCOMABI)) { // https://github.com/foudfou/FireTray/blob/a0c0061cd680a3a92b820969b093cc4780dfb10c/src/modules/ctypes/linux/x11.jsm#L45 // // http://mxr.mozilla.org/mozilla-central/source/configure.in
 		this.CARD32 = this.UNSIGNED_INT;
 	} else {
 		this.CARD32 = this.UNSIGNED_LONG;
 	}
+	this.COLORMAP = this.XID;
+	this.DRAWABLE = this.XID; // /usr/include/X11/X.h:102 //https://github.com/hazelnusse/sympy-old/blob/65f802573e5963731a3e7e643676131b6a2500b8/sympy/thirdparty/pyglet/pyglet/window/xlib/xlib.py#L80
 	/* https://github.com/foudfou/FireTray/blob/a0c0061cd680a3a92b820969b093cc4780dfb10c/src/modules/ctypes/linux/x11.jsm#L168
 	 */
 	this.XWINDOWATTRIBUTES = ctypes.StructType('XWindowAttributes', [
@@ -1264,6 +1265,34 @@ function Size() {
 }
 
 function GetWindowRect(window) {
+	var d = window; //ostypes.DRAWABLE; //chromium passes a window and docs says its legal to pass window with class InputOnly but it doesnt specify if its in place of the drawable but im guessing it is
+	var root_return = new ostypes.WINDOW();
+	var x_return = new ostypes.INT();
+	var y_return = new ostypes.INT();
+	var width_return = new ostypes.UNSIGNED_INT();
+	var height_return = new ostypes.UNSIGNED_INT();
+	var border_width_return = new ostypes.UNSIGNED_INT();
+	var depth_return = new ostypes.UNSIGNED_INT();
+	
+	var rez_XGG = _dec('XGetGeometry')(GetXDisplay(), d, window.address(), x_return.address(), width_return.address(), height_return.address(), border_width_return.address(), depth_return.address());
+	if (rez_XGG == ostypes.NONE) {
+		return false;
+	}
+	
+	var child_return = new ostypes.WINDOW();
+	var rez_XTC = _dec('XTranslateCoordinates')(GetXDisplay(), window, root_return, 0, 0, x_return.address(), y_return.address(), child_return.address());
+	if (rez_XTC == false) {
+		return false;
+	}
+	
+	var rect = Rect(x_return, y_return, width_return, height_return);
+	var rez_GIP = GetIntProperty(window, '_NET_FRAME_EXTENTS', true);
+	if (rez_GIP !== false && rez_GIP.length == 4) {
+		//rect.Inset(
+	}
+	
+	// Not all window managers support _NET_FRAME_EXTENTS so return true even if requesting the property fails.
+	return true;
 	
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#574
 	574 bool GetWindowRect(XID window, gfx::Rect* rect) {

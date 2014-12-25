@@ -1,3 +1,17 @@
+const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
+const self = {
+	name: 'js-macosx',
+	id: 'js-macosx@jetpack',
+	packagename: 'js-macosx',
+	path: {
+		content: 'chrome://js-macosx/content/',
+		modules: 'chrome://js-macosx/content/modules/'
+	},
+	aData: 0
+};
+Cu.import('resource://gre/modules/Services.jsm');
+Cu.import('resource://gre/modules/devtools/Console.jsm');
+
 Cu.import('resource://gre/modules/ctypes.jsm')
 
 var nixtypesInit = function() {
@@ -214,7 +228,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 * );
 		 */
 		return _lib('x11').declare('XFree', ctypes.default_abi,
-			ostpyes.INT,	// return
+			ostypes.INT,	// return
 			ostypes.DATA	// *data
 		);
 	},
@@ -302,10 +316,10 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 * );
 		 */
 		 return _lib('x11').declare('XGetWMName', ctypes.default_abi,
-			ostypes.STATUS,			// return
-			ostypes.DISPLAY.ptr,	// *display
-			ostypes.WINDOW,			// w
-			ostypes.XTextProperty	// *text_prop_return
+			ostypes.STATUS,				// return
+			ostypes.DISPLAY.ptr,		// *display
+			ostypes.WINDOW,				// w
+			ostypes.XTEXTPROPERTY.ptr	// *text_prop_return
 		);
 	},
 	XInternAtom: function() {
@@ -1091,14 +1105,14 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 	var children = new ostypes.WINDOW.ptr(); //ostypes.XID.array().ptr
 	var num_children = new ostypes.UNSIGNED_INT();
 	
-	var rez_XQT = _dec('XQueryTree')(GetXDisplay(), window, root.address(), parent.address(), children.address(), num_children.address);
+	var rez_XQT = _dec('XQueryTree')(GetXDisplay(), window, root.address(), parent.address(), children.address(), num_children.address());
 	
 	if (rez_XQT == 0) {
 		return false;
 	}
 	
 	var num_children_value = ctypes.cast(num_children, ostypes.UNSIGNED_INT).value;
-	var children_casted = ctypes.cast(children, ostypes.WINDOW.array(num_children_casted).ptr).contents;
+	var children_casted = ctypes.cast(children, ostypes.WINDOW.array(num_children_value).ptr).contents;
 	//i think now that it has been casted, its safe to free, im not sure
 	console.info('debug-msg :: pre free children_casted:', uneval(children_casted));
 	doXFree(children);
@@ -1567,7 +1581,7 @@ function IsWindowNamed(window) {
 	//returns js bool
 	//window is ostypes.XID
 	
-	var prop = new ostypes.XTextProperty();
+	var prop = new ostypes.XTEXTPROPERTY();
 	var rez_XGWN = _dec('XGetWMName')(GetXDisplay(), window, prop.address());
 	
 	if (rez_XGWN == 0) { //on success it is non-0
@@ -1616,11 +1630,28 @@ function ScreensaverWindowExists() {
 	return rez_ETLW;
 }
 
-//setTimeout(function() {
+
+function install() {}
+function uninstall() {}
+
+function startup() {
+
+//var root = GetX11RootWindow();
+//console.log('debug-msg :: root:', root, uneval(root));
+
+
+//Services.wm.getMostRecentWindow(null).setTimeout(function() {
 	var rez_SWE = ScreensaverWindowExists();
 	console.info('debug-msg :: rez_SWE:', rez_SWE);
 
+
+//}, 65000);
+}
+ 
+function shutdown() {
+	var rez_XCD = _dec('XCloseDisplay')(GetXDisplay());
+	console.log('deb-msg :: rez_XCD:', rez_XCD, uneval(rez_XCD));
 	for (var l in lib) {
 		lib[l].close();
-	}
-//}, 65000);
+	}	
+}

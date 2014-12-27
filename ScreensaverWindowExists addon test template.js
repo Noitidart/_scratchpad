@@ -159,7 +159,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 */
 		return _lib('x11').declare('XDefaultRootWindow', ctypes.default_abi,
 			ostypes.WINDOW,		// return
-			ostypes.DISPLAY.ptr	// *display_name
+			ostypes.DISPLAY.ptr	// *display
 		);
 	},
 	DefaultScreenOfDisplay: function() {
@@ -171,8 +171,8 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 * );
 		 */
 		return _lib('x11').declare('XDefaultScreenOfDisplay', ctypes.default_abi,
-			ostypes.SCREEN,		// return
-			ostypes.DISPLAY.ptr	// *display_name
+			ostypes.SCREEN.ptr,		// return
+			ostypes.DISPLAY.ptr		// *display
 		);
 	},
 	HeightOfScreen: function() {
@@ -184,7 +184,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 */
 		return _lib('x11').declare('XHeightOfScreen', ctypes.default_abi,
 			ostypes.INT,		// return
-			ostypes.SCREEN.ptr	// *display_name
+			ostypes.SCREEN.ptr	// *screen
 		);
 	},
 	WidthOfScreen: function() {
@@ -196,7 +196,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 */
 		return _lib('x11').declare('XWidthOfScreen', ctypes.default_abi,
 			ostypes.INT,		// return
-			ostypes.SCREEN.ptr	// *display_name
+			ostypes.SCREEN.ptr	// *screen
 		);
 	},
 	XCloseDisplay: function() {
@@ -207,7 +207,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 */
 		return _lib('x11').declare('XCloseDisplay', ctypes.default_abi,
 			ostypes.INT,		// return
-			ostypes.DISPLAY.ptr	// *display_name
+			ostypes.DISPLAY.ptr	// *display
 		);
 	},
 	XFlush: function() {
@@ -525,16 +525,14 @@ function GetProperty(win, propertyName, max_length, params) {
 	}
 	// this function is a combination of chromium's GetProperty (http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#86) and zotero's (_X11GetProperty https://github.com/zotero/zotero/blob/15108eea3f099a5a39a145ed55043d1ed9889e6a/chrome/content/zotero/xpcom/integration.js#L571) // the reason i did this, i was originally going by chromium but i couldnt see where they were XFree'ing the data, it could be that because bytes returned was -1 there was no need to XFree, but this function also returns data which i can use in future
 
-	var property_atom = GetAtom(propertyName);
-	var remaining_bytes = new ostypes.UNSIGNED_LONG();
-	
+	var property_atom = GetAtom(propertyName);	
 	var actualTypeReturned = new ostypes.ATOM();
 	var actualFormatReturned = new ostypes.INT();
 	var NItemsReturned = new ostypes.UNSIGNED_LONG();
 	var BytesAfterReturn = new ostypes.UNSIGNED_LONG();
 	var DataReturned = new ostypes.UNSIGNED_CHAR.ptr()
 	
-	var rez_XGWP = _dec('XGetWindowProperty')(GetXDisplay(), win, GetAtom(propertyName), 0 /*offset into property data to read*/, max_length, false /*deleted*/, params.property_type, actualTypeReturned.address(), actualFormatReturned.address(), NItemsReturned.address(), BytesAfterReturn.address(), DataReturned.address());
+	var rez_XGWP = _dec('XGetWindowProperty')(GetXDisplay(), win, property_atom, 0 /*offset into property data to read*/, max_length, false /*deleted*/, params.property_type, actualTypeReturned.address(), actualFormatReturned.address(), NItemsReturned.address(), BytesAfterReturn.address(), DataReturned.address());
 	console.info('debug-msg :: rez_XGWP:', rez_XGWP);
 
 	if (rez_XGWP) {
@@ -624,7 +622,7 @@ function PropertyExists(window, property_name) {
 	//window is ostypes.WINDOW
 	//property_name is js string;
 	
-	var rez_GP = GetProperty(window, property_name, false, 1); //by default will XFree the data
+	var rez_GP = GetProperty(window, property_name, 1); //by default will XFree the data
 	if (rez_GP === false) {
 		console.info('debug-msg :: PropertyExists - FALSE');
 		return false;
@@ -943,11 +941,13 @@ function GetAtomArrayProperty(window, property_name) {
 	var rez_GP = GetProperty(window, property_name, -0x80000000 /*(~0L)*/ /*(all of them)*/, {free_data:false}); //will be using defaults of type //chromium uses type of NONE which is just 0
 	if (rez_GP === false) {
 		//nothing returned so no need to free
+		console.log('debug-msg :: GetAtomArrayProperty FALSE due to GetProperty failing');
 		return false;
 	}
 	
 	if (rez_GP.data_descriptor.type != ostypes.XA_ATOM) {
 		doXFree(rez_GP.data);
+		console.log('debug-msg :: GetAtomArrayProperty FALSE due to GetProperty data returned type not matching');
 		return false;
 	}
 	
@@ -959,6 +959,7 @@ function GetAtomArrayProperty(window, property_name) {
 		if (rez_DXF) {
 			console.warn('debug-msg :: odd: DXF was success when reutrned count was 0');
 		}
+		console.log('debug-msg :: GetAtomArrayProperty FALSE due to GetProperty returning count of 0');
 		return false;
 	}
 	
@@ -968,6 +969,7 @@ function GetAtomArrayProperty(window, property_name) {
 		val.push(dataCasted.addressOfElement(i).contents);
 	}
 	doXFree(rez_GP.data);
+	console.log('debug-msg :: GetAtomArrayProperty succesfully returning array of atoms');
 	return val;
 /* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#804
 //example usage by chromium: GetAtomArrayProperty(window, "_NET_WM_STATE", &wm_states)
@@ -1016,6 +1018,7 @@ function GetXWindowStack(window) {
 	var rez_GP = GetProperty(window, '_NET_CLIENT_LIST_STACKING', -0x80000000 /*(~0L)*/ /*(all of them)*/, {free_data:false});
 	if (rez_GP === false) {
 		//GP got no DataReturned so nothing to free
+		console.log('debug-msg :: GetXWindowStack FALSE due to GetProperty failing');
 		return false;
 	}
 	
@@ -1113,14 +1116,22 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 	
 	var num_children_value = ctypes.cast(num_children, ostypes.UNSIGNED_INT).value;
 	var children_casted = ctypes.cast(children, ostypes.WINDOW.array(num_children_value).ptr).contents;
-	//i think now that it has been casted, its safe to free, im not sure
-	console.info('debug-msg :: pre free children_casted:', uneval(children_casted));
-	doXFree(children);
-	console.info('debug-msg :: post free children_casted:', uneval(children_casted));
+	//not yet safe to free, as free'ing will erase data in casted as well
+	//console.info('debug-msg :: pre free children_casted:', uneval(children_casted));
+	
 	//may need to do free after pushing into windows arr block here:	
 	for (var i=num_children_value-1; i>=0; i--) {
 		windows.push(children_casted.addressOfElement(i).contents);
 	}
+	//now that data has been pushed you can now do free, it will not erase the data pushed into the windows array
+	//console.info('debug-msg :: pree free windows:', uneval(windows));
+	doXFree(children);
+	//console.info('debug-msg :: post free windows:', uneval(windows));
+	
+	//console.info('debug-msg :: IsWindowNamed(windows[0]):', IsWindowNamed(windows[0]));
+	//console.info('debug-msg :: IsWindowVisible(windows[0]):', IsWindowVisible(windows[0]));
+	//console.info('debug-msg :: IsScreensaverWindow(windows[0]):', IsScreensaverWindow(windows[0]));
+	//console.error('succesfully checked if window is named and against delegate, quit'); return false;
 	
 	// XQueryTree returns the children of |window| in bottom-to-top order, so reverse-iterate the list to check the windows from top-to-bottom.
 	for (var i=0; i<windows.length; i++) {
@@ -1128,6 +1139,7 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 			return true;
 		}
 	}
+	console.error('succesfully checked all windows  if window is named and against delegate, quit'); return false;
 	
 	// If we're at this point, we didn't find the window we're looking for at the current level, so we need to recurse to the next level.  We use a second loop because the recursion and call to XQueryTree are expensive and is only needed for a small number of cases.
 	depth++
@@ -1214,8 +1226,11 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	if (!rez_GXWS) {
 		// Window Manager doesn't support _NET_CLIENT_LIST_STACKING, so fall back to old school enumeration of all X windows.  Some WMs parent 'top-level' windows in unnamed actual top-level windows (ion WM), so extend the search depth to all children of top-level windows.
 		var kMaxSearchDepth = 1;
+		console.log('debug-msg :: need to enumallwin');
+		
 		var rez_EAW = EnumerateAllWindows(shouldStopIteratingDelegate, kMaxSearchDepth);
 		console.info('debug-msg :: rez_EAW:', rez_EAW);
+		return rez_EAW;
 	} else {
 		// Window Manager supports _NET_CLIENT_LIST_STACK so lets go with new school method
 		// this block below inserts the menu window items into the stack, we dont need this, i have no idea why chromium checks it
@@ -1228,6 +1243,8 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 				}
 			}
 			*/
+		console.error('need to go through stacks');
+		return false;
 		for (var i=0; i<rez_GXWS.length; i++) {
 			if (shouldStopIteratingDelegate(rez_GXWS[i])) {
 				return true;
@@ -1246,15 +1263,18 @@ function WmSupportsHint(atom_name) {
 		var rez_GAAP = GetAtomArrayProperty(GetX11RootWindow(), '_NET_SUPPORTED');
 		if (rez_GAAP === false) {
 			//atom_name passed to GAAP is not supported
+			console.log('debug-msg :: WmSupportsHint FALSE due to GetAtomArrayProperty failing');
 			return false;
 		} else {
 			for (var i=0; i<rez_GAAP.length; i++) {
 				if (rez_GAAP[i] == atom) {
+					console.log('debug-msg :: WmSupportsHint TRUE due to atom being found');
 					WmSupportsHintCache[atom_name] = true;
 					break;
 				}
 			}
 			//if got here then it doesnt support this atom_name
+			console.log('debug-msg :: WmSupportsHint FALSE due to atom being NOT found');
 			WmSupportsHintCache[atom_name] = false;
 		}
 	}
@@ -1288,7 +1308,19 @@ function GetWindowRect(window) {
 	var border_width_return = new ostypes.UNSIGNED_INT();
 	var depth_return = new ostypes.UNSIGNED_INT();
 	
-	var rez_XGG = _dec('XGetGeometry')(GetXDisplay(), d, window.address(), x_return.address(), width_return.address(), height_return.address(), border_width_return.address(), depth_return.address());
+	/*
+			ostypes.STATUS,				// return
+			ostypes.DISPLAY.ptr,		// *display
+			ostypes.DRAWABLE,			// d
+			ostypes.WINDOW.ptr,			// *root_return
+			ostypes.INT.ptr,			// *x_return
+			ostypes.INT.ptr,			// *y_return
+			ostypes.UNSIGNED_INT.ptr,	// *width_return
+			ostypes.UNSIGNED_INT.ptr,	// *height_return
+			ostypes.UNSIGNED_INT.ptr,	// *border_width_return
+			ostypes.UNSIGNED_INT.ptr	// *depth_return
+	*/
+	var rez_XGG = _dec('XGetGeometry')(GetXDisplay(), d, root_return.address(), x_return.address(), y_return.address(), width_return.address(), height_return.address(), border_width_return.address(), depth_return.address());
 	if (rez_XGG == ostypes.NONE) {
 		return false;
 	}
@@ -1350,14 +1382,17 @@ function IsX11WindowFullScreen(window) {
 		var atom_properties = GetAtomArrayProperty(window, '_NET_WM_STATE');
 		if (atom_properties === false) {
 			//GetAtomArrayProperty error'ed probably
+			console.info('debug-msg :: IsX11WindowFullScreen failed due to atom_properties failing');
 			return false;
 		} else {
 			for (var i=0; i<atom_properties.length; i++) {
 				if (atom_properties[i] == fullscreen_atom) {
+				console.info('debug-msg :: IsX11WindowFullScreen TRUE due to fullscreen_atom found');
 					return true;
 				}
 			}
 			//if got here then its not full screen
+			console.info('debug-msg :: IsX11WindowFullScreen FALSE due to fullscreen_atom NOT found');
 			return false;
 		}
 		///
@@ -1365,20 +1400,27 @@ function IsX11WindowFullScreen(window) {
 	
 	var window_rect = GetWindowRect(window);
 	if (window_rect === false) {
+		console.info('debug-msg :: IsX11WindowFullScreen failed due to window_rect failing');
 		return false;
 	}
 	
 	var disp = GetXDisplay();
 	var screen = DefaultScreenOfDisplay(disp);
 	
-	var width = WidthOfScreen(screen);
-	var height = HeightOfScreen(screen);
+	var width = _dec('WidthOfScreen')(screen);
+	var height = _dec('HeightOfScreen')(screen);
 	//return window_rect.size() == Size(width, height);
 	console.info('window_rect:', uneval(window_rect), window_rect);
 	console.info('width:', width, uneval(width));
 	console.info('height:', height, uneval(height));
 	
-	return (window_rect[2] == width && window_rect[3] == height);
+	var windowWidthEqualsScreenWidth = window_rect[2] == width;
+	var windowHeightEqualsScreenHeight = window_rect[3] == height;
+	
+	console.info('debug-msg :: windowWidthEqualsScreenWidth=', windowWidthEqualsScreenWidth);
+	console.info('debug-msg :: windowHeightEqualsScreenHeight=', windowHeightEqualsScreenHeight);
+	
+	return (windowWidthEqualsScreenWidth && windowHeightEqualsScreenHeight);
 	
 	
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#1226
@@ -1453,9 +1495,11 @@ function IsWindowVisible(window) {
 	var win_attributes = new ostypes.XWINDOWATTRIBUTES();
 	var rez_XGWA = _dec('XGetWindowAttributes')(GetXDisplay(), window, win_attributes.address());
 	if (!rez_XGWA) {
+		console.info('debug-msg :: IsWindowVisible failed due to rez_XGWA failing');
 		return false;
 	} else {
 		if (win_attributes.map_state != ostypes.ISVIEWABLE) {
+			console.info('debug-msg :: IsWindowVisible failed due to win_attributes.map_state not equaling');
 			return false;
 		}
 	}
@@ -1464,11 +1508,13 @@ function IsWindowVisible(window) {
 	var wm_states = GetAtomArrayProperty(window, '_NET_WM_STATE');
 	if (wm_states === false) {
 		//GetAtomArrayProperty error'ed probably
+		console.info('debug-msg :: IsWindowVisible failed due to wm_states erroring');
 		return false;
 	} else {
 		var hidden_atom = GetAtom('_NET_WM_STATE_HIDDEN');
 		for (var i=0; i<wm_states.length; i++) {
 			if (wm_states[i] == hidden_atom) {
+				console.info('debug-msg :: IsWindowVisible failed due to hidden_atom being found');
 				return false;
 			}
 		}
@@ -1478,10 +1524,12 @@ function IsWindowVisible(window) {
 	var kAlLDesktops = 0; // this is kwin constant i guess based on this comment in chromium here: http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#565
 	var window_desktop = GetWindowDesktop(window);
 	if (window_desktop === false) {
+		console.info('debug-msg :: IsWindowVisible failed due to window_desktop failing');
 		return false;
 	}
 	var current_desktop = GetCurrentDesktop();
 	if (current_desktop === false) {
+		console.info('debug-msg :: IsWindowVisible failed due to no current_desktop failing');
 		//weird user has no desktop O_O
 		return false;
 	}
@@ -1543,6 +1591,7 @@ function IsScreensaverWindow(window) {
 	// For all others, like gnome-screensaver, the window's WM_CLASS property should contain "screensaver".
 	var rez_GSP = GetStringProperty(window, 'WM_CLASS');
 	if (rez_GSP === false) {
+		console.info('debug-msg :: IsScreensaverWindow failed due to GetStringProperty failing');
 		return false;
 	} else {
 		/*
@@ -1553,6 +1602,8 @@ function IsScreensaverWindow(window) {
 		}
 		*/
 		//return valueStr.indexOf('screensaver') > -1; //return value.find("screensaver") != std::string::npos; //this c++ returns true if value contains "screensaver"
+		console.info('debug-msg :: rez_GSP = ', rez_GSP, 'it should be a single string value, it might be an array so look out for that');
+		return rez_GSP.indexOf('screensaver') > -1;
 	}
 	/* http://mxr.mozilla.org/chromium/source/src/chrome/browser/screensaver_window_finder_x11.cc#29
 	28 
@@ -1589,16 +1640,18 @@ function IsWindowNamed(window) {
 		return false;
 	}
 	
-	console.info('debug-msg :: prop.value:', prop.value);
+	console.info('debug-msg :: prop.value:', prop.value, prop.value.readString());
 	console.info('debug-msg :: prop:', uneval(prop));
 	
 	if (prop.value.isNull()) {
+		console.log('debug-msg :: IsWindowNamed FALSE due to prop.value being isNull');
 		return false;
 	} else {		
 		//chromium does XFree(prop.value) but in my github searches i see this is only done if they do a `Xutf8TextPropertyToTextList` then they do XFree on prop.value or if they do `XmbTextPropertyToTextList` they they use `XFreeStringList`
 		//so i dont think i have to: but i just do it to see what the free ret value is on it
 		var rez_DXF = doXFree(prop.value);
 		console.info('debug-msg :: XFree on prop.value result is, rez_DXF:', rez_DXF, 'im expecting it should maybe fail due to my comment two lines above');
+		console.log('debug-msg :: IsWindowNamed TRUE due to prop.value existing');
 		return true;
 	}
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#994
@@ -1639,6 +1692,12 @@ function startup() {
 //var root = GetX11RootWindow();
 //console.log('debug-msg :: root:', root, uneval(root));
 
+/*
+var tWin = Services.wm.getMostRecentWindow('devtools:webconsole'); // tWin means target_window
+var tBaseWin = tWin.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIWebNavigation).QueryInterface(Ci.nsIDocShellTreeItem).treeOwner.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIBaseWindow);
+var cHwnd = ostypes.WINDOW(tBaseWin.nativeHandle);
+console.info('nav cHwnd:', cHwnd, uneval(cHwnd), cHwnd.toString()); 
+*/
 
 //Services.wm.getMostRecentWindow(null).setTimeout(function() {
 	var rez_SWE = ScreensaverWindowExists();

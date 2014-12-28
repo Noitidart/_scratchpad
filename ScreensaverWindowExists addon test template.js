@@ -95,6 +95,9 @@ var nixtypesInit = function() {
 	this.XA_ATOM = 4;
 	this.XA_WINDOW = 33;
 	this.XA_CARDINAL = 6;
+	this.BADVALUE = 2;
+	this.BADWINDOW = 3;
+	this.BADATOM = 5;
 }
 var ostypes = new nixtypesInit();
 
@@ -535,9 +538,19 @@ function GetProperty(win, propertyName, max_length, params) {
 	var rez_XGWP = _dec('XGetWindowProperty')(GetXDisplay(), win, property_atom, 0 /*offset into property data to read*/, max_length, false /*deleted*/, params.property_type, actualTypeReturned.address(), actualFormatReturned.address(), NItemsReturned.address(), BytesAfterReturn.address(), DataReturned.address());
 	console.info('debug-msg :: rez_XGWP:', rez_XGWP);
 
-	if (rez_XGWP) {
+	if (rez_XGWP == ostypes.SUCCESS) {
 		//important note: make sure to XFree DataReturned
 		//note: if params.free_data is true, then i might need to cast the DataReturned before freeing, which may still be too early, so if need data returned and freed, i probably have to cast the DataReturned and then push to array as values by doing .addresOfElement(i) on the casted THEN i can free it im pretty sure - so ill have to ask for dev to supply type they wanted it casted to
+		
+		if (actualTypeReturned == ostypes.NONE && actualFormatReturned == 0 && BytesAfterReturn == 0) {
+			console.log('debug-msg :: BECAUSE PER DOCS: because of the conditions in this if which are, actualtypereturned is none and formatreturned is 0 and bytes is 0 :: the specific property_atom does not exist for the window, nitems_return should be empty, it is, NItemsReturned:', NItemsReturned);
+		}
+		if (params.property_type != ostypes.ANYPROPERTYTYPE && params.property_type != actualTypeReturned) {
+			console.log('debug-msg :: the specified property exists BECAUE PER DOCS: :: specified property type was not anypropertytype and the returnedPropertyType does not match the specified proeprty type :: the specified property type was not AnyPropertyType as actualTypeReturned differently; actualFormatReturned should not be 0 and BytesAfterReturn is te property length and NItemsReturned should be empty', 'params.property_type', params.property_type, 'actualTypeReturned:', actualTypeReturned, 'actualFormatReturned:', actualFormatReturned, 'BytesAfterReturn:', BytesAfterReturn, 'NItemsReturned:', NItemsReturned);
+		}
+		if (params.property_type == actualTypeReturned || (params.property_type == ostypes.ANYPROPERTYTYPE && actualTypeReturned != ostypes.ANYPROPERTYTYPE)) {
+			console.log('debug-msg :: the specified property exists BECAUSE PER DOCS: specified property matched returned property type OR anypropertytype was specified and another type was returned in actualTypeReturned:: actualFormatReturned should not be 0 and BytesAfterReturn/NItemsReturned should have true value PER: read that large paragraph starting with: "N = actual length of the stored property in bytes" at http://www.xfree86.org/4.4.0/XGetWindowProperty.3.html');
+		}
 		var ret = {
 			data: DataReturned,
 			data_descriptor: {
@@ -546,23 +559,36 @@ function GetProperty(win, propertyName, max_length, params) {
 				format: actualFormatReturned.value
 			}
 		};
+		console.log('ok the ret was populated with data from XGWP:', uneval(ret));
 	} else {
-		console.error('XGetWindowProperty failed to get data!', 'rez_XGWP:', rez_XGWP, uneval(rez_XGWP), rez_XGWP.toString());
+		console.error('XGetWindowProperty failed! it didnt return SUCCCESS', 'rez_XGWP:', rez_XGWP, uneval(rez_XGWP));
 		var ret = false;
 		//throw new Error('XGetWindowProperty failed to get data! rez_XGWP: "' + rez_XGWP + '" toString: "' rez_XGWP.toString() + '"');
 	}
 	
 	if (params.free_data) {
-		if (rez_XGWP) {
+		if (rez_XGWP == ostypes.SUCCESS) {
 			var rez_DXF = doXFree(DataReturned);
 			if (!rez_DXF) {
 				console.warn('debug-msg :: GetProperty failed to free memory, leak imminent!');
 			}
+		} else {
+			console.log('debug-msg :: XGetWindowProperty failed so nothing to free will try it though, DXF should fail and be 0:');
+			var rez_DXF = doXFree(DataReturned);
+			if (rez_DXF) {
+				console.warn('debug-msg :: very odd, xfree success when i expected it to fail');
+			} else {
+				console.log('debug-msg :: verify yes dxf failed as i had expected');
+			}
 		}
 	} else {
-		console.info('debug-msg :: make sure you remember to free the data then');
+		if (rez_XGWP == ostypes.SUCCESS) {
+			console.info('debug-msg :: make sure you remember to free the data then');
+		} else {
+			console.log('debug-msg :: no need to free data, as XGetWindowProperty failed to return SUCCESS');
+		}
 	}
-		
+	console.info('debug-msg :: ready to return ret is: ', uneval(ret));
 	return ret;
 		/*
 		what to do with rez of this func: https://github.com/zotero/zotero/blob/15108eea3f099a5a39a145ed55043d1ed9889e6a/chrome/content/zotero/xpcom/integration.js#L627
@@ -1004,18 +1030,18 @@ function GetAtomArrayProperty(window, property_name) {
 //end - GetProperty and variants
 
 function doXFree(data) {
-	var rez_XF = _dec('XFree')(data);
-	console.info('debug-msg :: rez_XF:', rez_XF);
-	if (!rez_XF) {
+	var rez_doXFree = _dec('XFree')(data);
+	console.info('debug-msg :: rez_doXFree:', rez_doXFree);
+	if (!rez_doXFree) {
 		console.warn('debug-msg :: doXFree failed to free memory, leak imminent!');
 	}
-	return rez_XF;
+	return rez_doXFree;
 }
 
 function GetXWindowStack(window) {
 	// returns stack on success
 	// returns js false on fail
-	var rez_GP = GetProperty(window, '_NET_CLIENT_LIST_STACKING', -0x80000000 /*(~0L)*/ /*(all of them)*/, {free_data:false});
+	var rez_GP = GetProperty(window, '_NET_CLIENT_LIST_STACKING', /* ctypes.long(~0) */ -0x80000000 /*(~0L)*/ /*(all of them)*/, {free_data:false});
 	if (rez_GP === false) {
 		//GP got no DataReturned so nothing to free
 		console.log('debug-msg :: GetXWindowStack FALSE due to GetProperty failing');
@@ -1025,6 +1051,7 @@ function GetXWindowStack(window) {
 	console.info('debug-msg :: XWindowStack is available');
 	var result = false;
 	if (rez_GP.data_descriptor.type == ostypes.XA_WINDOW && rez_GP.data_descriptor.format == 32 && rez_GP.data_descriptor.count > 0) {
+		console.log('debug-msg :: GetXWindowStack found reason to not go FALSE it is now populating result with data');
 		var result = [];
 		var prestack_casted = ctypes.cast(rez_GP.data, ostypes.XID.array(rez_GP.data_descriptor.count).ptr).contents;
 		for(var i=0; i<rez_GP.data_descriptor.count; i++) {
@@ -1083,6 +1110,7 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 	//max_depth is ostypes.INT
 	//depth is ostypes.INT
 	if (depth > max_depth) {
+		console.log('debug-msg :: EnumerateChildren FALSE due to depth > max_depth', depth, max_depth);
 		return false;
 	}
 
@@ -1111,47 +1139,81 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 	var rez_XQT = _dec('XQueryTree')(GetXDisplay(), window, root.address(), parent.address(), children.address(), num_children.address());
 	
 	if (rez_XQT == 0) {
+		console.log('debug-msg :: EnumerateChildren FALSE due to XQueryTree failed');
 		return false;
 	}
+	//console.log('debug-msg :: rez_XQT is not 0 it is:', rez_XQT, uneval(rez_XQT), rez_XQT.toString());
 	
 	var num_children_value = ctypes.cast(num_children, ostypes.UNSIGNED_INT).value;
-	var children_casted = ctypes.cast(children, ostypes.WINDOW.array(num_children_value).ptr).contents;
-	//not yet safe to free, as free'ing will erase data in casted as well
-	//console.info('debug-msg :: pre free children_casted:', uneval(children_casted));
-	
-	//may need to do free after pushing into windows arr block here:	
-	for (var i=num_children_value-1; i>=0; i--) {
-		windows.push(children_casted.addressOfElement(i).contents);
-	}
-	//now that data has been pushed you can now do free, it will not erase the data pushed into the windows array
-	//console.info('debug-msg :: pree free windows:', uneval(windows));
-	doXFree(children);
-	//console.info('debug-msg :: post free windows:', uneval(windows));
-	
-	//console.info('debug-msg :: IsWindowNamed(windows[0]):', IsWindowNamed(windows[0]));
-	//console.info('debug-msg :: IsWindowVisible(windows[0]):', IsWindowVisible(windows[0]));
-	//console.info('debug-msg :: IsScreensaverWindow(windows[0]):', IsScreensaverWindow(windows[0]));
-	//console.error('succesfully checked if window is named and against delegate, quit'); return false;
-	
-	// XQueryTree returns the children of |window| in bottom-to-top order, so reverse-iterate the list to check the windows from top-to-bottom.
-	for (var i=0; i<windows.length; i++) {
-		if (IsWindowNamed(windows[i]) && shouldStopIteratingDelegate(windows[i])) {
-			return true;
+	if (num_children_value > 0) {
+		/*
+		if (children.isNull()) {
+			//then no chilidren, num_children_value should be 0, per the docs: http://www.xfree86.org/4.4.0/XQueryTree.3.html
+			console.warn('debug-msg :: EnumerateChildren FALSE due to children isNull SO num_children_value should be 0, num_children_value:', num_children_value);
+			//return false;
 		}
-	}
-	console.error('succesfully checked all windows  if window is named and against delegate, quit'); return false;
-	
-	// If we're at this point, we didn't find the window we're looking for at the current level, so we need to recurse to the next level.  We use a second loop because the recursion and call to XQueryTree are expensive and is only needed for a small number of cases.
-	depth++
-	if (depth <= max_depth) {
-		for (var i=0; i<windows.length; i++) {
-			if (EnumerateChildren(shouldStopIteratingDelegate, windows[i], max_depth, depth)) {
+		*/
+		if (num_children_value == 0) {
+			console.error('num_children_value is 0 it should not work', num_children_value);
+			doXFree(children);
+		}
+		if (children.isNull()) {
+			console.error('children isNull so it should not work', children, uneval(children), children.toString());
+			
+			//return false;
+		}
+		/* try { */
+			var children_casted = ctypes.cast(children, ostypes.WINDOW.array(num_children_value).ptr).contents;
+		/* } catch(ex) {
+			console.error('cast ex. num_children_value:', num_children_value, 'ex:', ex);
+			throw ex;
+		} */
+		//not yet safe to free, as free'ing will erase data in casted as well
+		//console.info('debug-msg :: pre free children_casted:', uneval(children_casted));
+		
+		//may need to do free after pushing into windows arr block here:	
+		for (var i=0; i<num_children_value; i++) {
+			windows.push(children_casted.addressOfElement(i).contents);
+		}
+		//now that data has been pushed you can now do free, it will not erase the data pushed into the windows array
+		//console.info('debug-msg :: pree free windows:', uneval(windows));
+		doXFree(children);
+		//console.info('debug-msg :: post free windows:', uneval(windows));
+		
+		//console.info('debug-msg :: IsWindowNamed(windows[0]):', IsWindowNamed(windows[0]));
+		//console.info('debug-msg :: IsWindowVisible(windows[0]):', IsWindowVisible(windows[0]));
+		//console.info('debug-msg :: IsScreensaverWindow(windows[0]):', IsScreensaverWindow(windows[0]));
+		//console.error('succesfully checked if window is named and against delegate, quit'); return false;
+		
+		// XQueryTree returns the children of |window| in bottom-to-top order, so reverse-iterate the list to check the windows from top-to-bottom.
+		for (var i=windows.length-1; i>=0; i--) {
+			if (IsWindowNamed(windows[i]) && shouldStopIteratingDelegate(windows[i])) {
+				console.log('debug-msg :: EnumerateChildren TRUE due to here 1');
 				return true;
 			}
 		}
+		//console.error('succesfully checked all windows  if window is named and against delegate, quit'); return false;
+		
+		// If we're at this point, we didn't find the window we're looking for at the current level, so we need to recurse to the next level.  We use a second loop because the recursion and call to XQueryTree are expensive and is only needed for a small number of cases.
+		depth++
+		if (depth <= max_depth) {
+			console.log('debug-msg: continuing to dig enum childs as depth is <= max_depth, depth is:', depth, 'max_depth:', max_depth);
+			for (var i=windows.length-1; i>=0; i--) {
+				if (EnumerateChildren(shouldStopIteratingDelegate, windows[i], max_depth, depth)) {
+					console.log('debug-msg :: EnumerateChildren TRUE due to here 2');
+					return true;
+				}
+			}
+		} else {
+			console.log('debug-msg: stopping digging deeper to enum childs as depth is <= max_depth, depth is:', depth, 'max_depth:', max_depth);
+		}
+		
+		console.log('debug-msg :: EnumerateChildren FALSE due to all above not passing');
+		return false;
+	} else {
+		console.error('debug-msg :: num_children_value is 0:, ', num_children_value);
+		doXFree(children);
 	}
-
-	return false;
 /*
 1004 bool EnumerateChildren(EnumerateWindowsDelegate* delegate, XID window,
 1005                        const int max_depth, int depth) {
@@ -1222,7 +1284,9 @@ bool EnumerateAllWindows(EnumerateWindowsDelegate* delegate, int max_depth) {
 function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	//returns js bool based on delegate
 
-	var rez_GXWS = GetXWindowStack(GetX11RootWindow())
+	var rez_GXWS = GetXWindowStack(GetX11RootWindow());
+	console.log('debug-msg :: rez_GXWS : ', rez_GXWS, uneval(rez_GXWS), rez_GXWS.toString());
+	return false;
 	if (!rez_GXWS) {
 		// Window Manager doesn't support _NET_CLIENT_LIST_STACKING, so fall back to old school enumeration of all X windows.  Some WMs parent 'top-level' windows in unnamed actual top-level windows (ion WM), so extend the search depth to all children of top-level windows.
 		var kMaxSearchDepth = 1;
@@ -1650,7 +1714,7 @@ function IsWindowNamed(window) {
 		//chromium does XFree(prop.value) but in my github searches i see this is only done if they do a `Xutf8TextPropertyToTextList` then they do XFree on prop.value or if they do `XmbTextPropertyToTextList` they they use `XFreeStringList`
 		//so i dont think i have to: but i just do it to see what the free ret value is on it
 		var rez_DXF = doXFree(prop.value);
-		console.info('debug-msg :: XFree on prop.value result is, rez_DXF:', rez_DXF, 'im expecting it should maybe fail due to my comment two lines above');
+		console.info('debug-msg :: XFree on prop.value result is, rez_DXF:', rez_DXF, 'im expecting it should maybe fail due to my comment two lines above, xfree is returning 1 so INCORRECT github, chromium is right, we  should do xfree');
 		console.log('debug-msg :: IsWindowNamed TRUE due to prop.value existing');
 		return true;
 	}
@@ -1709,7 +1773,7 @@ console.info('nav cHwnd:', cHwnd, uneval(cHwnd), cHwnd.toString());
  
 function shutdown() {
 	var rez_XCD = _dec('XCloseDisplay')(GetXDisplay());
-	console.log('deb-msg :: rez_XCD:', rez_XCD, uneval(rez_XCD));
+	console.log('debug-msg :: rez_XCD:', rez_XCD, uneval(rez_XCD));
 	for (var l in lib) {
 		lib[l].close();
 	}	

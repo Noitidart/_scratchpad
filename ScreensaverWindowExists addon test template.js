@@ -87,6 +87,9 @@ var nixtypesInit = function() {
 	// CONSTANTS
 	// this has a bunch a bunch bunch of contants with references to .h file: https://github.com/hazelnusse/sympy-old/blob/65f802573e5963731a3e7e643676131b6a2500b8/sympy/thirdparty/pyglet/pyglet/window/xlib/xlib.py#L88
 	this.ANYPROPERTYTYPE = this.ATOM(0);
+	this.BADATOM = 5;
+	this.BADVALUE = 2;
+	this.BADWINDOW = 3;
 	this.ISUNMAPPED = 0; //# /usr/include/X11/X.h:449 //Used in GetWindowAttributes reply
 	this.ISUNVIEWABLE =  1; //# /usr/include/X11/X.h:450 //Used in GetWindowAttributes reply
 	this.ISVIEWABLE = 2; //# /usr/include/X11/X.h:451 //Used in GetWindowAttributes reply
@@ -95,9 +98,6 @@ var nixtypesInit = function() {
 	this.XA_ATOM = 4;
 	this.XA_WINDOW = 33;
 	this.XA_CARDINAL = 6;
-	this.BADVALUE = 2;
-	this.BADWINDOW = 3;
-	this.BADATOM = 5;
 }
 var ostypes = new nixtypesInit();
 

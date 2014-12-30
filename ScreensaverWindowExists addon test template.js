@@ -1348,7 +1348,7 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 			
 			
 			//var rez_GetStringProperty = GetTypeProperty(rez_GXWS[i], '_NET_WM_PID', 'Int', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
-			var rez_GetStringProperty = GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true);//GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
+			var rez_GetStringProperty = GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', false);//GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
 			console.info('debug-msg :: rez_GetStringProperty:', rez_GetStringProperty, uneval(rez_GetStringProperty), rez_GetStringProperty.toString());
 			if (rez_GetStringProperty === false) {
 				console.warn('debug-msg :: IsScreensaverWindow failed due to GetStringProperty FALSE');

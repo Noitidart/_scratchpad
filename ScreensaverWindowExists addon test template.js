@@ -1348,12 +1348,13 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 			
 			
 			//var rez_GetStringProperty = GetTypeProperty(rez_GXWS[i], '_NET_WM_PID', 'Int', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
-			var rez_GetStringProperty = GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', false);//GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
+			var rez_GetStringProperty = GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true);//GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
 			console.info('debug-msg :: rez_GetStringProperty:', rez_GetStringProperty, uneval(rez_GetStringProperty), rez_GetStringProperty.toString());
 			if (rez_GetStringProperty === false) {
 				console.warn('debug-msg :: IsScreensaverWindow failed due to GetStringProperty FALSE');
 				//return false;
 			} else {
+				console.time('uint64 compare vs tostring');
 				for (var j=0; j<rez_GetStringProperty.length; j++) {
 					//if (rez_GetStringProperty[j] == GetAtom('_NET_WM_STATE_FULLSCREEN')) { //comparing like this doesnt work, have to use ctypes.UInt64.compare
 					if (ctypes.UInt64.compare(rez_GetStringProperty[j], GetAtom('_NET_WM_STATE_FULLSCREEN')) == 0) {
@@ -1361,6 +1362,7 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 					}
 					console.error('readString on stack i (' + i +'), j:', j, rez_GetStringProperty[j], uneval(rez_GetStringProperty[j]), rez_GetStringProperty[j].toString());
 				}
+				console.timeEnd('uint64 compare vs tostring');
 			}
 			console.log('fullscreen atom:', GetAtom('_NET_WM_STATE_FULLSCREEN'), uneval(GetAtom('_NET_WM_STATE_FULLSCREEN')), GetAtom('_NET_WM_STATE_FULLSCREEN').toString());
 			//end temp debugging

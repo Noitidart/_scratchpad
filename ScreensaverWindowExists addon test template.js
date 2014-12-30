@@ -1357,7 +1357,7 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 				console.time('uint64 compare vs tostring');
 				for (var j=0; j<rez_GetStringProperty.length; j++) {
 					//if (rez_GetStringProperty[j] == GetAtom('_NET_WM_STATE_FULLSCREEN')) { //comparing like this doesnt work, have to use ctypes.UInt64.compare
-					if (ctypes.UInt64.compare(rez_GetStringProperty[j], GetAtom('_NET_WM_STATE_FULLSCREEN')) == 0) {
+					if (rez_GetStringProperty[j].toString() == GetAtom('_NET_WM_STATE_FULLSCREEN').toString()) {
 						console.warn('THIS ATOM MATCHES!! so this is proof that doing `==` is enough to check if attoms returned can be tested with == for WmSupportsHint');
 					}
 					console.error('readString on stack i (' + i +'), j:', j, rez_GetStringProperty[j], uneval(rez_GetStringProperty[j]), rez_GetStringProperty[j].toString());

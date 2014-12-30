@@ -48,6 +48,7 @@ var nixtypesInit = function() {
 	
 	// CONSTANTS
 	this.BADGC = 13;
+	this.NONE = 0;
 	this.NULL = ctypes.cast(ctypes.uint64_t(0x0), ctypes.voidptr_t);
 }
 var ostypes = new nixtypesInit();
@@ -171,8 +172,9 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 * );
 		 */
 		return _lib('x11').declare('XMapRaised', ctypes.default_abi,
-			ostypes.DISPLAY.ptr,	// return
-			ostypes.WINDOW			// *display_name
+			ostypes.INT,			// return
+			ostypes.DISPLAY.ptr,	// *display
+			ostypes.WINDOW			// w
 		);
 	},
 	XOpenDisplay: function() {
@@ -237,6 +239,21 @@ function shutdown() {
 	}
 }
 
+var GetAtomCache = {};
+function GetAtom(name) {
+	// name is ostypes.CHAR.ptr
+	// returns ostypes.ATOM
+	if (!(name in GetAtomCache)) {		
+		var atom = _dec('XInternAtom')(GetXDisplay(), name, 0); //passing 3rd arg of false, means even if atom doesnt exist it returns a created atom, this can be used with GetProperty to see if its supported etc, this is how Chromium does it
+		if (atom == ostypes.NONE) { //will never equal ostypes.NONE because i pass 3rd arg of `false` to XInternAtom
+			console.warn('No atom with name:', name, 'return val of atom:', atom, uneval(atom), atom.toString());
+			throw new Error('No atom with name "' + name + '"), return val of atom:"' +  atom + '" toString:"' + atom.toString() + '"');
+		}
+		GetAtomCache[name] = atom;
+	}
+	return GetAtomCache[name];
+}
+
 function main() {
 	var tWin = Services.wm.getMostRecentWindow('navigator:browser');
 	if (!tWin) {
@@ -247,23 +264,31 @@ function main() {
 	console.info('debug-msg :: cHwnd : ', cHwnd, uneval(cHwnd), cHwnd.toString());
 	
 	
-	var rootWin = XDefaultRootWindow(GetXDisplay());
+	var rootWin = _dec('DefaultRootWindow')(GetXDisplay());
+	console.info('debug-msg :: rootWin:', rootWin, uneval(rootWin), rootWin.toString());
+	
 	var event = new ostypes.XCLIENTMESSAGEEVENT();
 	event.type = 33;
 	event.serial = 0;
 	event.send_event = 1;
-	event.message_type = _dec('XInternAtom')(GetXDisplay(), '_NET_ACTIVE_WINDOW', 0);
+	event.message_type = GetAtom('_NET_ACTIVE_WINDOW'); //_dec('XInternAtom')(GetXDisplay(), '_NET_ACTIVE_WINDOW', 0);
 	event.display = GetXDisplay();
 	event.window = cHwnd;
 	event.format = 32;
 	event.l0 = 2;
 	var mask = 1 << 20 /* SubstructureRedirectMask */ | 1 << 19 /* SubstructureNotifyMask */ ;
-	if (_dec('XSendEvent')(GetXDisplay(), rootWin, 0, mask, event.address())) {
-		_dec('XMapRaised')(GetXDisplay(), cHwnd);
-		_dec('XFlush')(GetXDisplay());
+	var rez_XSendEvent = _dec('XSendEvent')(GetXDisplay(), rootWin, 0, mask, event.address());
+	console.info('debug-msg :: rez_XSendEvent:', rez_XSendEvent, uneval(rez_XSendEvent), rez_XSendEvent.toString());
+	if (rez_XSendEvent) {
+		var rez_XMapRaised = _dec('XMapRaised')(GetXDisplay(), cHwnd);
+		console.info('debug-msg :: rez_XMapRaised:', rez_XMapRaised, uneval(rez_XMapRaised), rez_XMapRaised.toString());
+		var rez_XFlush = _dec('XFlush')(GetXDisplay());
+		console.info('debug-msg :: rez_XFlush:', rez_XFlush, uneval(rez_XFlush), rez_XFlush.toString());
 		console.log('Activated successfully');
+		return true;
 	} else {
 		console.warn('An error occurred activating the window');
+		return false;
 	}
 }
 

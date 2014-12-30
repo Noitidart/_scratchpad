@@ -716,7 +716,7 @@ function GetTypeProperty(window, property_name, type, ret_array) {
 			throw new Error('type not valid');
 	}
 	
-	var rez_GetProperty = GetProperty(window, property_name, ret_array ? useMaxLenForNonRetArray : ostypes.LONG(~0) /*(all of them)*/, {free_data:false}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
+	var rez_GetProperty = GetProperty(window, property_name, ret_array ? ostypes.LONG(~0) /*(all of them)*/ : useMaxLenForNonRetArray, {free_data:false}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
 	if (rez_GetProperty === false) {
 		//nothing returned so no need to free
 		console.warn('in GetTypeProperty, returning FALSE due to GetProperty returning FALSE nothing to free but will try it anyways');
@@ -725,18 +725,25 @@ function GetTypeProperty(window, property_name, type, ret_array) {
 	}
 	
 	if (useFormatCheck !== null) {
-		if (rez_GetProperty.data_descriptor.format != useFormatCheck) {
+		console.log('rez_GetProperty.data_descriptor.format == useFormatCheck', rez_GetProperty.data_descriptor.format == useFormatCheck, rez_GetProperty.data_descriptor.format.toString(), useFormatCheck.toString());
+		if (rez_GetProperty.data_descriptor.format.toString() != useFormatCheck.toString()) {
 			console.warn('in GetTypeProperty, returning FALSE due to FORMAT check fail');
 			doXFree(rez_GetProperty.data);
 			return false;
 		}
+	} else {
+		console.log('no need for format check');
 	}
 	if (useTypeCheck !== null) {
-		if (rez_GetProperty.data_descriptor.type != useTypeCheck) {
+		console.log('rez_GetProperty.data_descriptor.type == useTypeCheck', rez_GetProperty.data_descriptor.type == useTypeCheck, rez_GetProperty.data_descriptor.type, useTypeCheck, rez_GetProperty.data_descriptor.type.toString(), useTypeCheck.toString());
+		//if (rez_GetProperty.data_descriptor.type != useTypeCheck) { //tested this, it works, but to be safe im going with .toString on line below
+		if (rez_GetProperty.data_descriptor.type.toString() != useTypeCheck.toString()) {
 			console.warn('in GetTypeProperty, returning FALSE due to TYPE check fail');
 			doXFree(rez_GetProperty.data);
 			return false;
 		}
+	} else {
+		console.log('no need for type check');
 	}
 	
 	if (rez_GetProperty.data_descriptor.count > 1) {
@@ -1341,7 +1348,7 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 			
 			
 			//var rez_GetStringProperty = GetTypeProperty(rez_GXWS[i], '_NET_WM_PID', 'Int', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
-			var rez_GetStringProperty = GetAtomArrayProperty(GetX11RootWindow(), '_NET_SUPPORTED');//GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
+			var rez_GetStringProperty = GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true);//GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
 			console.info('debug-msg :: rez_GetStringProperty:', rez_GetStringProperty, uneval(rez_GetStringProperty), rez_GetStringProperty.toString());
 			if (rez_GetStringProperty === false) {
 				console.warn('debug-msg :: IsScreensaverWindow failed due to GetStringProperty FALSE');

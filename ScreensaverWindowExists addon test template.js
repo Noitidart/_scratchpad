@@ -555,7 +555,7 @@ function GetProperty(win, propertyName, max_length, params) {
 		var ret = {
 			data: DataReturned,
 			data_descriptor: {
-				count: ctypes.cast(NItemsReturned, ostypes.UNSIGNED_INT).value,
+				count: NItemsReturned.value,
 				type: actualTypeReturned.value,
 				format: actualFormatReturned.value,
 				bytes_after_return: BytesAfterReturn.value
@@ -873,7 +873,7 @@ function GetStringProperty(window, property_name, ret_array) {
 	//window is ostypes.WINDOW
 	//property_name is js string;
 
-	var rez_GP = GetProperty(window, property_name, ret_array ? 1024 : 1024/* ostypes.LONG(~0) */ /*(all of them)*/, {free_data:false}); //chromium uses type of NONE which is just 0
+	var rez_GP = GetProperty(window, property_name, ret_array ? ostypes.LONG(~0) /*(all of them)*/ : 1024, {free_data:false}); //chromium uses type of NONE which is just 0
 	if (rez_GP === false) {
 		//nothing returned so no need to free
 		console.log('debug-msg :: in GetStringProperty, returning FALSE due to rez_GP being === false');
@@ -902,9 +902,9 @@ function GetStringProperty(window, property_name, ret_array) {
 		return false;
 	}
 	
-	//console.log('debug-msg :: rez_GP.data:', rez_GP.data, uneval(rez_GP.data), rez_GP.data.toString());
-	var dataCasted = ctypes.cast(rez_GP.data, ostypes.UNSIGNED_LONG.array(rez_GP.data_descriptor.count).ptr).contents;
-	//console.log('debug-msg :: dataCasted:', dataCasted, uneval(dataCasted), dataCasted.toString());
+	console.log('debug-msg :: rz_GP.data:', rez_GP.data, uneval(rez_GP.data), rez_GP.data.toString());
+	var dataCasted = ctypes.cast(rez_GP.data, ostypes.UNSIGNED_CHAR.array(rez_GP.data_descriptor.count).ptr).contents;
+	console.log('debug-msg :: dataCasted:', dataCasted, uneval(dataCasted), dataCasted.toString());
 	if (ret_array) {
 		var val = [];
 		for (var i=0; i<rez_GP.data_descriptor.count; i++) {
@@ -1343,28 +1343,38 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 			return false;
 			*/
 			//start temp debugging
+			console.time('rez_isnamed');
 			var isnamed = IsWindowNamed(rez_GXWS[i]);
 			console.log('isnamed:', isnamed);
-			
-			
-			//var rez_GetStringProperty = GetTypeProperty(rez_GXWS[i], '_NET_WM_PID', 'Int', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
-			var rez_GetStringProperty = GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true);//GetTypeProperty(GetX11RootWindow(), '_NET_SUPPORTED', 'Atom', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
+			console.timeEnd('rez_isnamed');
+			/*
+			console.time('rez_PE');
+			console.log('screensaver version atom:', GetAtom('_SCREENSAVER_VERSION'), uneval(GetAtom('_SCREENSAVER_VERSION')), GetAtom('_SCREENSAVER_VERSION').toString());
+			var rez_PE = PropertyExists(rez_GXWS[i], '_SCREENSAVER_VERSION')
+			console.log('rez_PE:', rez_PE);
+			console.timeEnd('rez_PE');
+			*/
+			console.time('rez_GetStringProperty');
+			var rez_GetStringProperty = GetStringProperty(rez_GXWS[i], 'WM_NAME', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
 			console.info('debug-msg :: rez_GetStringProperty:', rez_GetStringProperty, uneval(rez_GetStringProperty), rez_GetStringProperty.toString());
 			if (rez_GetStringProperty === false) {
 				console.warn('debug-msg :: IsScreensaverWindow failed due to GetStringProperty FALSE');
 				//return false;
 			} else {
-				console.time('uint64 compare vs tostring');
+				var stringedVal = [];
 				for (var j=0; j<rez_GetStringProperty.length; j++) {
-					//if (rez_GetStringProperty[j] == GetAtom('_NET_WM_STATE_FULLSCREEN')) { //comparing like this doesnt work, have to use ctypes.UInt64.compare
-					if (rez_GetStringProperty[j] == 291) {
-						console.warn('THIS ATOM MATCHES!! so this is proof that doing `==` is enough to check if attoms returned can be tested with == for WmSupportsHint');
-					}
-					console.error('readString on stack i (' + i +'), j:', j, rez_GetStringProperty[j], uneval(rez_GetStringProperty[j]), rez_GetStringProperty[j].toString());
+					//console.error('readString on stack i (' + i +'), j:', j, rez_GetStringProperty[j].toString()); //doing console log of just rez_GetStringProperty[j] crashes when casted to ostypes.UNSIGNED_CHAR.ptr.array
+					stringedVal.push(String.fromCharCode(rez_GetStringProperty[j]));
+					// try {
+						// console.error('readString() attempt:', rez_GetStringProperty[j].readString());
+					// } catch (ex) {
+						// console.warn('ex on readString(), ex:', ex);
+					// }
 				}
-				console.timeEnd('uint64 compare vs tostring');
+				var stringed = stringedVal.join('');
+				console.error('STRINGED:', stringed);
 			}
-			console.log('fullscreen atom:', GetAtom('_NET_WM_STATE_FULLSCREEN'), uneval(GetAtom('_NET_WM_STATE_FULLSCREEN')), GetAtom('_NET_WM_STATE_FULLSCREEN').toString());
+			console.timeEnd('rez_GetStringProperty');
 			//end temp debugging
 		}
 	}
@@ -1777,9 +1787,9 @@ function IsWindowNamed(window) {
 	
 	console.info('debug-msg :: prop.value:', prop.value, uneval(prop.value), prop.value.toString());
 	try {
-		console.info('debug-msg :: prop.value.readString():', prop.value.readString());
+		console.error('debug-msg :: prop.value.readString():', prop.value.readString());
 	} catch(ex) {
-		console.warn('ex on readString:', ex);
+		console.warn('ex on prop.value.readString():', ex);
 	}
 	console.info('debug-msg :: prop:', prop, uneval(prop), prop.toString());
 	

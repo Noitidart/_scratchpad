@@ -1808,9 +1808,20 @@ function IsWindowNamed(window) {
 	
 	console.info('debug-msg :: prop.value:', prop.value, uneval(prop.value), prop.value.toString());
 	try {
-		console.error('debug-msg :: prop.value.readString():', prop.value.readString());
-	} catch(ex) {
-		console.warn('ex on prop.value.readString():', ex);
+		var stringVal = prop.value.readString();
+		console.error('debug-msg :: prop.value.readString():', stringVal);
+	} catch (ex if ex.message.indexOf('malformed UTF-8 character sequence at offset ') == 0) {
+		console.warn('ex of offset utf8 read error when trying to do readString so using alternative method, ex:', ex);
+		var dataCasted = ctypes.cast(prop.value, ostypes.UNSIGNED_CHAR.array(prop.nitems).ptr).contents;
+		//console.log('debug-msg :: dataCasted:', dataCasted, uneval(dataCasted), dataCasted.toString());
+		var charCode = [];
+		var fromCharCode = []
+		for (var i=0; i<prop.nitems; i++) {
+			charCode.push(dataCasted.addressOfElement(i).contents);
+			fromCharCode.push(String.fromCharCode(charCode[charCode.length-1]));
+		}
+		var stringVal = fromCharCode.join('');
+		console.error('returning string val as charCode method:', stringVal);
 	}
 	console.info('debug-msg :: prop:', prop, uneval(prop), prop.toString());
 	

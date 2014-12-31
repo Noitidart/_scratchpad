@@ -701,7 +701,10 @@ function GetTypeProperty(window, property_name, type, ret_array) {
 			var useTypeCheck = null;
 			break;
 		case 'String':
-			var castTo = ostypes.CHAR;
+			if (ret_array) {
+				throw new Error('String holding atoms never return an array, set ret_array to false');
+			}
+			var castTo = null; //ostypes.CHAR;
 			var useMaxLenForNonRetArray = 1024;
 			var useFormatCheck = 8;
 			var useTypeCheck = null;
@@ -748,9 +751,11 @@ function GetTypeProperty(window, property_name, type, ret_array) {
 	
 	if (rez_GetProperty.data_descriptor.count > 1) {
 		if (!ret_array) {
-			console.warn('in GetTypeProperty, returning FALSE (im forcing this) due to dev requested single return, but GetProperty found more than 1, it found count:', rez_GetProperty.data_descriptor.count);
-			doXFree(rez_GetProperty.data);
-			return false;
+			if (type != 'String') {
+				console.warn('in GetTypeProperty, returning FALSE (im forcing this) due to dev requested single return, but GetProperty found more than 1, it found count:', rez_GetProperty.data_descriptor.count);
+				doXFree(rez_GetProperty.data);
+				return false;
+			}
 		}
 	} else if (rez_GetProperty.data_descriptor.count == 0) {
 		console.warn('in GetTypeProperty, returning FALSE 0 elements returned in data, will try xfree despite no data returned, count:', rez_GetProperty.data_descriptor.count);
@@ -761,14 +766,34 @@ function GetTypeProperty(window, property_name, type, ret_array) {
 		return false;
 	}
 	
-	var dataCasted = ctypes.cast(rez_GetProperty.data, castTo.array(rez_GetProperty.data_descriptor.count).ptr).contents;
-	if (ret_array) {
-		var val = [];
-		for (var i=0; i<rez_GetProperty.data_descriptor.count; i++) {
-			val.push(dataCasted.addressOfElement(i).contents);
+	if (type == 'String') {
+		var val;
+		try {
+			val = rez_GetProperty.data.readString();
+			console.error('returning string val as readString:', val);
+		} catch (ex if ex.message.indexOf('malformed UTF-8 character sequence at offset ') == 0) {
+			console.warn('ex of offset utf8 read error when trying to do readString so using alternative method, ex:', ex);
+			var dataCasted = ctypes.cast(rez_GetProperty.data, ostypes.UNSIGNED_CHAR.array(rez_GetProperty.data_descriptor.count).ptr).contents;
+			//console.log('debug-msg :: dataCasted:', dataCasted, uneval(dataCasted), dataCasted.toString());
+			var charCode = [];
+			var fromCharCode = []
+			for (var i=0; i<rez_GetProperty.data_descriptor.count; i++) {
+				charCode.push(dataCasted.addressOfElement(i).contents);
+				fromCharCode.push(String.fromCharCode(charCode[charCode.length-1]));
+			}
+			val = fromCharCode.join('');
+			console.error('returning string val as charCode method:', val);
 		}
 	} else {
-		var val = dataCasted.addressOfElement(0).contents;
+		var dataCasted = ctypes.cast(rez_GetProperty.data, castTo.array(rez_GetProperty.data_descriptor.count).ptr).contents;
+		if (ret_array) {
+			var val = [];
+			for (var i=0; i<rez_GetProperty.data_descriptor.count; i++) {
+				val.push(dataCasted.addressOfElement(i).contents);
+			}
+		} else {
+			var val = dataCasted.addressOfElement(0).contents;
+		}
 	}
 	doXFree(rez_GetProperty.data);
 	return val;
@@ -866,6 +891,10 @@ function GetIntProperty(window, property_name, ret_array) {
 }
 
 function GetStringProperty(window, property_name, ret_array) {
+	//note: 12/31: after thinking for so long that GetPropety can return array of strings, i think if window atom has a string for it, only one string per exist per atom, so never is an array
+	if (ret_array) {
+		console.log('no need to ret_array, because linux doesnt have multiple strings, only one string per atom. if that atom of course is something that holds a string');
+	}
 	//returns
 		//success: js int if !ret_array
 		//success: array js int if ret_array
@@ -903,9 +932,11 @@ function GetStringProperty(window, property_name, ret_array) {
 	}
 	
 	console.log('debug-msg :: rz_GP.data:', rez_GP.data, uneval(rez_GP.data), rez_GP.data.toString());
-	//var stringg = ctypes.unsigned_char.array()(rez_GP.data);
-	console.error('stringg.readString:', rez_GP.data.readString());
-	return false;
+	try {
+		console.error('straight readString on XWindowGetProperty data:', rez_GP.data.readString());
+	} catch (ex) {
+		console.error('ex on straight readString:', ex);
+	}
 	var dataCasted = ctypes.cast(rez_GP.data, ostypes.UNSIGNED_CHAR.array(rez_GP.data_descriptor.count).ptr).contents;
 	console.log('debug-msg :: dataCasted:', dataCasted, uneval(dataCasted), dataCasted.toString());
 	if (ret_array) {
@@ -1357,27 +1388,14 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 			console.log('rez_PE:', rez_PE);
 			console.timeEnd('rez_PE');
 			*/
-			console.time('rez_GetStringProperty');
-			var rez_GetStringProperty = GetStringProperty(rez_GXWS[i], 'WM_NAME', true); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
-			console.info('debug-msg :: rez_GetStringProperty:', rez_GetStringProperty, uneval(rez_GetStringProperty), rez_GetStringProperty.toString());
-			if (rez_GetStringProperty === false) {
+			console.time('rez_GetTypeProperty');
+			var rez_GetTypeProperty = GetTypeProperty(rez_GXWS[i], 'WM_NAME', 'String', false); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
+			console.info('debug-msg :: rez_GetTypeProperty:', rez_GetTypeProperty, uneval(rez_GetTypeProperty), rez_GetTypeProperty.toString());
+			if (rez_GetTypeProperty === false) {
 				console.warn('debug-msg :: IsScreensaverWindow failed due to GetStringProperty FALSE');
 				//return false;
-			} else {
-				var stringedVal = [];
-				for (var j=0; j<rez_GetStringProperty.length; j++) {
-					//console.error('readString on stack i (' + i +'), j:', j, rez_GetStringProperty[j].toString()); //doing console log of just rez_GetStringProperty[j] crashes when casted to ostypes.UNSIGNED_CHAR.ptr.array
-					stringedVal.push(String.fromCharCode(rez_GetStringProperty[j]));
-					// try {
-						// console.error('readString() attempt:', rez_GetStringProperty[j].readString());
-					// } catch (ex) {
-						// console.warn('ex on readString(), ex:', ex);
-					// }
-				}
-				var stringed = stringedVal.join('');
-				console.error('STRINGED:', stringed);
 			}
-			console.timeEnd('rez_GetStringProperty');
+			console.timeEnd('rez_GetTypeProperty');
 			//end temp debugging
 		}
 	}

@@ -903,6 +903,9 @@ function GetStringProperty(window, property_name, ret_array) {
 	}
 	
 	console.log('debug-msg :: rz_GP.data:', rez_GP.data, uneval(rez_GP.data), rez_GP.data.toString());
+	//var stringg = ctypes.unsigned_char.array()(rez_GP.data);
+	console.error('stringg.readString:', rez_GP.data.readString());
+	return false;
 	var dataCasted = ctypes.cast(rez_GP.data, ostypes.UNSIGNED_CHAR.array(rez_GP.data_descriptor.count).ptr).contents;
 	console.log('debug-msg :: dataCasted:', dataCasted, uneval(dataCasted), dataCasted.toString());
 	if (ret_array) {

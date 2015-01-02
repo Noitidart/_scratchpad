@@ -1024,8 +1024,8 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 	}
 	//console.log('debug-msg :: rez_XQT is not 0 it is:', rez_XQT, uneval(rez_XQT), rez_XQT.toString());
 	
-	var num_children_value = ctypes.cast(num_children, ostypes.UNSIGNED_INT).value;
-	if (num_children_value > 0) {
+	var num_children_value = num_children.value; //ctypes.cast(num_children, ostypes.UNSIGNED_INT).value;
+	if (num_children_value > 0) { //as it is 0, then children has to be null, but xfree it still // can test if children.isNull() as alternative
 		/*
 		if (children.isNull()) {
 			//then no chilidren, num_children_value should be 0, per the docs: http://www.xfree86.org/4.4.0/XQueryTree.3.html
@@ -1033,22 +1033,8 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 			//return false;
 		}
 		*/
-		if (num_children_value == 0) {
-			console.error('num_children_value is 0 it should not work', num_children_value);
-			doXFree(children);
-		}
-		if (children.isNull()) {
-			console.error('children isNull so it should not work', children, uneval(children), children.toString());
-			
-			//return false;
-		}
-		/* try { */
-			var children_casted = ctypes.cast(children, ostypes.WINDOW.array(num_children_value).ptr).contents;
-		/* } catch(ex) {
-			console.error('cast ex. num_children_value:', num_children_value, 'ex:', ex);
-			throw ex;
-		} */
-		//not yet safe to free, as free'ing will erase data in casted as well
+		var children_casted = ctypes.cast(children, ostypes.WINDOW.array(num_children_value).ptr).contents;
+		//not yet safe to free, as free'ing will erase data in casted as well, should push to js var first
 		//console.info('debug-msg :: pre free children_casted:', uneval(children_casted));
 		
 		//may need to do free after pushing into windows arr block here:	
@@ -1066,7 +1052,7 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 		//console.error('succesfully checked if window is named and against delegate, quit'); return false;
 		
 		// XQueryTree returns the children of |window| in bottom-to-top order, so reverse-iterate the list to check the windows from top-to-bottom.
-		for (var i=windows.length-1; i>=0; i--) {
+		for (var i=windows.length-1; i>=0; i--) { //this for loop tests all the windows at this depth, we dig into children after checking all windows at this depth
 			if (IsWindowNamed(windows[i]) && shouldStopIteratingDelegate(windows[i])) {
 				console.log('debug-msg :: EnumerateChildren TRUE due to here 1');
 				return true;
@@ -1164,7 +1150,7 @@ bool EnumerateAllWindows(EnumerateWindowsDelegate* delegate, int max_depth) {
 function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	//returns js bool based on delegate
 
-	var rez_GXWS = GetXWindowStack(GetX11RootWindow());
+	var rez_GXWS = false; //GetXWindowStack(GetX11RootWindow()); //commented out for debug
 	console.log('debug-msg :: rez_GXWS : ', rez_GXWS, uneval(rez_GXWS), rez_GXWS.toString());
 	
 	if (!rez_GXWS) {
@@ -1361,20 +1347,20 @@ function IsX11WindowFullScreen(window) {
 		var atom_properties = GetTypeProperty(window, '_NET_WM_STATE', 'Atom', true); //GetAtomArrayProperty(window, '_NET_WM_STATE');
 		if (atom_properties === false) {
 			//GetAtomArrayProperty error'ed probably
-			console.info('debug-msg :: IsX11WindowFullScreen failed due to atom_properties failing');
-			return false;
+			console.info('debug-msg :: IsX11WindowFullScreen failed to get atom_properties, so will resort o GetWindoRect');
+			//return false;
 		} else {
 			for (var i=0; i<atom_properties.length; i++) {
 				if (ctypes.UInt64.compare(atom_properties[i], fullscreen_atom) == 0) {
 					console.info('debug-msg :: IsX11WindowFullScreen TRUE due to fullscreen_atom found at:', atom_properties[i].toString(), 'it should match fullscreen_atom:', fullscreen_atom.toString());
-					return true;
+					//return true; //debug comment out
 				} else {
 					console.log('non matching atom of:', atom_properties[i].toString(), ' the fullscreen_atom is:', fullscreen_atom.toString());
 				}
 			}
 			//if got here then its not full screen
 			console.info('debug-msg :: IsX11WindowFullScreen FALSE due to fullscreen_atom NOT found on window, used this method cuz WmSupportsHint found to support this atom');
-			return false;
+			//return false; //debug comment out
 		}
 	}
 	
@@ -1479,7 +1465,7 @@ function IsWindowVisible(window) {
 	console.log('rez_XGWA:', rez_XGWA, uneval(rez_XGWA), rez_XGWA.toString());
 	console.log('win_attributes:', win_attributes, uneval(win_attributes), win_attributes.toString());
 	console.log('win_attributes.map_state:', win_attributes.map_state, uneval(win_attributes.map_state), win_attributes.map_state.toString());
-	console.log('win_attributes.map_state equality to ostypes.ISVIEWABLE:', '==:', win_attributes.map_state == ostypes.ISVIEWABLE, 'toString:',win_attributes.map_state.toString() == ostypes.ISVIEWABLE.toString(), 'UInt64.compare:',ctypes.UInt64.compare(win_attributes.map_state, ostypes.ISVIEWABLE));
+	console.log('win_attributes.map_state equality to ostypes.ISVIEWABLE:', '==:', win_attributes.map_state == ostypes.ISVIEWABLE, 'toString:',win_attributes.map_state.toString() == ostypes.ISVIEWABLE.toString()/*, 'UInt64.compare:',ctypes.UInt64.compare(win_attributes.map_state, ostypes.ISVIEWABLE) */);
 	if (!rez_XGWA) {
 		console.info('debug-msg :: IsWindowVisible failed due to rez_XGWA failing');
 		return false;

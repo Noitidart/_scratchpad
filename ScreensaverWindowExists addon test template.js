@@ -643,15 +643,15 @@ function GetProperty(win, propertyName, max_length, params) {
 		*/
 }
 
-function PropertyExists(window, property_name) {
+function PropertyExists(win, property_name) {
 	//checks to see if window has a property for this atom
 	//returns
 		//success: js true
 		//fail: js false
-	//window is ostypes.WINDOW
+	//win is ostypes.WINDOW
 	//property_name is js string;
 	
-	var rez_GP = GetProperty(window, property_name, 1); //by default will XFree the data
+	var rez_GP = GetProperty(win, property_name, 1); //by default will XFree the data
 	if (rez_GP === false) {
 		console.info('debug-msg :: PropertyExists due to GetProperty returned FALSE');
 		return false;
@@ -678,14 +678,14 @@ function PropertyExists(window, property_name) {
 	*/
 }
 
-function GetTypeProperty(window, property_name, type, ret_array) {
+function GetTypeProperty(win, property_name, type, ret_array) {
 	//this function gets a certain type, it checks the format, and count, and it returns it in js readable and frees the data
 	
 	//returns
 		//success: js int if !ret_array
 		//success: array js int if ret_array
 		//fail: js false
-	//window is ostypes.WINDOW
+	//win is ostypes.WINDOW
 	//property_name is js string;
 
 	switch (type) {
@@ -720,7 +720,7 @@ function GetTypeProperty(window, property_name, type, ret_array) {
 			throw new Error('type not valid');
 	}
 	
-	var rez_GetProperty = GetProperty(window, property_name, ret_array ? ostypes.LONG(~0) /*(all of them)*/ : useMaxLenForNonRetArray, {free_data:false}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
+	var rez_GetProperty = GetProperty(win, property_name, ret_array ? ostypes.LONG(~0) /*(all of them)*/ : useMaxLenForNonRetArray, {free_data:false}); //will be using defaults of 1024 max_length and free_data //chromium uses type of NONE which is just 0
 	if (rez_GetProperty === false) {
 		//nothing returned so no need to free
 		console.warn('in GetTypeProperty, returning FALSE due to GetProperty returning FALSE nothing to free but will try it anyways');
@@ -918,10 +918,10 @@ function doXFree(data) {
 	return rez_doXFree;
 }
 
-function GetXWindowStack(window) {
+function GetXWindowStack(win) {
 	// returns stack on success
 	// returns js false on fail
-	var rez_GP = GetProperty(window, '_NET_CLIENT_LIST_STACKING', ostypes.LONG(~0) /*(all of them)*/, {free_data:false});
+	var rez_GP = GetProperty(win, '_NET_CLIENT_LIST_STACKING', ostypes.LONG(~0) /*(all of them)*/, {free_data:false});
 	if (rez_GP === false) {
 		//GP got no DataReturned so nothing to free
 		console.log('debug-msg :: GetXWindowStack FALSE due to GetProperty failing');
@@ -984,9 +984,9 @@ function GetXWindowStack(window) {
 		*/
 }
 
-function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth) {
+function EnumerateChildren(shouldStopIteratingDelegate, win, max_depth, depth) {
 	//shouldStopIteratingDelegate is pointer to EnumerateWindowsDelegate*
-	//window is ostypes.XID
+	//win is ostypes.XID
 	//max_depth is ostypes.INT
 	//depth is ostypes.INT
 	if (depth > max_depth) {
@@ -1016,7 +1016,7 @@ function EnumerateChildren(shouldStopIteratingDelegate, window, max_depth, depth
 	var children = new ostypes.WINDOW.ptr(); //ostypes.XID.array().ptr
 	var num_children = new ostypes.UNSIGNED_INT();
 	
-	var rez_XQT = _dec('XQueryTree')(GetXDisplay(), window, root.address(), parent.address(), children.address(), num_children.address());
+	var rez_XQT = _dec('XQueryTree')(GetXDisplay(), win, root.address(), parent.address(), children.address(), num_children.address());
 	
 	if (rez_XQT == 0) {
 		console.log('debug-msg :: EnumerateChildren FALSE due to XQueryTree failed');
@@ -1260,8 +1260,8 @@ function Size() {
 
 }
 
-function GetWindowRect(window) {
-	var d = window; //ostypes.DRAWABLE; //chromium passes a window and docs says its legal to pass window with class InputOnly but it doesnt specify if its in place of the drawable but im guessing it is
+function GetWindowRect(win) {
+	var d = win; //ostypes.DRAWABLE; //chromium passes a window and docs says its legal to pass window with class InputOnly but it doesnt specify if its in place of the drawable but im guessing it is
 	var root_return = new ostypes.WINDOW();
 	var x_return = new ostypes.INT();
 	var y_return = new ostypes.INT();
@@ -1288,13 +1288,13 @@ function GetWindowRect(window) {
 	}
 	
 	var child_return = new ostypes.WINDOW();
-	var rez_XTC = _dec('XTranslateCoordinates')(GetXDisplay(), window, root_return, 0, 0, x_return.address(), y_return.address(), child_return.address());
+	var rez_XTC = _dec('XTranslateCoordinates')(GetXDisplay(), win, root_return, 0, 0, x_return.address(), y_return.address(), child_return.address());
 	if (rez_XTC == false) {
 		return false;
 	}
 	
 	var rect = [x_return, y_return, width_return, height_return]; //Rect(x_return, y_return, width_return, height_return);
-	var rez_GIP = GetTypeProperty(window, '_NET_FRAME_EXTENTS', 'Int', true); //GetIntProperty(window, '_NET_FRAME_EXTENTS', true);
+	var rez_GIP = GetTypeProperty(win, '_NET_FRAME_EXTENTS', 'Int', true); //GetIntProperty(win, '_NET_FRAME_EXTENTS', true);
 	if (rez_GIP !== false && rez_GIP.length == 4) {
 		//rect.Inset(
 		rect[0] = -1 * rez_GIP[0];
@@ -1336,15 +1336,15 @@ function GetWindowRect(window) {
 	*/
 }
 
-function IsX11WindowFullScreen(window) {
-	//window is ostypes.XID
+function IsX11WindowFullScreen(win) {
+	//win is ostypes.XID
 	// If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine whether we're fullscreen.
 	var fullscreen_atom = GetAtom('_NET_WM_STATE_FULLSCREEN');
 	var rez_WSH = WmSupportsHint('_NET_WM_STATE_FULLSCREEN');
 	console.info('debug-msg :: In IsX11WindowFullScreen, rez_WSH:', rez_WSH, uneval(rez_WSH), rez_WSH.toString());
 	if (rez_WSH) {
 		console.log('will now do return based on fullscreen atom presence');
-		var atom_properties = GetTypeProperty(window, '_NET_WM_STATE', 'Atom', true); //GetAtomArrayProperty(window, '_NET_WM_STATE');
+		var atom_properties = GetTypeProperty(win, '_NET_WM_STATE', 'Atom', true); //GetAtomArrayProperty(win, '_NET_WM_STATE');
 		if (atom_properties === false) {
 			//GetAtomArrayProperty error'ed probably
 			console.info('debug-msg :: IsX11WindowFullScreen failed to get atom_properties, so will resort o GetWindoRect');
@@ -1364,7 +1364,7 @@ function IsX11WindowFullScreen(window) {
 		}
 	}
 	
-	var window_rect = GetWindowRect(window);
+	var window_rect = GetWindowRect(win);
 	if (window_rect === false) {
 		console.info('debug-msg :: IsX11WindowFullScreen failed due to window_rect failing');
 		return false;
@@ -1425,13 +1425,13 @@ function IsX11WindowFullScreen(window) {
 	*/
 }
 
-function GetWindowDesktop(window) {
+function GetWindowDesktop(win) {
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#984
 	984 bool GetWindowDesktop(XID window, int* desktop) {
 	985   return GetIntProperty(window, "_NET_WM_DESKTOP", desktop);
 	986 }
 	*/
-	var rez_GIP = GetTypeProperty(window, '_NET_WM_DESKTOP', 'Int', false); //GetIntProperty(window, '_NET_WM_DESKTOP');
+	var rez_GIP = GetTypeProperty(win, '_NET_WM_DESKTOP', 'Int', false); //GetIntProperty(win, '_NET_WM_DESKTOP');
 	console.info('debug-msg :: in GetWindowDesktop, rez_GIP:', rez_GIP, uneval(rez_GIP), rez_GIP.toString());
 	if (rez_GIP !== false) {
 		return rez_GIP;
@@ -1457,11 +1457,11 @@ function GetCurrentDesktop() {
 	}
 }
 
-function IsWindowVisible(window) {
+function IsWindowVisible(win) {
 	//window is ostypes.XID
 	
 	var win_attributes = new ostypes.XWINDOWATTRIBUTES();
-	var rez_XGWA = _dec('XGetWindowAttributes')(GetXDisplay(), window, win_attributes.address());
+	var rez_XGWA = _dec('XGetWindowAttributes')(GetXDisplay(), win, win_attributes.address());
 	console.log('rez_XGWA:', rez_XGWA, uneval(rez_XGWA), rez_XGWA.toString());
 	console.log('win_attributes:', win_attributes, uneval(win_attributes), win_attributes.toString());
 	console.log('win_attributes.map_state:', win_attributes.map_state, uneval(win_attributes.map_state), win_attributes.map_state.toString());
@@ -1477,7 +1477,7 @@ function IsWindowVisible(window) {
 	}
 	
 	// Minimized windows are not visible.
-	var wm_states = GetTypeProperty(window, '_NET_WM_STATE', 'Atom', true);//GetAtomArrayProperty(window, '_NET_WM_STATE');
+	var wm_states = GetTypeProperty(win, '_NET_WM_STATE', 'Atom', true);//GetAtomArrayProperty(win, '_NET_WM_STATE');
 	if (wm_states === false) {
 		//GetAtomArrayProperty error'ed probably
 		console.info('debug-msg :: IsWindowVisible failed due to wm_states erroring');
@@ -1495,7 +1495,7 @@ function IsWindowVisible(window) {
 	// Some compositing window managers (notably kwin) do not actually unmap windows on desktop switch, so we also must check the current desktop.
 	var kAllDesktops = 0xFFFFFFFF; //http://mxr.mozilla.org/chromium/source/src/ui/views/widget/desktop_aura/desktop_window_tree_host_x11.cc#76
 	
-	var window_desktop = GetWindowDesktop(window);
+	var window_desktop = GetWindowDesktop(win);
 	console.info('debug-msg :: window_desktop:', window_desktop, uneval(window_desktop), window_desktop.toString());
 	if (window_desktop === false) {
 		console.info('debug-msg :: IsWindowVisible failed due to window_desktop failing');
@@ -1551,11 +1551,11 @@ function IsWindowVisible(window) {
 	*/
 }
 
-function IsScreensaverWindow(window) {
-	//window is ostypes.XID
+function IsScreensaverWindow(win) {
+	//win is ostypes.XID
 	
 	// It should occupy the full screen.
-	var rez_IXWFS = IsX11WindowFullScreen(window);
+	var rez_IXWFS = IsX11WindowFullScreen(win);
 	console.info('debug-msg :: IsScreensaverWindow, rez_IXWFS:', rez_IXWFS, uneval(rez_IXWFS), rez_IXWFS.toString());
 	if (!rez_IXWFS) {
 		console.log('debug-msg :: IsScreensaverWindow FALSE due to rez_IXWFS failing');
@@ -1563,7 +1563,7 @@ function IsScreensaverWindow(window) {
 	}
 	
 	// For xscreensaver, the window should have _SCREENSAVER_VERSION property.
-	var rez_PE = PropertyExists(window, '_SCREENSAVER_VERSION');
+	var rez_PE = PropertyExists(win, '_SCREENSAVER_VERSION');
 	console.info('debug-msg :: IsScreensaverWindow, rez_PE:', rez_PE, uneval(rez_PE), rez_PE.toString());
 	if (rez_PE) {
 		console.log('debug-msg :: IsScreensaverWindow TRUE due to rez_PE _SCREENSAVER_VERSION existing');
@@ -1571,7 +1571,7 @@ function IsScreensaverWindow(window) {
 	}
 	
 	// For all others, like gnome-screensaver, the window's WM_CLASS property should contain "screensaver".
-	var rez_GSP = GetTypeProperty(window, 'WM_CLASS', 'String'); //GetStringProperty(window, 'WM_CLASS');
+	var rez_GSP = GetTypeProperty(win, 'WM_CLASS', 'String'); //GetStringProperty(win, 'WM_CLASS');
 	console.info('debug-msg :: IsScreensaverWindow, WM_CLASS rez_GSP:', rez_GSP, uneval(rez_GSP), rez_GSP.toString());
 	if (rez_GSP === false) {
 		console.info('debug-msg :: IsScreensaverWindow failed due to GetTypeProperty failing');
@@ -1613,12 +1613,12 @@ function IsScreensaverWindow(window) {
 	*/
 }
 
-function IsWindowNamed(window) {
+function IsWindowNamed(win) {
 	//returns js bool
-	//window is ostypes.XID
+	//win is ostypes.XID
 	
 	var prop = new ostypes.XTEXTPROPERTY();
-	var rez_XGWN = _dec('XGetWMName')(GetXDisplay(), window, prop.address());
+	var rez_XGWN = _dec('XGetWMName')(GetXDisplay(), win, prop.address());
 	
 	if (rez_XGWN == 0) { //on success it is non-0
 		console.warn('debug-msg :: XGetWMName failed due to error maybe, rez_XGWN:', rez_XGWN);
@@ -1668,9 +1668,9 @@ function IsWindowNamed(window) {
 	*/
 }
 
-var finderDelegate = function(window) { //no special reason to make this a var func, other then personal preference as it makes it look like its not a main func but something utilized in sub, which it is utilized in subscope
+var finderDelegate = function(win) { //no special reason to make this a var func, other then personal preference as it makes it look like its not a main func but something utilized in sub, which it is utilized in subscope
 	//delegate telling when to stop
-	if (!IsWindowVisible(window) || !IsScreensaverWindow(window)) {
+	if (!IsWindowVisible(win) || !IsScreensaverWindow(win)) {
 		return false;
 	} else {
 		return true;

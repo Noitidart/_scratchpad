@@ -1294,13 +1294,27 @@ function GetWindowRect(win) {
 	}
 	
 	var rect = [x_return, y_return, width_return, height_return]; //Rect(x_return, y_return, width_return, height_return);
+	
 	var rez_GIP = GetTypeProperty(win, '_NET_FRAME_EXTENTS', 'Int', true); //GetIntProperty(win, '_NET_FRAME_EXTENTS', true);
 	if (rez_GIP !== false && rez_GIP.length == 4) {
-		//rect.Inset(
-		rect[0] = -1 * rez_GIP[0];
-		rect[1] = -1 * rez_GIP[2];
-		rect[2] = -1 * rez_GIP[1];
-		rect[3] = -1 * rez_GIP[3];
+		// if succesful then modify rect, if not succesful then just skip this part and return the rect
+		var extentTop = rez_GIP[2];
+		var extentLeft = rez_GIP[0];
+		var extentRight = rez_GIP[1];
+		var extentBottom = rez_GIP[3];
+		var extents = [extentTop, extentLeft, extentBottom, extentRight];
+		/* https://code.google.com/p/chromium/codesearch#chromium/src/ui/gfx/geometry/insets_base.h&sq=package:chromium&l=22&q=inset&type=cs
+		  // Returns the total width taken up by the insets, which is the sum of the
+		  // left and right insets.
+		  Type width() const { return left_ + right_; }
+
+		  // Returns the total height taken up by the insets, which is the sum of the
+		  // top and bottom insets.
+		  Type height() const { return top_ + bottom_; }
+		*/
+		for (var i=0; i<extents.length; i++) {
+			rect[i] += -1 * extents[i];
+		}
 	}
 	
 	// Not all window managers support _NET_FRAME_EXTENTS so return true even if requesting the property fails.
@@ -1390,39 +1404,6 @@ function IsX11WindowFullScreen(win) {
 	
 	
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#1226
-	// https://code.google.com/p/chromium/codesearch#chromium/src/ui/base/x/x11_util.cc&sq=package:chromium&l=1305&q=isx11
-	bool IsX11WindowFullScreen(XID window) {
-	  // If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or
-	  // absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine
-	  // whether we're fullscreen.
-	  XAtom fullscreen_atom = GetAtom("_NET_WM_STATE_FULLSCREEN");
-	  if (WmSupportsHint(fullscreen_atom)) {
-		std::vector<XAtom> atom_properties;
-		if (GetAtomArrayProperty(window,
-								 "_NET_WM_STATE",
-								 &atom_properties)) {
-		  return std::find(atom_properties.begin(),
-						   atom_properties.end(),
-						   fullscreen_atom) !=
-			  atom_properties.end();
-		}
-	  }
-
-	  gfx::Rect window_rect;
-	  if (!ui::GetOuterWindowBounds(window, &window_rect))
-		return false;
-
-	  // We can't use gfx::Screen here because we don't have an aura::Window. So
-	  // instead just look at the size of the default display.
-	  //
-	  // TODO(erg): Actually doing this correctly would require pulling out xrandr,
-	  // which we don't even do in the desktop screen yet.
-	  ::XDisplay* display = gfx::GetXDisplay();
-	  ::Screen* screen = DefaultScreenOfDisplay(display);
-	  int width = WidthOfScreen(screen);
-	  int height = HeightOfScreen(screen);
-	  return window_rect.size() == gfx::Size(width, height);
-	}
 	1226 bool IsX11WindowFullScreen(XID window) {
 	1227   // If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or
 	1228   // absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine
@@ -1459,7 +1440,40 @@ function IsX11WindowFullScreen(win) {
 }
 
 /* get window bounds from chromium:
+	// https://code.google.com/p/chromium/codesearch#chromium/src/ui/base/x/x11_util.cc&sq=package:chromium&l=1305&q=isx11
+	bool IsX11WindowFullScreen(XID window) {
+	  // If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or
+	  // absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine
+	  // whether we're fullscreen.
+	  XAtom fullscreen_atom = GetAtom("_NET_WM_STATE_FULLSCREEN");
+	  if (WmSupportsHint(fullscreen_atom)) {
+		std::vector<XAtom> atom_properties;
+		if (GetAtomArrayProperty(window,
+								 "_NET_WM_STATE",
+								 &atom_properties)) {
+		  return std::find(atom_properties.begin(),
+						   atom_properties.end(),
+						   fullscreen_atom) !=
+			  atom_properties.end();
+		}
+	  }
 
+	  gfx::Rect window_rect;
+	  if (!ui::GetOuterWindowBounds(window, &window_rect))
+		return false;
+
+	  // We can't use gfx::Screen here because we don't have an aura::Window. So
+	  // instead just look at the size of the default display.
+	  //
+	  // TODO(erg): Actually doing this correctly would require pulling out xrandr,
+	  // which we don't even do in the desktop screen yet.
+	  ::XDisplay* display = gfx::GetXDisplay();
+	  ::Screen* screen = DefaultScreenOfDisplay(display);
+	  int width = WidthOfScreen(screen);
+	  int height = HeightOfScreen(screen);
+	  return window_rect.size() == gfx::Size(width, height);
+	}
+	////////
 bool GetInnerWindowBounds(XID window, gfx::Rect* rect) {
   Window root, child;
   int x, y;

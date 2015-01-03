@@ -1390,6 +1390,39 @@ function IsX11WindowFullScreen(win) {
 	
 	
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#1226
+	// https://code.google.com/p/chromium/codesearch#chromium/src/ui/base/x/x11_util.cc&sq=package:chromium&l=1305&q=isx11
+	bool IsX11WindowFullScreen(XID window) {
+	  // If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or
+	  // absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine
+	  // whether we're fullscreen.
+	  XAtom fullscreen_atom = GetAtom("_NET_WM_STATE_FULLSCREEN");
+	  if (WmSupportsHint(fullscreen_atom)) {
+		std::vector<XAtom> atom_properties;
+		if (GetAtomArrayProperty(window,
+								 "_NET_WM_STATE",
+								 &atom_properties)) {
+		  return std::find(atom_properties.begin(),
+						   atom_properties.end(),
+						   fullscreen_atom) !=
+			  atom_properties.end();
+		}
+	  }
+
+	  gfx::Rect window_rect;
+	  if (!ui::GetOuterWindowBounds(window, &window_rect))
+		return false;
+
+	  // We can't use gfx::Screen here because we don't have an aura::Window. So
+	  // instead just look at the size of the default display.
+	  //
+	  // TODO(erg): Actually doing this correctly would require pulling out xrandr,
+	  // which we don't even do in the desktop screen yet.
+	  ::XDisplay* display = gfx::GetXDisplay();
+	  ::Screen* screen = DefaultScreenOfDisplay(display);
+	  int width = WidthOfScreen(screen);
+	  int height = HeightOfScreen(screen);
+	  return window_rect.size() == gfx::Size(width, height);
+	}
 	1226 bool IsX11WindowFullScreen(XID window) {
 	1227   // If _NET_WM_STATE_FULLSCREEN is in _NET_SUPPORTED, use the presence or
 	1228   // absence of _NET_WM_STATE_FULLSCREEN in _NET_WM_STATE to determine
@@ -1424,6 +1457,57 @@ function IsX11WindowFullScreen(win) {
 	1257 }
 	*/
 }
+
+/* get window bounds from chromium:
+
+bool GetInnerWindowBounds(XID window, gfx::Rect* rect) {
+  Window root, child;
+  int x, y;
+  unsigned int width, height;
+  unsigned int border_width, depth;
+
+  if (!XGetGeometry(gfx::GetXDisplay(), window, &root, &x, &y,
+                    &width, &height, &border_width, &depth))
+    return false;
+
+  if (!XTranslateCoordinates(gfx::GetXDisplay(), window, root,
+                             0, 0, &x, &y, &child))
+    return false;
+
+  *rect = gfx::Rect(x, y, width, height);
+
+  return true;
+}
+
+bool GetWindowExtents(XID window, gfx::Insets* extents) {
+  std::vector<int> insets;
+  if (!GetIntArrayProperty(window, "_NET_FRAME_EXTENTS", &insets))
+    return false;
+  if (insets.size() != 4)
+    return false;
+
+  int left = insets[0];
+  int right = insets[1];
+  int top = insets[2];
+  int bottom = insets[3];
+  extents->Set(-top, -left, -bottom, -right);
+  return true;
+}
+
+bool GetOuterWindowBounds(XID window, gfx::Rect* rect) {
+  if (!GetInnerWindowBounds(window, rect))
+    return false;
+
+  gfx::Insets extents;
+  if (GetWindowExtents(window, &extents))
+    rect->Inset(extents);
+  // Not all window managers support _NET_FRAME_EXTENTS so return true even if
+  // requesting the property fails.
+
+  return true;
+}
+
+*/
 
 function GetWindowDesktop(win) {
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#984

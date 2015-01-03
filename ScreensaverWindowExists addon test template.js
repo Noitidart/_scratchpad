@@ -1294,15 +1294,17 @@ function GetWindowRect(win) {
 	}
 	
 	var rect = [x_return, y_return, width_return, height_return]; //Rect(x_return, y_return, width_return, height_return);
+	console.log('rect[x_return, y_return, width_return, height_return]:', rect, uneval(rect), rect.toString());
 	
 	var rez_GIP = GetTypeProperty(win, '_NET_FRAME_EXTENTS', 'Int', true); //GetIntProperty(win, '_NET_FRAME_EXTENTS', true);
 	if (rez_GIP !== false && rez_GIP.length == 4) {
-		// if succesful then modify rect, if not succesful then just skip this part and return the rect
-		var extentTop = rez_GIP[2];
+		// if succesful then modify rect, if not succesful then just skip this part and return the rect, this is translation of this following chromium comment: `// Not all window managers support _NET_FRAME_EXTENTS so return true even if requesting the property fails.`
 		var extentLeft = rez_GIP[0];
 		var extentRight = rez_GIP[1];
+		var extentTop = rez_GIP[2];
 		var extentBottom = rez_GIP[3];
-		var extents = [extentTop, extentLeft, extentBottom, extentRight];
+		var extents = [extentLeft, extentTop, extentRight, extentBottom]; //obeying https://code.google.com/p/chromium/codesearch#chromium/src/ppapi/cpp/rect.h&sq=package:chromium&l=281&q=inset&type=cs
+		console.log('extens[extentLeft, extentTop, extentRight, extentBottom]:', extents);
 		/* https://code.google.com/p/chromium/codesearch#chromium/src/ui/gfx/geometry/insets_base.h&sq=package:chromium&l=22&q=inset&type=cs
 		  // Returns the total width taken up by the insets, which is the sum of the
 		  // left and right insets.
@@ -1317,7 +1319,6 @@ function GetWindowRect(win) {
 		}
 	}
 	
-	// Not all window managers support _NET_FRAME_EXTENTS so return true even if requesting the property fails.
 	return rect;
 	
 	/* http://mxr.mozilla.org/chromium/source/src/ui/base/x/x11_util.cc#574

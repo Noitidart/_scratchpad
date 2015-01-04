@@ -1026,6 +1026,7 @@ function EnumerateChildren(shouldStopIteratingDelegate, win, max_depth, depth) {
 	
 	var num_children_value = num_children.value; //ctypes.cast(num_children, ostypes.UNSIGNED_INT).value;
 	if (num_children_value > 0) { //as it is 0, then children has to be null, but xfree it still // can test if children.isNull() as alternative
+		console.error('debug-msg :: num_children_value has conents, num_children_value:, ', num_children_value);
 		/*
 		if (children.isNull()) {
 			//then no chilidren, num_children_value should be 0, per the docs: http://www.xfree86.org/4.4.0/XQueryTree.3.html
@@ -1077,7 +1078,7 @@ function EnumerateChildren(shouldStopIteratingDelegate, win, max_depth, depth) {
 		console.log('debug-msg :: EnumerateChildren FALSE due to all above not passing');
 		return false;
 	} else {
-		console.error('debug-msg :: num_children_value is 0:, ', num_children_value);
+		console.log('debug-msg :: num_children_value is 0:, ');
 		doXFree(children);
 	}
 /*
@@ -1150,7 +1151,7 @@ bool EnumerateAllWindows(EnumerateWindowsDelegate* delegate, int max_depth) {
 function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 	//returns js bool based on delegate
 
-	var rez_GXWS = false; //GetXWindowStack(GetX11RootWindow()); //commented out for debug
+	var rez_GXWS = GetXWindowStack(GetX11RootWindow()); //commented out for debug
 	console.log('debug-msg :: rez_GXWS : ', rez_GXWS, uneval(rez_GXWS), rez_GXWS.toString());
 	
 	if (!rez_GXWS) {
@@ -1175,41 +1176,12 @@ function EnumerateTopLevelWindows(shouldStopIteratingDelegate) {
 			*/
 		console.error('need to go through stacks');
 		for (var i=0; i<rez_GXWS.length; i++) {
-			/* temp comment out to debug
 			if (shouldStopIteratingDelegate(rez_GXWS[i])) {
 				return true;
 			}
-			//if got to this point then screensaver window not found
-			return false;
-			*/
-			//start temp debugging
-			console.time('rez_isnamed');
-			var isnamed = IsWindowNamed(rez_GXWS[i]);
-			console.log('isnamed:', isnamed);
-			console.timeEnd('rez_isnamed');
-			/*
-			console.time('rez_PE');
-			console.log('screensaver version atom:', GetAtom('_SCREENSAVER_VERSION'), uneval(GetAtom('_SCREENSAVER_VERSION')), GetAtom('_SCREENSAVER_VERSION').toString());
-			var rez_PE = PropertyExists(rez_GXWS[i], '_SCREENSAVER_VERSION')
-			console.log('rez_PE:', rez_PE);
-			console.timeEnd('rez_PE');
-			*/
-			/*
-			console.time('rez_GetTypeProperty');
-			var rez_GetTypeProperty = GetTypeProperty(rez_GXWS[i], '_NET_FRAME_EXTENTS', 'Int', true); //GetTypeProperty(rez_GXWS[i], 'WM_NAME', 'String', false); //GetStringProperty(rez_GXWS[i], '_NET_WM_PID', false);
-			console.info('debug-msg :: rez_GetTypeProperty:', rez_GetTypeProperty, uneval(rez_GetTypeProperty), rez_GetTypeProperty.toString());
-			if (rez_GetTypeProperty === false) {
-				console.warn('debug-msg :: IsScreensaverWindow failed due to GetTypeProperty FALSE');
-				//return false;
-			}
-			console.timeEnd('rez_GetTypeProperty');
-			*/
-			console.time('IsX11WindowFullScreen');
-			var rez_IXWFS = IsX11WindowFullScreen(rez_GXWS[i]);
-			console.info('rez_IXWFS:', rez_IXWFS, uneval(rez_IXWFS), rez_IXWFS.toString());
-			console.timeEnd('IsX11WindowFullScreen');
-			//end temp debugging
 		}
+		//if got to this point then screensaver window not found
+		return false;
 	}
 }
 
@@ -1256,11 +1228,8 @@ function WmSupportsHint(atom_name) {
 	*/
 }
 
-function Size() {
-
-}
-
 function GetWindowRect(win) {
+	//on fail returns js false. on success returns array of window coords: [x, y, width, height]
 	var d = win; //ostypes.DRAWABLE; //chromium passes a window and docs says its legal to pass window with class InputOnly but it doesnt specify if its in place of the drawable but im guessing it is
 	var root_return = new ostypes.WINDOW();
 	var x_return = new ostypes.INT();
@@ -1298,13 +1267,14 @@ function GetWindowRect(win) {
 	
 	var rez_GIP = GetTypeProperty(win, '_NET_FRAME_EXTENTS', 'Int', true); //GetIntProperty(win, '_NET_FRAME_EXTENTS', true);
 	if (rez_GIP !== false && rez_GIP.length == 4) {
+		//purpose of inset is: Inset() shrinks the rectangle by the specified amount on each side //https://code.google.com/p/chromium/codesearch#chromium/src/ppapi/cpp/rect.h&sq=package:chromium&l=270&q=inset&type=cs
 		// if succesful then modify rect, if not succesful then just skip this part and return the rect, this is translation of this following chromium comment: `// Not all window managers support _NET_FRAME_EXTENTS so return true even if requesting the property fails.`
 		var extentLeft = rez_GIP[0];
 		var extentRight = rez_GIP[1];
 		var extentTop = rez_GIP[2];
 		var extentBottom = rez_GIP[3];
 		var extents = [extentLeft, extentTop, extentRight, extentBottom]; //obeying https://code.google.com/p/chromium/codesearch#chromium/src/ppapi/cpp/rect.h&sq=package:chromium&l=281&q=inset&type=cs
-		console.log('extens[extentLeft, extentTop, extentRight, extentBottom]:', extents);
+		console.log('extens[extentLeft, extentTop, extentRight, extentBottom]:', extents, extents.toString(), uneval(extents));
 		/* https://code.google.com/p/chromium/codesearch#chromium/src/ui/gfx/geometry/insets_base.h&sq=package:chromium&l=22&q=inset&type=cs
 		  // Returns the total width taken up by the insets, which is the sum of the
 		  // left and right insets.
@@ -1768,6 +1738,44 @@ function IsWindowNamed(win) {
 }
 
 var finderDelegate = function(win) { //no special reason to make this a var func, other then personal preference as it makes it look like its not a main func but something utilized in sub, which it is utilized in subscope
+	//start debug
+			//start temp debugging
+			console.time('rez_isnamed');
+			var isnamed = IsWindowNamed(win);
+			console.log('isnamed:', isnamed);
+			console.timeEnd('rez_isnamed');
+			
+			console.time('rez_GSP');
+			var rez_GSP = GetTypeProperty(win, 'WM_CLASS', 'String');
+			console.error('rez_GSP:', rez_GSP, uneval(rez_GSP), rez_GSP.toString());
+			console.timeEnd('rez_GSP');
+			
+			/*
+			console.time('rez_PE');
+			console.log('screensaver version atom:', GetAtom('_SCREENSAVER_VERSION'), uneval(GetAtom('_SCREENSAVER_VERSION')), GetAtom('_SCREENSAVER_VERSION').toString());
+			var rez_PE = PropertyExists(win, '_SCREENSAVER_VERSION')
+			console.log('rez_PE:', rez_PE);
+			console.timeEnd('rez_PE');
+			*/
+			/*
+			console.time('rez_GetTypeProperty');
+			var rez_GetTypeProperty = GetTypeProperty(win, '_NET_FRAME_EXTENTS', 'Int', true); //GetTypeProperty(win, 'WM_NAME', 'String', false); //GetStringProperty(win, '_NET_WM_PID', false);
+			console.info('debug-msg :: rez_GetTypeProperty:', rez_GetTypeProperty, uneval(rez_GetTypeProperty), rez_GetTypeProperty.toString());
+			if (rez_GetTypeProperty === false) {
+				console.warn('debug-msg :: IsScreensaverWindow failed due to GetTypeProperty FALSE');
+				//return false;
+			}
+			console.timeEnd('rez_GetTypeProperty');
+			*/
+			/* 
+			console.time('IsX11WindowFullScreen');
+			var rez_IXWFS = IsX11WindowFullScreen(win);
+			console.info('rez_IXWFS:', rez_IXWFS, uneval(rez_IXWFS), rez_IXWFS.toString());
+			console.timeEnd('IsX11WindowFullScreen');
+			 */
+			//end temp debugging
+	return false;
+	//end debug
 	//delegate telling when to stop
 	if (!IsWindowVisible(win) || !IsScreensaverWindow(win)) {
 		return false;

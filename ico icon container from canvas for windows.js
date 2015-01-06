@@ -88,12 +88,14 @@ function makeIcoOfPaths(paths) {
 			path_data[p].AND = path_data[p].Image.naturalWidth * path_data[p].Image.naturalHeight / 8;
 			sizeof_ICONIMAGEs += path_data[p].XOR;
 			sizeof_ICONIMAGEs += path_data[p].AND;
+			sizeof_ICONIMAGEs += sizeof_BITMAPHEADER;
+			path_data[p].sizeof_ICONIMAGE = path_data[p].XOR + path_data[p].AND + sizeof_BITMAPHEADER;
 		}
 		
 		// let XOR = data.length;
 		// let AND = canvas.width * canvas.height / 8;
 		// let csize = 22 /* ICONDIR + ICONDIRENTRY */ + 40 /* BITMAPHEADER */ + XOR + AND;
-		var csize = sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.length) + (sizeof_BITMAPHEADER * paths.length) + sizeof_ICONIMAGEs;
+		var csize = sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.length) + sizeof_ICONIMAGEs;
 		var buffer = new ArrayBuffer(csize);
 	   
 		// Every ICO file starts with an ICONDIR
@@ -108,7 +110,7 @@ function makeIcoOfPaths(paths) {
 		} ICONDIR, *LPICONDIR;
 		*/
 		var view = new DataView(buffer);
-		view.setUint16(0, 0, true);				//	WORD	//	idReserved	//	Reserved (must be 0)
+		//view.setUint16(0, 0, true);			//	WORD	//	idReserved	//	Reserved (must be 0) /* i commented this out because its not needed, by default the view value is 0 */
 		view.setUint16(2, 1, true);				//	WORD	//	idType		//	Resource Type (1 for icons)
 		view.setUint16(4, paths.length, true);	//	WORD	//	idCount;	// How many images?
 		
@@ -129,34 +131,67 @@ function makeIcoOfPaths(paths) {
 		// ICONDIRENTRY creation for each image
 		for (var p in path_data) {
 			view = new DataView(buffer, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.indexOf(p) /* sum_of_ICONDIRENTRYs_before_this_one */));
-			view.setUint8(0, canvas.width % 256);
-			view.setUint8(1, canvas.height % 256);
-			view.setUint16(4, 1, true); // Planes
-			view.setUint16(6, 32, true); // BPP
-			view.setUint32(8, 40 + XOR + AND, true); // data size
-			view.setUint32(12, 22, true); // data start
-
+			view.setUint8(0, path_data[p].Image.naturalWidth /* % 256 i dont understand why the modulus?? */ );	// BYTE        bWidth;          // Width, in pixels, of the image
+			view.setUint8(1, path_data[p].Image.naturalHeight /* % 256 i dont understand why the modulus?? */);	// BYTE        bHeight;         // Height, in pixels, of the image
+			//view.setUint8(2, 0);																				// BYTE        bColorCount;     // Number of colors in image (0 if >=8bpp)
+			//view.setUint8(3, 0);																				// BYTE        bReserved;       // Reserved ( must be 0)
+			view.setUint16(4, 1, true);																			// WORD        wPlanes;         // Color Planes
+			view.setUint16(6, 32, true);																		// WORD        wBitCount;       // Bits per pixel
+			view.setUint32(8, sizeof_BITMAPHEADER + path_data[p].XOR + path_data[p].AND, true);									// DWORD       dwBytesInRes;    // How many bytes in this resource?			// data size
+			view.setUint32(12, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.indexOf(p) /* sum_of_ICONDIRENTRYs_before_this_one */), true);																		// DWORD       dwImageOffset;   // Where in the file is this image?			// data start
+		}
+		/*
+		typdef struct
+		{
+		   BITMAPINFOHEADER   icHeader;      // DIB header
+		   RGBQUAD         icColors[1];   // Color table
+		   BYTE            icXOR[1];      // DIB bits for XOR mask
+		   BYTE            icAND[1];      // DIB bits for AND mask
+		} ICONIMAGE, *LPICONIMAGE;
+		*/
+		// ICONIMAGE creation for each image
+		var sumof__prior_sizeof_ICONIMAGE = 0;
+		for (var p in path_data) {
+			/*
+			typedef struct tagBITMAPINFOHEADER {
+			  DWORD biSize;
+			  LONG  biWidth;
+			  LONG  biHeight;
+			  WORD  biPlanes;
+			  WORD  biBitCount;
+			  DWORD biCompression;
+			  DWORD biSizeImage;
+			  LONG  biXPelsPerMeter;
+			  LONG  biYPelsPerMeter;
+			  DWORD biClrUsed;
+			  DWORD biClrImportant;
+			} BITMAPINFOHEADER, *PBITMAPINFOHEADER;
+			*/
 			// BITMAPHEADER
-			view = new DataView(buffer, 22);
-			view.setUint32(0, 40, true); // BITMAPHEADER size
-			view.setInt32(4, canvas.width, true);
-			view.setInt32(8, canvas.height * 2, true);
+			view = new DataView(buffer, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.length) + sumof__prior_sizeof_ICONIMAGE);
+			view.setUint32(0, sizeof_BITMAPHEADER, true); // BITMAPHEADER size
+			view.setInt32(4, path_data[p].Image.naturalWidth, true);
+			view.setInt32(8, path_data[p].Image.naturalHeight * 2, true);
 			view.setUint16(12, 1, true); // Planes
 			view.setUint16(14, 32, true); // BPP
-			view.setUint32(20, XOR + AND, true); // size of data
-		}
-		// Reorder RGBA -> BGRA
-		for (let i = 0; i < XOR; i += 4) {
-		let temp = data[i];
-		data[i] = data[i + 2];
-		data[i + 2] = temp;
-		}
-		let ico = new Uint8Array(buffer, 22 + 40);
-		let stride = canvas.width * 4;
-		// Write bottom to top
-		for (let i = 0; i < canvas.height; ++i) {
-		let su = data.subarray(XOR - i * stride, XOR - i * stride + stride);
-		ico.set(su, i * stride);
+			view.setUint32(20, path_data[p].XOR + path_data[p].AND, true); // size of data
+			
+			// Reorder RGBA -> BGRA
+			for (let i = 0; i < path_data[p].XOR; i += 4) {
+				let temp = data[i];
+				data[i] = data[i + 2];
+				data[i + 2] = temp;
+			}
+			let ico = new Uint8Array(buffer, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.length) + sizeof_BITMAPHEADER);
+			let stride = path_data[p].Image.naturalWidth * 4;
+			
+			// Write bottom to top
+			for (let i = 0; i < path_data[p].Image.naturalHeight; ++i) {
+				let su = data.subarray(path_data[p].XOR - i * stride, path_data[p].XOR - i * stride + stride);
+				ico.set(su, i * stride);
+			}
+			
+			sumof__prior_sizeof_ICONIMAGE += path_data[p].sizeof_ICONIMAGE; /*path_data[p].XOR + path_data[p].AND + sizeof_BITMAPHEADER;*/
 		}
 
 		// Write the icon to inspect later. (We don't really need to write it at all)

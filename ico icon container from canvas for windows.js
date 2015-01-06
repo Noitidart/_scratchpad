@@ -129,16 +129,27 @@ function makeIcoOfPaths(paths) {
 		} ICONDIRENTRY, *LPICONDIRENTRY;
 		*/
 		// ICONDIRENTRY creation for each image
+		var sumof__prior_sizeof_ICONIMAGE = 0;
 		for (var p in path_data) {
+			/*
+			var countof_ICONIMAGES_prior_to_this_ICONIMAGE = paths.indexOf(p);
+			var sizeof_ICONIMAGES_prior_to_this_ICONIMAGE = 0;
+			for (var i=0; i<countof_ICONIMAGES_prior_to_this_ICONIMAGE; i++) {
+				sizeof_ICONIMAGES_prior_to_this_ICONIMAGE += path_data[paths[i]].sizeof_ICONIMAGE;
+			}
+			*/
+			
 			view = new DataView(buffer, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.indexOf(p) /* sum_of_ICONDIRENTRYs_before_this_one */));
-			view.setUint8(0, path_data[p].Image.naturalWidth /* % 256 i dont understand why the modulus?? */ );	// BYTE        bWidth;          // Width, in pixels, of the image
-			view.setUint8(1, path_data[p].Image.naturalHeight /* % 256 i dont understand why the modulus?? */);	// BYTE        bHeight;         // Height, in pixels, of the image
-			//view.setUint8(2, 0);																				// BYTE        bColorCount;     // Number of colors in image (0 if >=8bpp)
-			//view.setUint8(3, 0);																				// BYTE        bReserved;       // Reserved ( must be 0)
-			view.setUint16(4, 1, true);																			// WORD        wPlanes;         // Color Planes
-			view.setUint16(6, 32, true);																		// WORD        wBitCount;       // Bits per pixel
-			view.setUint32(8, sizeof_BITMAPHEADER + path_data[p].XOR + path_data[p].AND, true);									// DWORD       dwBytesInRes;    // How many bytes in this resource?			// data size
-			view.setUint32(12, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.indexOf(p) /* sum_of_ICONDIRENTRYs_before_this_one */), true);																		// DWORD       dwImageOffset;   // Where in the file is this image?			// data start
+			view.setUint8(0, path_data[p].Image.naturalWidth /* % 256 i dont understand why the modulus?? */ );									// BYTE        bWidth;          // Width, in pixels, of the image
+			view.setUint8(1, path_data[p].Image.naturalHeight /* % 256 i dont understand why the modulus?? */);									// BYTE        bHeight;         // Height, in pixels, of the image
+			//view.setUint8(2, 0);																												// BYTE        bColorCount;     // Number of colors in image (0 if >=8bpp)
+			//view.setUint8(3, 0);																												// BYTE        bReserved;       // Reserved ( must be 0)
+			view.setUint16(4, 1, true);																											// WORD        wPlanes;         // Color Planes
+			view.setUint16(6, 32, true);																										// WORD        wBitCount;       // Bits per pixel
+			view.setUint32(8, path_data[p].sizeof_ICONIMAGE /* sizeof_BITMAPHEADER + path_data[p].XOR + path_data[p].AND */, true);													// DWORD       dwBytesInRes;    // How many bytes in this resource?			// data size
+			view.setUint32(12, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.length) + sumof__prior_sizeof_ICONIMAGE /*sizeof_ICONIMAGES_prior_to_this_ICONIMAGE*/, true);		// DWORD       dwImageOffset;   // Where in the file is this image?			// data start
+			
+			sumof__prior_sizeof_ICONIMAGE += path_data[p].sizeof_ICONIMAGE;
 		}
 		/*
 		typdef struct
@@ -154,18 +165,18 @@ function makeIcoOfPaths(paths) {
 		for (var p in path_data) {
 			/*
 			typedef struct tagBITMAPINFOHEADER {
-			  DWORD biSize;
-			  LONG  biWidth;
-			  LONG  biHeight;
-			  WORD  biPlanes;
-			  WORD  biBitCount;
-			  DWORD biCompression;
-			  DWORD biSizeImage;
-			  LONG  biXPelsPerMeter;
-			  LONG  biYPelsPerMeter;
-			  DWORD biClrUsed;
-			  DWORD biClrImportant;
-			} BITMAPINFOHEADER, *PBITMAPINFOHEADER;
+			  DWORD biSize;				4
+			  LONG  biWidth;			4
+			  LONG  biHeight;			4
+			  WORD  biPlanes;			2
+			  WORD  biBitCount;			2
+			  DWORD biCompression;		4
+			  DWORD biSizeImage;		4
+			  LONG  biXPelsPerMeter;	4
+			  LONG  biYPelsPerMeter;	4
+			  DWORD biClrUsed;			4
+			  DWORD biClrImportant;		4
+			} BITMAPINFOHEADER, *PBITMAPINFOHEADER;		40
 			*/
 			// BITMAPHEADER
 			view = new DataView(buffer, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.length) + sumof__prior_sizeof_ICONIMAGE);
@@ -178,16 +189,16 @@ function makeIcoOfPaths(paths) {
 			
 			// Reorder RGBA -> BGRA
 			for (let i = 0; i < path_data[p].XOR; i += 4) {
-				let temp = data[i];
-				data[i] = data[i + 2];
-				data[i + 2] = temp;
+				let temp = path_data[p].data[i];
+				path_data[p].data[i] = path_data[p].data[i + 2];
+				path_data[p].data[i + 2] = temp;
 			}
-			let ico = new Uint8Array(buffer, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.length) + sizeof_BITMAPHEADER);
+			let ico = new Uint8Array(buffer, sizeof_ICONDIR + (sizeof_ICONDIRENTRY * paths.length) + sumof__prior_sizeof_ICONIMAGE + sizeof_BITMAPHEADER);
 			let stride = path_data[p].Image.naturalWidth * 4;
 			
 			// Write bottom to top
 			for (let i = 0; i < path_data[p].Image.naturalHeight; ++i) {
-				let su = data.subarray(path_data[p].XOR - i * stride, path_data[p].XOR - i * stride + stride);
+				let su = path_data[p].data.subarray(path_data[p].XOR - i * stride, path_data[p].XOR - i * stride + stride);
 				ico.set(su, i * stride);
 			}
 			
@@ -195,7 +206,7 @@ function makeIcoOfPaths(paths) {
 		}
 
 		// Write the icon to inspect later. (We don't really need to write it at all)
-		var writePath = OS.Path.join(OS.Constants.Path.desktopDir, 'profilist' + size + '.' + osIconFileType);
+		var writePath = OS.Path.join(OS.Constants.Path.desktopDir, 'my.ico');
 		var p = OS.File.writeAtomic(writePath, new Uint8Array(buffer), {
 		   tmpPath: writePath + '.tmp'
 		});

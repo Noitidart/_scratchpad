@@ -1,17 +1,11 @@
 Cu.import('resource://gre/modules/Promise.jsm');
 Cu.import('resource://gre/modules/osfile.jsm');
 
-function makeIcnsOfPaths(paths, pathToSaveIt, doc) {
+function installPngsAsLinuxIcon(paths, nameOfIcon, doc) {
 	//doc is document element to use for canvas
-	// paths is array of paths, required to have to 7 elements: 16, 32, 64, 128, 256, 512, and 1024px sqaure images, IN ORDER
-	// returns promise, aSuccessVal will be the icoBuffer
-	// pathToSaveIt is optional, it is a string path like `OS.Path.join(OS.Constants.Path.desktopDir, 'my.ico')` which tells where to save the ico file
-	
-	if (paths.length != 7) {
-		throw new Error('paths error: required to have to 7 elements: 16, 32, 64, 128, 256, 512, and 1024px sqaure images, IN ORDER');
-	}
-	
-	var funcStartDate = new Date();
+	// paths is array of paths of images, based on size of it i figure out which folder to put it into in `$prefix/share/icons/hicolor/48x48/apps`
+	// nameOfIcon is the name it will be saved as in all icon folders
+	// returns promise, aSuccessVal will true
 	
 	//algo:
 		//in parallel with makeIconSetDir do loadPathToImg
@@ -21,8 +15,102 @@ function makeIcnsOfPaths(paths, pathToSaveIt, doc) {
 		//then delete iconset dir
 	
 	//start - define callbacks
-	var makeIconSetDir = functon() {
-		return OS.File.makeDir(pathToSaveIt.replace(/icns$/i, 'iconset'), {unixMode: FileUtils.PERMS_DIRECTORY, ignoreExisting: true});
+	var findPossiblePrefixes = function() {
+		// finds possible prefixs for where `/share/icons/hicolor` or `/opt/Qtopia/pics/icons` can exist
+		// returns promise with aSuccessVal of possiblePrefixes array
+		
+		var possiblePrefixes = ['/'];
+
+		var envPaths = Cc['@mozilla.org/process/environment;1'].getService(Ci.nsIEnvironment).get('PATH').split(':');
+		
+		// Open iterator
+		var itrDirRoot = new OS.File.DirectoryIterator('/');
+
+		// Iterate through the directory
+		var promise_itrDirRoot = itrDirRoot.forEach(function onEntry(entry) {
+			possiblePrefixes.push(entry.path);
+		});
+
+		// Finally, close the iterator
+		return promise_itrDirRoot.then(
+			function(aSuccessVal) {
+				itrDirRoot.close();
+				console.log('Succesfully completed  promise `promise_itrDirRoot` - aSuccessVal:', aSuccessVal) //undefined
+				Array.prototype.splice.apply(possiblePrefixes, [possiblePrefixes.length, 0].concat(envPaths)); //add in the envPaths to possiblePrefixes
+				return Promise.resolve(possiblePrefixes);
+			},
+			function(aRejectReason) {
+				itrDirRoot.close();
+				console.error('Rejected promise `promise_itrDirRoot` - aRejectReason:', aRejectReason);
+			}
+		);
+	};
+	
+	var checkPrefix = function(arrayOfDirs) {
+		//find the prefix at which `/share/icons/hicolor` or `/opt/Qtopia/pics` exists
+		// returns promise with aSuccessVal being the path where it exists at
+		var promise_MAIN = Promise.defer();
+		
+		var promiseArr_checkPrefixes = [];
+		var prefixFound = false; //used to stop pushing OS.File.exists if one of the earlier started OS.File.exists resolves to true // set to the prefix when it is found
+		for (var i=0; i<arrayOfDirs.length; i++) {
+			if (prefixFound) {
+				break;
+			}
+			var defer_existsShareIconsHicolor = Promise.defer();
+			var pathGnome = OS.Path.join(arrayOfDirs[i], 'share', 'icons', 'hicolor');
+			var promise_existsShareIconsHicolor = OS.File.exists(pathGnome);
+			promise_existsShareIconsHicolor.then(
+				function(aSuccessVal) {
+					if (prefixFound) { defer_existsShareIconsHicolor.reject(null); return; }
+					if (aSuccessVal) {
+						prefixFound = pathGnome;
+						promise_MAIN.resolve(prefixFound);
+					}
+					defer_existsShareIconsHicolor.resolve(aSuccessVal ? pathGnome : false);
+				},
+				function(aRejectReason) {
+					console.error('Promise Rejected `promise_existsShareIconsHicolor` - Failed to determine existance of path, "' + pathGnome + '" due aRejectReason: ', aRejectReason);
+					defer_existsShareIconsHicolor.reject('Promise Rejected `promise_existsShareIconsHicolor` - Failed to determine existance of path, "' + pathGnome + '" due aRejectReason: ' + aRejectReason);
+				}
+			);
+			promiseArr_checkPrefixes.push(defer_existsShareIconsHicolor.promise); // still need to push these promises to Promise.all because in case ALL promises find existance to be false, ill only know that after all of them complete
+
+			var defer_existsOptQtopiaPics = Promise.defer();
+			var pathQt = OS.Path.join(arrayOfDirs[i], 'opt', 'Qtopia', 'pics');
+			var promise_existsOptQtopiaPics = OS.File.exists(pathQt);
+			promise_existsOptQtopiaPics.then(
+				function(aSuccessVal) {
+					if (prefixFound) { defer_existsOptQtopiaPics.reject(null); return; }
+					if (aSuccessVal) {
+						prefixFound = pathQt;
+						promise_MAIN.resolve(prefixFound);
+					}
+					defer_existsOptQtopiaPics.resolve(aSuccessVal ? pathQt : false);
+				},
+				function(aRejectReason) {
+					console.error('Promise Rejected `promise_existsOptQtopiaPics` - Failed to determine existance of path, "' + pathQt + '" due aRejectReason: ', aRejectReason);
+					defer_existsOptQtopiaPics.reject('Promise Rejected `promise_existsOptQtopiaPics` - Failed to determine existance of path, "' + pathQt + '" due aRejectReason: ' + aRejectReason);
+				}
+			);
+			promiseArr_checkPrefixes.push(defer_existsOptQtopiaPics.promise); // still need to push these promises to Promise.all because in case ALL promises find existance to be false, ill only know that after all of them complete
+		}
+		var promise_checkPrefixes = Promise.all(defer_existsOptQtopiaPics.promise);
+		promise_checkPrefixes.then(
+			function(aSuccessVal) {
+				console.log('Promise succesfull, `promise_checkPrefixes`, aSuccessVal:', aSuccessVal);
+				if (prefixFound === false) {
+					promise_MAIN.reject('Iterated through all - no prefix found!');
+				} else {
+					// do nothing as when its found promise_MAIN is resolved right away
+				}
+			},
+			function(aRejectReason) {
+				console.error('Promise Rejected `promise_checkPrefixes` - aRejectReason: ', aRejectReason);
+				promise_MAIN.reject('Promise Rejected `promise_checkPrefixes` - aRejectReason: ' + aRejectReason);
+			}
+		);
+		return 	promise_MAIN.promise;
 	}
 	
 	var loadPathToImg = function(path) {

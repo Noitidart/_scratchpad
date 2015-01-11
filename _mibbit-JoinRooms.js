@@ -1,12 +1,12 @@
 var rooms = [
   'extdev',
-  'fx-team',
+  //'fx-team',
   'linux',
   'windev',
   'macdev',
-  'media',
+  //'media',
   'introduction',
-  'ux'
+  //'ux',
 ];
 
 //var doc = gBrowser.contentDocument;

@@ -10,6 +10,7 @@ var wintypesInit = function() {
 	this.LPUNKNOWN = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.LPVOID = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.PCIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L115
+	this.PCWSTR = new ctypes.PointerType(ctypes.jschar); // https://github.com/FunkMonkey/Loomo/blob/06a5881a4f520ede092059a4115bf117568b914f/Loomo/chrome/content/modules/Utils/COM/COM.jsm#L35
 	this.PIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L106
 	this.ULONG = ctypes.unsigned_long;
 	this.VARTYPE = ctypes.unsigned_short;
@@ -144,12 +145,12 @@ var wintypesInit = function() {
 		// union not supported by js-ctypes
 		// https://bugzilla.mozilla.org/show_bug.cgi?id=535378 "You can always
 		// typecast pointers, at least as long as you know which type is the biggest"
-		{'unionDevShouldSetThis': this.VOIDPTR }
+		//note: important: // {'unionDevShouldSetThis': ctypes.voidptr_t }
 	]);
 	this.REFPROPVARIANT = new ctypes.PointerType(this.PROPVARIANT);
 	
 	// CONSTANTS
-	this.COINIT_APARTMENTTHREADED = 0x2; https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
+	this.COINIT_APARTMENTTHREADED = 0x2; //https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.CLSCTX_INPROC_SERVER = 0x1;
 	this.S_OK = new this.HRESULT(0); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
 	this.S_FALSE = new this.HRESULT(1); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
@@ -209,23 +210,6 @@ function _dec(declaration) { // it means ensureDeclared and return declare. if i
 
 // start - predefine your declares here
 var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be pre-populated by dev // do it alphabateized by key so its ez to look through
-	SystemParametersInfo: function() {
-		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms724947%28v=vs.85%29.aspx
-		 * BOOL WINAPI SystemParametersInfo(
-		 *   __in_     UINT uiAction,
-		 *   __in_     UINT uiParam,
-		 *   __inout_  PVOID pvParam,
-		 *   __in_     UINT fWinIni
-		 * );
-		 */
-		return _lib('user32.dll').declare('SystemParametersInfoW', ctypes.winapi_abi,
-			ostypes.BOOL,	// return
-			ostypes.UINT,	// uiAction
-			ostypes.UINT,	// uiParam
-			ostypes.PVOID,	// pvParam
-			ostypes.UINT	// fWinIni
-		);
-	},
 	CLSIDFromString: function() {
 		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms680589%28v=vs.85%29.aspx
 		 * HRESULT CLSIDFromString(
@@ -278,16 +262,59 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		return _lib('Ole32.dll').declare('CoUninitialize', ctypes.winapi_abi,
 			ostypes.VOID	// return
 		);
+	},
+	SHGetPropertyStoreForWindow: function() {
+		/* http://msdn.microsoft.com/en-us/library/windows/desktop/dd378430%28v=vs.85%29.aspx
+		 * HRESULT SHGetPropertyStoreForWindow(
+		 * __in_ HWND hwnd,
+		 * __in_ REFIID riid,
+		 * __out_ void **ppv
+		 * );
+		 */
+		return _lib('shell32').declare('SHGetPropertyStoreForWindow', ctypes.winapi_abi,
+			ostypes.HRESULT,	// return
+			ostypes.HWND,		// hwnd
+			ostypes.REFIID,		// riid
+			ostypes.VOIDPTR.ptr	// **ppv // arai on irc 1/11/2015 // 01:21	noida	hey arrai capella would void** be ctypes.voidptr_t? or ctypes.voidptr_t.ptr? // 01:23	arai	I think they are totally different types, and it should be ctypes.voidptr_t.ptr
+		);
 	}
 }
 // end - predefine your declares here
+
+// start - helper functions
 function checkHRESULT(hr, funcName) {
 	if(hr < 0) {
 		throw 'HRESULT ' + hr + ' returned from function ' + funcName;
 	}
 }
-// start - helper functions
 
+/* http://msdn.microsoft.com/en-us/library/windows/desktop/bb762305%28v=vs.85%29.aspx
+ * NOTE: I have to write my own InitPropVariantFromString because its not in a dll its defined in a header
+ * HRESULT InitPropVariantFromString(
+ *   __on_   PCWSTR psz,
+ *   __out_  PROPVARIANT *ppropvar
+ *   __out_  PROPVARIANT *ppropvar
+ * );
+ */
+function InitPropVariantFromString(string /* ostypes.PCWSTR */ , propvarPtr /* ostypes.PROPVARIANT.ptr */ ) {
+	//console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal, propvarPtr.contents.pwszVal.toSource(), uneval(propvarPtr.contents.pwszVal));
+	//console.log('propvarPtr', propvarPtr);
+	// console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal);
+	// console.log('propvarPtr.contents.pwszVal.address()', propvarPtr.contents.pwszVal.address());
+	
+	
+	var hr_SHStrDup = SHStrDup(string, propvarPtr.contents.pwszVal.address());
+	console.info('hr_SHStrDup:', hr_SHStrDup, hr_SHStrDup.toString(), uneval(hr_SHStrDup));
+	
+	// console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal);
+	if (!checkHRESULT(hr_SHStrDup)) {
+		console.error('should never get here I THINK as if we get here then we have to do PropVariantInit, which is just a memset which we dont have to do per @nmaier on stackoverflow [firefox-addon][jsctypes]');
+		//PropVariantInit(propvarPtr); //can skip this, it just does a memset
+	} else {
+		console.log('as expected checkHRESULT of hr_SHStrDup was true');
+	}
+	return true;
+}
 // end - helper functions
 
 function shutdown() {
@@ -536,45 +563,71 @@ function main() {
 	);
 	//end - IPropertyStore vtbl
 
-	// start - looks like something i would run in _dec or just in main
-	var hr;
+	/****** i dont use shell so i dont think i need to do CoInitializeEx stuff
+	// start - looks like something i would run in _dec or just in main	
+    var hrCoInitializeEx = ostypes.HRESULT(_dec('CoInitializeEx')(null, ostypes.COINIT_APARTMENTTHREADED));
 	
-    hr = ostypes.HRESULT(_dec('CoInitializeEx')(null, ostypes.COINIT_APARTMENTTHREADED));
-	
-    if(ostypes.S_OK.toString() == hr.toString() || ostypes.S_FALSE.toString() == hr.toString()) {
+    if(ostypes.S_OK.toString() == hrCoInitializeEx.toString() || ostypes.S_FALSE.toString() == hrCoInitializeEx.toString()) {
 		shouldUninitialize = true;
     } else {
-		throw('Unexpected return value from CoInitializeEx: ' + hr);
+		throw('Unexpected return value from CoInitializeEx: ' + hrCoInitializeEx);
     }
 	// end - looks like something i would run in _dec or just in main
-	
+	*/
+	/****** i think no need for shell due to commented out block below so removing this
 	// start - looks like something i would run in _dec or just in main
-    var CLSID_ShellLink = new ostypes.GUID();
-    hr = _dec('CLSIDFromString')('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
-    checkHRESULT(hr, 'CLSIDFromString (CLSID_ShellLink)');
+	var CLSID_ShellLink = new ostypes.GUID();
+	var hr_CLSIDFromString_CLSIDShellLink = _dec('CLSIDFromString')('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
+	checkHRESULT(hr_CLSIDFromString_CLSIDShellLink, 'CLSIDFromString (CLSID_ShellLink)');
 
-    var IID_IShellLink = new ostypes.GUID();
-    hr = _dec('CLSIDFromString')('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
-    checkHRESULT(hr, 'CLSIDFromString (IID_ShellLink)');
+	var IID_IShellLink = new ostypes.GUID();
+	var hr_CLSIDFromString_IIDShellLink = _dec('CLSIDFromString')('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
+	checkHRESULT(hr_CLSIDFromString_IIDShellLink, 'CLSIDFromString (IID_ShellLink)');
 
-    shellLinkPtr = new IShellLinkWPtr();
-    hr = _dec('CoCreateInstance')(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
-    checkHRESULT(hr, 'CoCreateInstance');
-    shellLink = shellLinkPtr.contents.lpVtbl.contents;
+	shellLinkPtr = new IShellLinkWPtr();
+	var hr_CoCreateInstance = _dec('CoCreateInstance')(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
+	checkHRESULT(hr_CoCreateInstance, 'CoCreateInstance');
+	shellLink = shellLinkPtr.contents.lpVtbl.contents;
 	// end - looks like something i would run in _dec or just in main	
-	
+	*/
 	// start - looks like something i would run in _dec or just in main
-    var IID_IPropertyStore = new ostypes.GUID();
-    hr = _dec('CLSIDFromString')('{886d8eeb-8cf2-4446-8d02-cdba1dbdcf99}', IID_IPropertyStore.address()); // IID_IPersistFile was on the MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/ms687223%28v=vs.85%29.aspx) under Requirements however IID_IPropertyStore was not on its MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/bb761474%28v=vs.85%29.aspx) so I got this from github
-	console.info('hr:', hr, hr.toString(), uneval(hr));
-    checkHRESULT(hr, 'CLSIDFromString (IID_IPropertyStore)');
+	var IID_IPropertyStore = new ostypes.GUID();
+	var hr_CLSIDFromString_IIDIPropertyStore = _dec('CLSIDFromString')('{886d8eeb-8cf2-4446-8d02-cdba1dbdcf99}', IID_IPropertyStore.address()); // IID_IPersistFile was on the MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/ms687223%28v=vs.85%29.aspx) under Requirements however IID_IPropertyStore was not on its MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/bb761474%28v=vs.85%29.aspx) so I got this from github
+	console.info('hr_CLSIDFromString_IIDIPropertyStore:', hr_CLSIDFromString_IIDIPropertyStore, hr_CLSIDFromString_IIDIPropertyStore.toString(), uneval(hr_CLSIDFromString_IIDIPropertyStore));
+	checkHRESULT(hr_CLSIDFromString_IIDIPropertyStore, 'CLSIDFromString (IID_IPropertyStore)');
 
-    propertyStorePtr = new IPropertyStorePtr();
-    hr = shellLink.QueryInterface(shellLinkPtr, IID_IPropertyStore.address(), propertyStorePtr.address());
+	/****** i think no need for shell as SHGetPropertyStoreForWindow gives me the IPropertyStore
+	propertyStorePtr = new IPropertyStorePtr();
+	hr = shellLink.QueryInterface(shellLinkPtr, IID_IPropertyStore.address(), propertyStorePtr.address());
 	console.info('hr:', hr, hr.toString(), uneval(hr));
-    checkHRESULT(hr, 'QueryInterface (IShellLink->IPersistFile)');
-    propertyStore = propertyStorePtr.contents.lpVtbl.contents;
+	checkHRESULT(hr, 'QueryInterface (IShellLink->IPersistFile)');
+	propertyStore = propertyStorePtr.contents.lpVtbl.contents;
 	// end - looks like something i would run in _dec or just in main
+	*/
+	
+	//var IPropertyStore_SetValue = function(pps /** IPopertyStore pointer **/ , pkey /** PROPERTYKEY **/ , pszValue /** PCWSTR **/ ) {
+	var IPropertyStore_SetValue = function(pps /** IPropertyStorePtr **/ , pkey /** ostypes.PROPERTYKEY **/ , pszValue /** ostypes.PCWSTR **/ ) {
+		//pps must be passed in as reference
+		var v = new ostypes.PROPVARIANT(); // PROPVARIANT
+
+		var rez = InitPropVariantFromString(pszValue, v.address());
+		if (rez) {
+			console.info('pps.SetValue', pps.SetValue);
+			pps.SetValue(pkey, v);
+		} else {
+			throw new Error('failed InitPropVariantFromString');
+		}
+		return true;
+	}
+	
+	var ppvPtr = new IPropertyStorePtr();
+	var hr_SHGetPropertyStoreForWindow = SHGetPropertyStoreForWindow(hwnd, IID_IPropertyStore, ppvPtr.address());
+	console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
+	if (!checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow')) { //this throws so no need to do an if on hr brelow, im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
+		throw new Error('checkHRESULT error');
+	}
+	var ppv = ppvPtr.contents.lpVtbl.contents;
+	
 	
 }
 

@@ -467,29 +467,6 @@ function IPropertyStore_GetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostype
 
 function shutdown() {
 	// do in here what you want to do before shutdown
-
-	if (propertyStore) {
-		try {
-			propertyStore.Release(propertyStorePtr);
-		} catch (ex) {
-			Cu.reportError('Failure releasing propertyStore: ' + ex);
-		}
-	}
-	if (shellLink) {
-		try {
-			shellLink.Release(shellLinkPtr);
-		} catch (ex) {
-			Cu.reportError('Failure releasing shellLink: ' + ex);
-		}
-	}
-	if (shouldUninitialize) {
-		try {
-			_dec('CoUninitialize')();
-		} catch (ex) {
-			Cu.reportError('Failure calling CoUninitialize: ' + ex);
-		}
-	}
-	
 	for (var l in lib) {
 		try {
 			lib[l].close();

@@ -56,7 +56,7 @@ var wintypesInit = function() {
 		{ 'fmtid': this.GUID },
 		{ 'pid': this.DWORD }
 	]);
-	this.REFPROPERTYKEY = new ctypes.PointerType(this.PROPERTYKEY);	
+	this.REFPROPERTYKEY = new ctypes.PointerType(this.PROPERTYKEY);	// note: if you use any REF... (like this.REFPROPERTYKEY) as an arg to a declare, that arg expects a ptr. this is basically like
 	
 	/* http://msdn.microsoft.com/en-us/library/windows/desktop/bb773381%28v=vs.85%29.aspx
 	* typedef struct PROPVARIANT {
@@ -292,7 +292,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.WINOLEAPI,			// return
 			ostypes.PROPVARIANT.ptr		// *pvar
 		);
-	}
+	},
 	SHGetPropertyStoreForWindow: function() {
 		/* http://msdn.microsoft.com/en-us/library/windows/desktop/dd378430%28v=vs.85%29.aspx
 		 * HRESULT SHGetPropertyStoreForWindow(
@@ -305,7 +305,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.HRESULT,	// return
 			ostypes.HWND,		// hwnd
 			ostypes.REFIID,		// riid
-			ostypes.VOIDPTR	// **ppv // arai on irc 1/11/2015 // 01:21	noida	hey arrai capella would void** be ctypes.voidptr_t? or ctypes.voidptr_t.ptr? // 01:23	arai	I think they are totally different types, and it should be ctypes.voidptr_t.ptr
+			ostypes.VOIDPTR		// **ppv // arai on irc 1/11/2015 // 01:21	noida	hey arrai capella would void** be ctypes.voidptr_t? or ctypes.voidptr_t.ptr? // 01:23	arai	I think they are totally different types, and it should be ctypes.voidptr_t.ptr
 			// actually scratch what arai said, like `SHGetPropertyStoreForWindow` third argument is out `void**` the `QueryInterface` also has out argument `void**` and he used `ctypes.voidptr_t` (https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L74)
 		);
 	},
@@ -316,7 +316,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		* __out_ LPTSTR *ppwsz
 		* );
 		*/
-		var SHStrDup = _lib('Shlwapi.dll').declare('SHStrDupW', ctypes.winapi_abi,
+		return _lib('Shlwapi.dll').declare('SHStrDupW', ctypes.winapi_abi,
 			ostypes.HRESULT,	// return
 			ostypes.LPCTSTR,	// pszSource	// old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr // im trying to pass PCWSTR here, i am making it as `ctypes.jschar.array()('blah blah').address()`
 			ostypes.LPTSTR.ptr	// *ppwsz	 	// old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr
@@ -362,19 +362,31 @@ function InitPropVariantFromString(psz/*ostypes.PCWSTR*/, ppropvar/*ostypes.PROP
 	// console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal);
 	// console.log('propvarPtr.contents.pwszVal.address()', propvarPtr.contents.pwszVal.address());
 	
-	var hr_SHStrDup = SHStrDup(psz, ppropvar.contents.pwszVal.address()); //note in PROPVARIANT defintion `pwszVal` is defined as `LPWSTR` and `SHStrDup` expects second arg as `LPTSTR.ptr` but both `LPTSTR` and `LPWSTR` are defined the same with `ctypes.jschar` so this should be no problem
+	var hr_SHStrDup = _dec('SHStrDup')(psz, ppropvar.contents.pwszVal.address()); //note in PROPVARIANT defintion `pwszVal` is defined as `LPWSTR` and `SHStrDup` expects second arg as `LPTSTR.ptr` but both `LPTSTR` and `LPWSTR` are defined the same with `ctypes.jschar` so this should be no problem
 	console.info('hr_SHStrDup:', hr_SHStrDup, hr_SHStrDup.toString(), uneval(hr_SHStrDup));
 	
 	// console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal);
-	if (!checkHRESULT(hr_SHStrDup)) {
-		console.error('should never get here I THINK as if we get here then we have to do PropVariantInit, which is just a memset which we dont have to do per @nmaier on stackoverflow [firefox-addon][jsctypes]');
-		throw new Error('should never get here I THINK as if we get here then we have to do PropVariantInit, which is just a memset which we dont have to do per @nmaier on stackoverflow [firefox-addon][jsctypes]');
-		//PropVariantInit(propvarPtr); //can skip this, it just does a memset
-	} else {
-		ppropvar.vt = ostypes.VT_LPWSTR;
-		console.log('as expected checkHRESULT of hr_SHStrDup was true');
-	}
+	checkHRESULT(hr_SHStrDup, 'InitPropVariantFromString -> hr_SHStrDup'); // this will throw if HRESULT is bad
+
+	ppropvar.vt = ostypes.VT_LPWSTR;
+
 	return hr_SHStrDup;
+}
+
+// from: http://blogs.msdn.com/b/oldnewthing/archive/2011/06/01/10170113.aspx
+function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore.ptr*/, pkey/*ostypes.REFPROPERTYKEY*/, pszValue/*ostypes.PCWSTR*/) { // i introduced vtblPpsPtr as i need it for js-ctypes
+	var ppropvar = new ostypes.PROPVARIANT();
+
+	var hr_InitPropVariantFromString = InitPropVariantFromString(pszValue, ppropvar.address());
+	checkHRESULT(hr_InitPropVariantFromString, 'failed InitPropVariantFromString'); //this will throw if HRESULT is bad
+
+	console.info('pps.SetValue', pps.contents.SetValue);
+	var hr_SetValue = pps.contents.SetValue(vtblPpsPtr, pkey, ppropvar.address());
+	checkHRESULT(hr_SetValue, 'IPropertyStore_SetValue');
+	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
+	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
+
+	return hr_InitPropVariantFromString;
 }
 // end - helper functions
 
@@ -671,52 +683,42 @@ function main() {
 	checkHRESULT(hr, 'QueryInterface (IShellLink->IPersistFile)');
 	propertyStore = propertyStorePtr.contents.lpVtbl.contents;
 	// end - looks like something i would run in _dec or just in main
-	*/
-	
-	// from: http://blogs.msdn.com/b/oldnewthing/archive/2011/06/01/10170113.aspx
-	var IPropertyStore_SetValue = function(pps/*IPropertyStore.ptr*/, pkey/*ostypes.REFPROPERTYKEY*/, pszValue/*ostypes.PCWSTR*/) {
-		//pps must be passed in as reference
-		var ppropvar = new ostypes.PROPVARIANT();
-
-		var hr_InitPropVariantFromString = InitPropVariantFromString(pszValue, ppropvar.address());
-		if (checkHRESULT(hr_InitPropVariantFromString)) {
-			console.info('pps.SetValue', pps.SetValue);
-			pps.SetValue(pkey, ppropvar.address());
-			var rez_PropVariantClear = PropVariantClear(ppropvar.address());
-			console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
-		} else {
-			throw new Error('failed InitPropVariantFromString');
-		}
-		return hr_InitPropVariantFromString;
-	}
+	*/	
+	var tWin = Services.wm.getMostRecentWindow(null);
+	var tBaseWin = tWin.QueryInterface(Ci.nsIInterfaceRequestor)
+						.getInterface(Ci.nsIWebNavigation)
+						.QueryInterface(Ci.nsIDocShellTreeItem)
+						.treeOwner.QueryInterface(Ci.nsIInterfaceRequestor)
+						.getInterface(Ci.nsIBaseWindow);
+	var cHwnd = ostypes.HWND(ctypes.UInt64(tBaseWin.nativeHandle));
 	
 	try {
 		var ppsPtr = new IPropertyStorePtr();
-		var hr_SHGetPropertyStoreForWindow = SHGetPropertyStoreForWindow(hwnd, IID_IPropertyStore, ppsPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
+		var hr_SHGetPropertyStoreForWindow = _dec('SHGetPropertyStoreForWindow')(cHwnd, IID_IPropertyStore.address(), ppsPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
 		console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
-		if (!checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow')) { //this throws so no need to do an if on hr brelow, im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
-			throw new Error('checkHRESULT error');
-		}
+		checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow') //this throws so no need to do an if on hr brelow here are my notes from the old gist: //im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
+
 		var pps = ppsPtr.contents.lpVtbl.contents;
 		
 		// start get PKEY's
 		var fmtid_ID = fmtid_RelaunchCommand = fmtid_RelaunchDisplayNameResource = fmtid_RelaunchIconResource = new ostypes.GUID();
-		var hr_fmtid = CLSIDFromString('{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}', fmtid_ID.address()); // same for guid for: ID, RelaunchCommand, RelaunchDisplayNameResourche, RelaunchIconResource, and IsDestListSeparator // source: https://github.com/truonghinh/TnX/blob/260a8a623751ffbce14bad6018ea48febbc21bc6/TnX-v8/Microsoft.Windows.Shell/Standard/ShellProvider.cs#L358
+		var hr_fmtid = _dec('CLSIDFromString')('{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}', fmtid_ID.address()); // same for guid for: ID, RelaunchCommand, RelaunchDisplayNameResourche, RelaunchIconResource, and IsDestListSeparator // source: https://github.com/truonghinh/TnX/blob/260a8a623751ffbce14bad6018ea48febbc21bc6/TnX-v8/Microsoft.Windows.Shell/Standard/ShellProvider.cs#L358
 		checkHRESULT(hr_fmtid, 'hr_fmtid'); //this throws on error
 		
+		// doing these console.info's to make sure when i do CLSIDFromString on fmtid_ID that its going to the others as reference // test is as expected, ah!
 		console.info('fmtid_ID:', fmtid_ID, fmtid_ID.toString(), uneval(fmtid_ID));
 		console.info('fmtid_RelaunchCommand:', fmtid_RelaunchCommand, fmtid_RelaunchCommand.toString(), uneval(fmtid_RelaunchCommand));
 		
-		var PKEY_AppUserModel_ID = new struct_PROPERTYKEY(fmtid_ID, 5);
-		var PKEY_AppUserModel_RelaunchCommand = new struct_PROPERTYKEY(fmtid_RelaunchCommand, 2);
-		var PKEY_AppUserModel_RelaunchDisplayNameResource = new struct_PROPERTYKEY(fmtid_RelaunchDisplayNameResource, 4);
-		var PKEY_AppUserModel_RelaunchIconResource = new struct_PROPERTYKEY(fmtid_RelaunchIconResource, 3);
+		var PKEY_AppUserModel_ID = new ostypes.PROPERTYKEY(fmtid_ID, 5);
+		var PKEY_AppUserModel_RelaunchCommand = new ostypes.PROPERTYKEY(fmtid_RelaunchCommand, 2);
+		var PKEY_AppUserModel_RelaunchDisplayNameResource = new ostypes.PROPERTYKEY(fmtid_RelaunchDisplayNameResource, 4);
+		var PKEY_AppUserModel_RelaunchIconResource = new ostypes.PROPERTYKEY(fmtid_RelaunchIconResource, 3);
 
 		// end get PKEY's
 		
-		IPropertyStore_SetValue(pps.address(), PKEY_AppUserModel_ID, ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
-		//IPropertyStore_SetValue(pps.address(), PKEY_AppUserModel_RelaunchCommand, ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
-		//IPropertyStore_SetValue(pps.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ctypes.jschar.array()('C:\\full\\path\\to\\scratch.exe,-1'));
+		IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_ID.address(), ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchCommand, ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ctypes.jschar.array()('C:\\full\\path\\to\\scratch.exe,-1'));
 	} catch(ex) {
 		throw ex;
 	} finally {

@@ -1,0 +1,42 @@
+var can = document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
+can.width = '16';
+can.height = '16';
+var ctx = can.getContext('2d');
+ctx.fillStyle = "rgb(255,0,0)";
+ctx.fillRect(0, 0, 16, 16);
+
+// Getting pixels as a byte (uint8) array
+var imageData = ctx.getImageData(0, 0, can.width, can.height);
+var pixels8BitsRGBA = imageData.data;
+console.log(pixels8BitsRGBA.length)
+
+var sizeOfEachStoredNumber = 4; //bytes
+var numberOfStoresPerPixel = 4; //we have a r g and b
+var numberOfPixels = can.width * can.height;
+var buffer = new ArrayBuffer((numberOfPixels * (sizeOfEachStoredNumber *  numberOfStoresPerPixel))  + 8); // +8 bytes for the two leading 32 bytes integers
+console.log((numberOfPixels * (sizeOfEachStoredNumber *  numberOfStoresPerPixel))  + 8);
+
+//buffer size is: 256 repetitions of 4 numbers. each number is 4bytes. so 16 bytes per repetition. 256 reps. so 4096 total bytes is size
+// Reverting bytes from RGBA to ARGB
+//var pixels8BitsARGB = 
+var view = new DataView(buffer, 0);
+view.setUint8(0, can.width, true);
+view.setUint8(4, can.height, true);
+for(var i = 0 ; i < pixels8BitsRGBA.length ; i += 4) {
+    var bytePos = i/4*16+8; //starting byte position of this group of 4 numbers // +8 bytes for the two leading 32 bytes integers
+    //console.log(bytePos, h)
+    var r = pixels8BitsRGBA[i  ];
+    var g = pixels8BitsRGBA[i+1];
+    var b = pixels8BitsRGBA[i+2];
+    var a = pixels8BitsRGBA[i+3];
+    
+    view.setInt8(bytePos, a, true);
+    view.setInt8(bytePos+4, r, true);
+    view.setInt8(bytePos+8, g, true);
+    view.setInt8(bytePos+12, b, true);
+}
+
+// Converting array buffer to a uint32 one, and adding leading width and height
+var pixelsAs32Bits = new Uint32Array(buffer);
+
+console.log(pixelsAs32Bits);

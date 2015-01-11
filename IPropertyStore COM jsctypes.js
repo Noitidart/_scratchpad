@@ -444,22 +444,22 @@ function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostype
 	var hr_SetValue = pps.SetValue(vtblPpsPtr, pkey, ppropvar.address());
 	checkHRESULT(hr_SetValue, 'IPropertyStore_SetValue');
 	
+	var hr_Commit = pps.Commit(vtblPpsPtr);
+	console.info('hr_Commit:', hr_Commit, hr_Commit.toString(), uneval(hr_Commit));
+	
 	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
 	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
 
 	return hr_SetValue;
 }
 
-function IPropertyStore_GetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostypes.REFPROPERTYKEY*/, ppropvar /*ostypes.PROPVARIANT*/) { // i introduced vtblPpsPtr as i need it for js-ctypes
+function IPropertyStore_GetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostypes.REFPROPERTYKEY*/, ppropvar /*ostypes.PROPVARIANT*/) {
 
 	console.info('pps.GetValue', pps.GetValue);
 	var hr_GetValue = pps.GetValue(vtblPpsPtr, pkey, ppropvar.address());
 	checkHRESULT(hr_GetValue, 'IPropertyStore_GetValue');
 	
 	console.info('ppropvar:', ppropvar, ppropvar.toString(), uneval(ppropvar));
-	
-	var hr_Commit = pps.Commit(vtblPpsPtr);
-	console.info('hr_Commit:', hr_Commit, hr_Commit.toString(), uneval(hr_Commit));
 	
 	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
 	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));

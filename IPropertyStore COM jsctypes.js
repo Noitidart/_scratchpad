@@ -13,6 +13,7 @@ var wintypesInit = function() {
 	this.PCIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L115
 	this.PCWSTR = new ctypes.PointerType(ctypes.jschar); // https://github.com/FunkMonkey/Loomo/blob/06a5881a4f520ede092059a4115bf117568b914f/Loomo/chrome/content/modules/Utils/COM/COM.jsm#L35
 	this.PIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L106
+	this.UINT = ctypes.unsigned_int;
 	this.ULONG = ctypes.unsigned_long;
 	this.VARIANT_BOOL = ctypes.short; //http://msdn.microsoft.com/en-us/library/cc235510.aspx // http://blogs.msdn.com/b/oldnewthing/archive/2004/12/22/329884.aspx
 	this.VARTYPE = ctypes.unsigned_short;
@@ -217,6 +218,7 @@ var wintypesInit = function() {
 	// CONSTANTS
 	this.COINIT_APARTMENTTHREADED = 0x2; //https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.CLSCTX_INPROC_SERVER = 0x1;
+	this.GA_ROOT = 2;
 	this.S_OK = new this.HRESULT(0); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
 	this.S_FALSE = new this.HRESULT(1); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
 	this.VARIANT_FALSE = this.VARIANT_BOOL(0); //http://blogs.msdn.com/b/oldnewthing/archive/2004/12/22/329884.aspx
@@ -341,6 +343,19 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		return _lib('Ole32.dll').declare('CoUninitialize', ctypes.winapi_abi,
 			ostypes.VOID	// return
 		);
+	},
+	GetAncestor: function() {
+		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms633502%28v=vs.85%29.aspx
+		 * HWND WINAPI GetAncestor(
+		 *   __in_ HWND hwnd,
+		 *   __in_ UINT gaFlags
+		 * );
+		 */
+		return _lib('user32').declare('GetAncestor', ctypes.winapi_abi,
+			ostypes.HWND,	// return
+			ostypes.HWND,	// hwnd
+			ostypes.UINT	// gaFlags
+		); 
 	},
 	PropVariantClear: function() {
 		/* http://msdn.microsoft.com/en-us/library/windows/desktop/aa380073%28v=vs.85%29.aspx
@@ -494,11 +509,15 @@ function main() {
 						.QueryInterface(Ci.nsIDocShellTreeItem)
 						.treeOwner.QueryInterface(Ci.nsIInterfaceRequestor)
 						.getInterface(Ci.nsIBaseWindow);
-	var cHwnd = ostypes.HWND(ctypes.UInt64(tBaseWin.nativeHandle));
+	var tHwnd = ostypes.HWND(ctypes.UInt64(tBaseWin.nativeHandle));
+	console.info('tHwnd:', tHwnd, tHwnd.toString(), uneval(tHwnd));
+	
+	var tRootHwnd = _dec('GetAncestor')(tHwnd, ostypes.GA_ROOT);
+	console.info('tRootHwnd:', tRootHwnd, tRootHwnd.toString(), uneval(tRootHwnd));
 	
 	try {
 		var ppsPtr = new ostypes.IPropertyStorePtr(); // i have to use new event though ostypes.IPropertyStorePtr is defined as `new ...` this is how TimAbradles did it: https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L422  this is probably because its not a new StructType but a new PointerType. probably only `new StructType`'s dont need the `new` when created in js runtime stuff like this line
-		var hr_SHGetPropertyStoreForWindow = _dec('SHGetPropertyStoreForWindow')(cHwnd, IID_IPropertyStore.address(), ppsPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
+		var hr_SHGetPropertyStoreForWindow = _dec('SHGetPropertyStoreForWindow')(tRootHwnd, IID_IPropertyStore.address(), ppsPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
 		console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
 		checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow') //this throws so no need to do an if on hr brelow here are my notes from the old gist: //im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
 

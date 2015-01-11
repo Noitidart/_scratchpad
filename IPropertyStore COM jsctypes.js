@@ -7,10 +7,13 @@ var wintypesInit = function() {
 	this.HRESULT = ctypes.long;
 	this.HWND = ctypes.voidptr_t;
 	this.INT = ctypes.INT;
+	this.LPUNKNOWN = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
+	this.LPVOID = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.PCIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L115
 	this.PIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L106
 	this.ULONG = ctypes.unsigned_long;
 	this.VARTYPE = ctypes.unsigned_short;
+	this.VOID = ctypes.void_t;
 	this.VOIDPTR = ctypes.voidptr_t
 	this.WCHAR = ctypes.jschar;
 	this.WIN32_FIND_DATA = ctypes.voidptr_t;
@@ -146,6 +149,8 @@ var wintypesInit = function() {
 	this.REFPROPVARIANT = new ctypes.PointerType(this.PROPVARIANT);
 	
 	// CONSTANTS
+	this.COINIT_APARTMENTTHREADED = 0x2; https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
+	this.CLSCTX_INPROC_SERVER = 0x1;
 	this.S_OK = new this.HRESULT(0); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
 	this.S_FALSE = new this.HRESULT(1); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
 }
@@ -220,19 +225,59 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.PVOID,	// pvParam
 			ostypes.UINT	// fWinIni
 		);
-	}
+	},
 	CLSIDFromString: function() {
 		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms680589%28v=vs.85%29.aspx
 		 * HRESULT CLSIDFromString(
 		 *   __in_ LPCOLESTR lpsz,
 		 *   __out_ LPCLSID pclsid
 		 * );
-		*/
+		 */
 		var CLSIDFromString = _lib('Ole32.dll').declare('CLSIDFromString', ctypes.winapi_abi,
 			ostypes.HRESULT,	// return
 			ostypes.LPCOLESTR,	// lpsz
 			ostypes.GUID.ptr	// pclsid
 		); 
+	},
+	CoCreateInstance: function() {
+		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms686615%28v=vs.85%29.aspx
+		 * HRESULT CoCreateInstance(
+		 *   __in_   REFCLSID rclsid,
+		 *   __in_   LPUNKNOWN pUnkOuter,
+		 *   __in_   DWORD dwClsContext,
+		 *   __in_   REFIID riid,
+		 *   __out_  LPVOID *ppv
+		 * );
+		 */
+		return _lib('Ole32.dll').declare('CoCreateInstance', ctypes.winapi_abi,
+			ostypes.HRESULT,	// return
+			ostypes.REFCLSID,	// rclsid
+			ostypes.LPUNKNOWN,	// pUnkOuter
+			ostypes.DWORD,		// dwClsContext
+			ostypes.REFIID,		// riid
+			ostypes.LPVOID		// *ppv
+		);
+	},
+	CoInitializeEx: function() {
+		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms695279%28v=vs.85%29.aspx
+		 * HRESULT CoInitializeEx(
+		 *   __in_opt_  LPVOID pvReserved,
+		 *   __in_      DWORD dwCoInit
+		 * );
+		 */
+		return _lib('Ole32.dll').declare('CoInitializeEx', ctypes.winapi_abi,
+			ostypes.HRESULT,	// result
+			ostypes.LPVOID,		// pvReserved
+			ostypes.DWORD		// dwCoInit
+		);
+	},
+	CoUninitialize: function() {
+		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms688715%28v=vs.85%29.aspx
+		 * void CoUninitialize(void);
+		 */
+		return _lib('Ole32.dll').declare('CoUninitialize', ctypes.winapi_abi,
+			ostypes.VOID	// return
+		);
 	}
 }
 // end - predefine your declares here
@@ -248,8 +293,34 @@ function checkHRESULT(hr, funcName) {
 function shutdown() {
 	// do in here what you want to do before shutdown
 	
+	if (propertyStore) {
+		try {
+			propertyStore.Release(propertyStorePtr);
+		} catch (ex) {
+			Cu.reportError('Failure releasing propertyStore: ' + ex);
+		}
+	}
+	if (shellLink) {
+		try {
+			shellLink.Release(shellLinkPtr);
+		} catch (ex) {
+			Cu.reportError('Failure releasing shellLink: ' + ex);
+		}
+	}
+	if (shouldUninitialize) {
+		try {
+			_dec('CoUninitialize')();
+		} catch (ex) {
+			Cu.reportError('Failure calling CoUninitialize: ' + ex);
+		}
+	}
+	
 	for (var l in lib) {
-		lib[l].close();
+		try {
+			lib[l].close();
+		} catch (ex) {
+			throw new Error('Failure closing "' + l + '": ' + ex);
+		}
 	}
 }
 
@@ -258,12 +329,10 @@ function main() {
 	
 	//start - shell link, which i think is needed for all COM due to the `hr = shellLink.QueryInterface(shellLinkPtr, IID_IPropertyStore.address(), propertyStorePtr.address());`
 	var IShellLinkWVtbl = new ctypes.StructType('IShellLinkWVtbl');
-
-	const IShellLinkW = new ctypes.StructType('IshellLinkW', [{
+	var IShellLinkW = new ctypes.StructType('IshellLinkW', [{
 		'lpVtbl': IShellLinkWVtbl.ptr
 	}]);
-	const IShellLinkWPtr = new ctypes.PointerType(IShellLinkW);
-
+	var IShellLinkWPtr = new ctypes.PointerType(IShellLinkW);
 	IShellLinkWVtbl.define(
 		[{
 			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -399,16 +468,15 @@ function main() {
 			'SetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
 				ostypes.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPCWSTR
+					ostypes.LPCTSTR		// pszDir
 				]).ptr
-		} ]
+		}]
 	);
 	//end - shell link, which i think is needed for all COM
 	
 	
-	
+	//start - IPropertyStore vtbl
 	var IPropertyStoreVtbl = new ctypes.StructType('IPropertyStoreVtbl');
-
 	var IPropertyStore = new ctypes.StructType('IPropertyStore', [{
 		'lpVtbl': IPropertyStoreVtbl.ptr
 	}]);
@@ -466,12 +534,37 @@ function main() {
 				]).ptr
 		}]
 	);
+	//end - IPropertyStore vtbl
 
+	// start - looks like something i would run in _dec or just in main
+	var hr;
 	
+    hr = HRESULT(_dec('CoInitializeEx')(null, ostypes.COINIT_APARTMENTTHREADED));
+	
+    if(S_OK.toString() == hr.toString() || S_FALSE.toString() == hr.toString()) {
+		shouldUninitialize = true;
+    } else {
+		throw('Unexpected return value from CoInitializeEx: ' + hr);
+    }
+	// end - looks like something i would run in _dec or just in main
+	
+	// start - looks like something i would run in _dec or just in main
+    let CLSID_ShellLink = new GUID();
+    hr = CLSIDFromString('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
+    checkHRESULT(hr, 'CLSIDFromString (CLSID_ShellLink)');
+
+    var IID_IShellLink = new GUID();
+    hr = _dec('CLSIDFromString')('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
+    checkHRESULT(hr, 'CLSIDFromString (IID_ShellLink)');
+
+    shellLinkPtr = new IShellLinkWPtr();
+    hr = _dec('CoCreateInstance')(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
+    checkHRESULT(hr, 'CoCreateInstance');
+    shellLink = shellLinkPtr.contents.lpVtbl.contents;
+	// end - looks like something i would run in _dec or just in main	
 	
 	// start - looks like something i would run in _dec or just in main
     var IID_IPropertyStore = new ostypes.GUID();
-	var hr;
     hr = CLSIDFromString('{886d8eeb-8cf2-4446-8d02-cdba1dbdcf99}', IID_IPropertyStore.address()); // IID_IPersistFile was on the MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/ms687223%28v=vs.85%29.aspx) under Requirements however IID_IPropertyStore was not on its MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/bb761474%28v=vs.85%29.aspx) so I got this from github
 	console.info('hr:', hr, hr.toString(), uneval(hr));
     checkHRESULT(hr, 'CLSIDFromString (IID_IPropertyStore)');
@@ -483,8 +576,15 @@ function main() {
     propertyStore = propertyStorePtr.contents.lpVtbl.contents;
 	// end - looks like something i would run in _dec or just in main
 	
-	
 }
+
+// start - globals for my main stuff
+var propertyStorePtr;
+var propertyStore;
+var shellLinkPtr;
+var shellLink;
+var shouldUninitialize;
+// end - globals
 
 try {
 	main();

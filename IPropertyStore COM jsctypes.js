@@ -380,14 +380,7 @@ function InitPropVariantFromString(psz/*ostypes.PCWSTR*/, ppropvar/*ostypes.PROP
 
 function shutdown() {
 	// do in here what you want to do before shutdown
-	
-	if (ppv) {
-		try {
-			ppv.Release(ppvPtr);
-		} catch (ex) {
-			Cu.reportError('Failure releasing ppv: ' + ex);
-		}
-	}
+
 	if (propertyStore) {
 		try {
 			propertyStore.Release(propertyStorePtr);
@@ -431,12 +424,12 @@ function main() {
 	var IShellLinkWPtr = new ctypes.PointerType(IShellLinkW);
 	IShellLinkWVtbl.define(
 		[{
-			/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms682521%28v=vs.85%29.aspx
+			// http://msdn.microsoft.com/en-us/library/windows/desktop/ms682521%28v=vs.85%29.aspx
 			 * HRESULT QueryInterface(
 			 *   __in_   REFIID riid,
 			 *   __out_  void **ppvObject
 			 * );
-			 */
+			 //
 			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
 				ostypes.HRESULT, [
 					IShellLinkW.ptr,
@@ -683,7 +676,7 @@ function main() {
 	// from: http://blogs.msdn.com/b/oldnewthing/archive/2011/06/01/10170113.aspx
 	var IPropertyStore_SetValue = function(pps/*IPropertyStore.ptr*/, pkey/*ostypes.REFPROPERTYKEY*/, pszValue/*ostypes.PCWSTR*/) {
 		//pps must be passed in as reference
-		var ppropvar = ostypes.PROPVARIANT();
+		var ppropvar = new ostypes.PROPVARIANT();
 
 		var hr_InitPropVariantFromString = InitPropVariantFromString(pszValue, ppropvar.address());
 		if (checkHRESULT(hr_InitPropVariantFromString)) {
@@ -697,36 +690,48 @@ function main() {
 		return hr_InitPropVariantFromString;
 	}
 	
-	ppvPtr = new IPropertyStorePtr();
-	var hr_SHGetPropertyStoreForWindow = SHGetPropertyStoreForWindow(hwnd, IID_IPropertyStore, ppvPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
-	console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
-	if (!checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow')) { //this throws so no need to do an if on hr brelow, im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
-		throw new Error('checkHRESULT error');
-	}
-	ppv = ppvPtr.contents.lpVtbl.contents;
-	
-	// start get PKEY's
-	var fmtid_ID = fmtid_RelaunchCommand = fmtid_RelaunchDisplayNameResource = fmtid_RelaunchIcon = new struct_GUID();
-	var hr_fmtid = CLSIDFromString('{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}', myGUID.address()); // same for guid for: ID, RelaunchCommand, RelaunchDisplayNameResourche, RelaunchIcon, and IsDestListSeparator // source: https://github.com/truonghinh/TnX/blob/260a8a623751ffbce14bad6018ea48febbc21bc6/TnX-v8/Microsoft.Windows.Shell/Standard/ShellProvider.cs#L358
-	checkHRESULT(hr_fmtid, 'hr_fmtid'); //this throws on error
-	
-	var PKEY_AppUserModel_ID = new struct_PROPERTYKEY(fmtid_ID, 5);
-	var PKEY_AppUserModel_RelaunchCommand = new struct_PROPERTYKEY(fmtid_RelaunchCommand, 2);
-	var PKEY_AppUserModel_RelaunchDisplayNameResource = new struct_PROPERTYKEY(fmtid_RelaunchDisplayNameResource, 4);
-	var PKEY_AppUserModel_RelaunchIcon = new struct_PROPERTYKEY(fmtid_RelaunchIcon, 3);
+	try {
+		var ppsPtr = new IPropertyStorePtr();
+		var hr_SHGetPropertyStoreForWindow = SHGetPropertyStoreForWindow(hwnd, IID_IPropertyStore, ppsPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
+		console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
+		if (!checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow')) { //this throws so no need to do an if on hr brelow, im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
+			throw new Error('checkHRESULT error');
+		}
+		var pps = ppsPtr.contents.lpVtbl.contents;
+		
+		// start get PKEY's
+		var fmtid_ID = fmtid_RelaunchCommand = fmtid_RelaunchDisplayNameResource = fmtid_RelaunchIconResource = new ostypes.GUID();
+		var hr_fmtid = CLSIDFromString('{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}', fmtid_ID.address()); // same for guid for: ID, RelaunchCommand, RelaunchDisplayNameResourche, RelaunchIconResource, and IsDestListSeparator // source: https://github.com/truonghinh/TnX/blob/260a8a623751ffbce14bad6018ea48febbc21bc6/TnX-v8/Microsoft.Windows.Shell/Standard/ShellProvider.cs#L358
+		checkHRESULT(hr_fmtid, 'hr_fmtid'); //this throws on error
+		
+		console.info('fmtid_ID:', fmtid_ID, fmtid_ID.toString(), uneval(fmtid_ID));
+		console.info('fmtid_RelaunchCommand:', fmtid_RelaunchCommand, fmtid_RelaunchCommand.toString(), uneval(fmtid_RelaunchCommand));
+		
+		var PKEY_AppUserModel_ID = new struct_PROPERTYKEY(fmtid_ID, 5);
+		var PKEY_AppUserModel_RelaunchCommand = new struct_PROPERTYKEY(fmtid_RelaunchCommand, 2);
+		var PKEY_AppUserModel_RelaunchDisplayNameResource = new struct_PROPERTYKEY(fmtid_RelaunchDisplayNameResource, 4);
+		var PKEY_AppUserModel_RelaunchIconResource = new struct_PROPERTYKEY(fmtid_RelaunchIconResource, 3);
 
-	// end get PKEY's
-	
-	IPropertyStore_SetValue(ppv.address(), PKEY_AppUserModel_ID, ostypes.PCWSTR('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
-	IPropertyStore_SetValue(ppv.address(), PKEY_AppUserModel_RelaunchCommand, ostypes.PCWSTR('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
-	IPropertyStore_SetValue(ppv.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ostypes.PCWSTR('C:\\full\\path\\to\\scratch.exe,-1'));
-	
+		// end get PKEY's
+		
+		IPropertyStore_SetValue(pps.address(), PKEY_AppUserModel_ID, ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		//IPropertyStore_SetValue(pps.address(), PKEY_AppUserModel_RelaunchCommand, ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		//IPropertyStore_SetValue(pps.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ctypes.jschar.array()('C:\\full\\path\\to\\scratch.exe,-1'));
+	} catch(ex) {
+		throw ex;
+	} finally {
+		if (pps) {
+			try {
+				pps.Release(ppsPtr);
+			} catch (ex) {
+				console.error('Failure releasing pps: ', ex);
+			}
+		}
+	}
 	
 }
 
 // start - globals for my main stuff
-var ppvPtr;
-var ppv;
 var propertyStorePtr;
 var propertyStore;
 var shellLinkPtr;

@@ -6,7 +6,7 @@ var wintypesInit = function() {
 	this.DWORD = ctypes.unsigned_long;
 	this.HRESULT = ctypes.long;
 	this.HWND = ctypes.voidptr_t;
-	this.INT = ctypes.INT;
+	this.INT = ctypes.int;
 	this.LPUNKNOWN = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.LPVOID = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.PCIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L115
@@ -20,12 +20,12 @@ var wintypesInit = function() {
 	this.WORD = ctypes.unsigned_short;
 	
 	// ADVANCED TYPES (ones that are based on the basic types)
-	this.LPTSTR = new ctypes.PointerType(WCHAR);
-	this.LPCTSTR = LPTSTR;
-	this.LPWSTR = new ctypes.PointerType(WCHAR);
-	this.LPCWSTR = LPWSTR;
-	this.LPOLESTR = LPWSTR;
-	this.LPCOLESTR = LPOLESTR;
+	this.LPTSTR = new ctypes.PointerType(this.WCHAR);
+	this.LPCTSTR = this.LPTSTR;
+	this.LPWSTR = new ctypes.PointerType(this.WCHAR);
+	this.LPCWSTR = this.LPWSTR;
+	this.LPOLESTR = this.LPWSTR;
+	this.LPCOLESTR = this.LPOLESTR;
 	 
 	// BASIC STRUCTURES
 	this.GUID = ctypes.StructType('GUID', [ // http://msdn.microsoft.com/en-us/library/ff718266%28v=prot.10%29.aspx
@@ -233,7 +233,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 *   __out_ LPCLSID pclsid
 		 * );
 		 */
-		var CLSIDFromString = _lib('Ole32.dll').declare('CLSIDFromString', ctypes.winapi_abi,
+		return _lib('Ole32.dll').declare('CLSIDFromString', ctypes.winapi_abi,
 			ostypes.HRESULT,	// return
 			ostypes.LPCOLESTR,	// lpsz
 			ostypes.GUID.ptr	// pclsid
@@ -356,13 +356,13 @@ function main() {
 				ostypes.HRESULT, [
 					IShellLinkW.ptr,
 					ostypes.LPTSTR,	// pszArgs
-					ctypes.INT		// cchMaxPath
+					ostypes.INT		// cchMaxPath
 				]).ptr
 		}, {
 			'GetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
 				ostypes.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPTSTR	// pszName
+					ostypes.LPTSTR,	// pszName
 					ostypes.INT		// cchMaxName
 				]).ptr
 		}, {
@@ -377,7 +377,7 @@ function main() {
 					IShellLinkW.ptr,
 					ostypes.LPTSTR,		// pszIconPath
 					ostypes.INT,		// cchIconPath
-					ostpyes.INT.ptr		// *piIcon
+					ostypes.INT.ptr		// *piIcon
 				]).ptr
 		}, {
 			'GetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -430,7 +430,7 @@ function main() {
 			'SetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
 				ostypes.HRESULT, [
 					IShellLinkW.ptr,
-					WORD	// wHotkey
+					ostypes.WORD	// wHotkey
 				]).ptr
 		}, {
 			'SetIconLocation': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -539,9 +539,9 @@ function main() {
 	// start - looks like something i would run in _dec or just in main
 	var hr;
 	
-    hr = HRESULT(_dec('CoInitializeEx')(null, ostypes.COINIT_APARTMENTTHREADED));
+    hr = ostypes.HRESULT(_dec('CoInitializeEx')(null, ostypes.COINIT_APARTMENTTHREADED));
 	
-    if(S_OK.toString() == hr.toString() || S_FALSE.toString() == hr.toString()) {
+    if(ostypes.S_OK.toString() == hr.toString() || ostypes.S_FALSE.toString() == hr.toString()) {
 		shouldUninitialize = true;
     } else {
 		throw('Unexpected return value from CoInitializeEx: ' + hr);
@@ -549,11 +549,11 @@ function main() {
 	// end - looks like something i would run in _dec or just in main
 	
 	// start - looks like something i would run in _dec or just in main
-    let CLSID_ShellLink = new GUID();
-    hr = CLSIDFromString('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
+    var CLSID_ShellLink = new ostypes.GUID();
+    hr = _dec('CLSIDFromString')('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
     checkHRESULT(hr, 'CLSIDFromString (CLSID_ShellLink)');
 
-    var IID_IShellLink = new GUID();
+    var IID_IShellLink = new ostypes.GUID();
     hr = _dec('CLSIDFromString')('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
     checkHRESULT(hr, 'CLSIDFromString (IID_ShellLink)');
 
@@ -565,7 +565,7 @@ function main() {
 	
 	// start - looks like something i would run in _dec or just in main
     var IID_IPropertyStore = new ostypes.GUID();
-    hr = CLSIDFromString('{886d8eeb-8cf2-4446-8d02-cdba1dbdcf99}', IID_IPropertyStore.address()); // IID_IPersistFile was on the MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/ms687223%28v=vs.85%29.aspx) under Requirements however IID_IPropertyStore was not on its MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/bb761474%28v=vs.85%29.aspx) so I got this from github
+    hr = _dec('CLSIDFromString')('{886d8eeb-8cf2-4446-8d02-cdba1dbdcf99}', IID_IPropertyStore.address()); // IID_IPersistFile was on the MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/ms687223%28v=vs.85%29.aspx) under Requirements however IID_IPropertyStore was not on its MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/bb761474%28v=vs.85%29.aspx) so I got this from github
 	console.info('hr:', hr, hr.toString(), uneval(hr));
     checkHRESULT(hr, 'CLSIDFromString (IID_IPropertyStore)');
 

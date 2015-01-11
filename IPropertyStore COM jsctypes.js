@@ -3,6 +3,7 @@ Cu.import('resource://gre/modules/ctypes.jsm')
 var wintypesInit = function() {	
 	// BASIC TYPES (ones that arent equal to something predefined by me)
 	this.BOOL = ctypes.int;
+	this.BOOLEAN = ctypes.char; // http://blogs.msdn.com/b/oldnewthing/archive/2004/12/22/329884.aspx // not used in this jsctypes code but just putting it here as i may need in future search as i have the documentation around this (the blog) in my mind right now and commented it here
 	this.DWORD = ctypes.unsigned_long;
 	this.HRESULT = ctypes.long;
 	this.HWND = ctypes.voidptr_t;
@@ -13,11 +14,13 @@ var wintypesInit = function() {
 	this.PCWSTR = new ctypes.PointerType(ctypes.jschar); // https://github.com/FunkMonkey/Loomo/blob/06a5881a4f520ede092059a4115bf117568b914f/Loomo/chrome/content/modules/Utils/COM/COM.jsm#L35
 	this.PIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L106
 	this.ULONG = ctypes.unsigned_long;
+	this.VARIANT_BOOL = ctypes.short; //http://msdn.microsoft.com/en-us/library/cc235510.aspx // http://blogs.msdn.com/b/oldnewthing/archive/2004/12/22/329884.aspx
 	this.VARTYPE = ctypes.unsigned_short;
 	this.VOID = ctypes.void_t;
 	this.VOIDPTR = ctypes.voidptr_t
 	this.WCHAR = ctypes.jschar;
 	this.WIN32_FIND_DATA = ctypes.voidptr_t;
+	this.WINOLEAPI = ctypes.voidptr_t; // i guessed on this one
 	this.WORD = ctypes.unsigned_short;
 	
 	// ADVANCED TYPES (ones that are based on the basic types)
@@ -145,9 +148,9 @@ var wintypesInit = function() {
 		// union not supported by js-ctypes
 		// https://bugzilla.mozilla.org/show_bug.cgi?id=535378 "You can always
 		// typecast pointers, at least as long as you know which type is the biggest"
-		//note: important: // {'unionDevShouldSetThis': ctypes.voidptr_t }
-		{ 'pwszVal': this.LPWSTR } // for InitPropVariantFromString // when using this see notes on MSDN doc page chat of PROPVAIRANT ( http://msdn.microsoft.com/en-us/library/windows/desktop/aa380072%28v=vs.85%29.aspx )this guy says: "VT_LPWSTR must be allocated with CoTaskMemAlloc :: (Presumably this also applies to VT_LPSTR) VT_LPWSTR is described as being a string pointer with no information on how it is allocated. You might then assume that the PROPVARIANT doesn't own the string and just has a pointer to it, but you'd be wrong. In fact, the string stored in a VT_LPWSTR PROPVARIANT must be allocated using CoTaskMemAlloc and be freed using CoTaskMemFree. Evidence for this: Look at what the inline InitPropVariantFromString function does: It sets a VT_LPWSTR using SHStrDupW, which in turn allocates the string using CoTaskMemAlloc. Knowing that, it's obvious that PropVariantClear is expected to free the string using CoTaskMemFree. I can't find this explicitly documented anywhere, which is a shame, but step through this code in a debugger and you can confirm that the string is freed by PropVariantClear: ```#include <Propvarutil.h>	int wmain(int argc, TCHAR *lpszArgv[])	{	PROPVARIANT pv;	InitPropVariantFromString(L"Moo", &pv);	::PropVariantClear(&pv);	}```  If  you put some other kind of string pointer into a VT_LPWSTR PROPVARIANT your program is probably going to crash."
-		{ 'boolVal:', this.
+		//note: important: pick one of the below and comment out the others: (because js-ctypes doesnt support union)
+		{ 'pwszVal': this.LPWSTR } // for InitPropVariantFromString // when using this see notes on MSDN doc page chat of PROPVARIANT ( http://msdn.microsoft.com/en-us/library/windows/desktop/aa380072%28v=vs.85%29.aspx )this guy says: "VT_LPWSTR must be allocated with CoTaskMemAlloc :: (Presumably this also applies to VT_LPSTR) VT_LPWSTR is described as being a string pointer with no information on how it is allocated. You might then assume that the PROPVARIANT doesn't own the string and just has a pointer to it, but you'd be wrong. In fact, the string stored in a VT_LPWSTR PROPVARIANT must be allocated using CoTaskMemAlloc and be freed using CoTaskMemFree. Evidence for this: Look at what the inline InitPropVariantFromString function does: It sets a VT_LPWSTR using SHStrDupW, which in turn allocates the string using CoTaskMemAlloc. Knowing that, it's obvious that PropVariantClear is expected to free the string using CoTaskMemFree. I can't find this explicitly documented anywhere, which is a shame, but step through this code in a debugger and you can confirm that the string is freed by PropVariantClear: ```#include <Propvarutil.h>	int wmain(int argc, TCHAR *lpszArgv[])	{	PROPVARIANT pv;	InitPropVariantFromString(L"Moo", &pv);	::PropVariantClear(&pv);	}```  If  you put some other kind of string pointer into a VT_LPWSTR PROPVARIANT your program is probably going to crash."
+		//{ 'boolVal:', this.VARIANT_BOOL } // for use with InitPropVariantFromBoolean
 	]);
 	this.REFPROPVARIANT = new ctypes.PointerType(this.PROPVARIANT);
 	
@@ -156,9 +159,10 @@ var wintypesInit = function() {
 	this.CLSCTX_INPROC_SERVER = 0x1;
 	this.S_OK = new this.HRESULT(0); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
 	this.S_FALSE = new this.HRESULT(1); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
+	this.VARIANT_FALSE = this.VARIANT_BOOL(0); //http://blogs.msdn.com/b/oldnewthing/archive/2004/12/22/329884.aspx
+	this.VARIANT_TRUE = this.VARIANT_BOOL(-1); //http://blogs.msdn.com/b/oldnewthing/archive/2004/12/22/329884.aspx // im not doing new this.VARIANT_BOOL becuase as we see in this shortcut js-ctypes they simply do HRESULT(value) ( https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L389 )
 	this.VT_BOOL = 0x000B; // 11
 	this.VT_LPWSTR = 0x001F; // 31
-	ppropvar.boolVal = fVal ? ostypes.VARIANT_TRUE : ostypes.VARIANT_FALSE;
 }
 var ostypes = new wintypesInit();
 
@@ -278,6 +282,17 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.VOID	// return
 		);
 	},
+	PropVariantClear: function() {
+		/* http://msdn.microsoft.com/en-us/library/windows/desktop/aa380073%28v=vs.85%29.aspx
+		 * WINOLEAPI PropVariantClear(
+		 * __in_ PROPVARIANT *pvar
+		 * );
+		 */
+		return _lib('Ole32.dll').declare('PropVariantClear', ctypes.winapi_abi,
+			ostypes.WINOLEAPI,			// return
+			ostypes.PROPVARIANT.ptr		// *pvar
+		);
+	}
 	SHGetPropertyStoreForWindow: function() {
 		/* http://msdn.microsoft.com/en-us/library/windows/desktop/dd378430%28v=vs.85%29.aspx
 		 * HRESULT SHGetPropertyStoreForWindow(
@@ -290,7 +305,8 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.HRESULT,	// return
 			ostypes.HWND,		// hwnd
 			ostypes.REFIID,		// riid
-			ostypes.VOIDPTR.ptr	// **ppv // arai on irc 1/11/2015 // 01:21	noida	hey arrai capella would void** be ctypes.voidptr_t? or ctypes.voidptr_t.ptr? // 01:23	arai	I think they are totally different types, and it should be ctypes.voidptr_t.ptr
+			ostypes.VOIDPTR	// **ppv // arai on irc 1/11/2015 // 01:21	noida	hey arrai capella would void** be ctypes.voidptr_t? or ctypes.voidptr_t.ptr? // 01:23	arai	I think they are totally different types, and it should be ctypes.voidptr_t.ptr
+			// actually scratch what arai said, like `SHGetPropertyStoreForWindow` third argument is out `void**` the `QueryInterface` also has out argument `void**` and he used `ctypes.voidptr_t` (https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L74)
 		);
 	},
 	SHStrDup: function() {
@@ -302,8 +318,8 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		*/
 		var SHStrDup = _lib('Shlwapi.dll').declare('SHStrDupW', ctypes.winapi_abi,
 			ostypes.HRESULT,	// return
-			ostypes.LPCTSTR,	// LPCTSTR // old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr // im trying to pass PCWSTR here, i am making it as `ctypes.jschar.array()('blah blah').address()`
-			ostypes.LPTSTR		// LPTSTR // old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr
+			ostypes.LPCTSTR,	// pszSource	// old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr // im trying to pass PCWSTR here, i am making it as `ctypes.jschar.array()('blah blah').address()`
+			ostypes.LPTSTR.ptr	// *ppwsz	 	// old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr
 		); 
 	}
 }
@@ -325,7 +341,7 @@ function checkHRESULT(hr, funcName) {
  *   __out_  PROPVARIANT *ppropvar
  * );
  */
-function InitPropVariantFromBoolean(fVal/*ostypes.BOOL*/, ppropvar/*ostypes.PROPVARIANT.ptr*/) {
+function InitPropVariantFromBoolean(fVal/*jsbool*/, ppropvar/*ostypes.PROPVARIANT.ptr*/) {
 	// returns ostypes.HRESULT
 	ppropvar.vt = ostypes.VT_BOOL;
 	ppropvar.boolVal = fVal ? ostypes.VARIANT_TRUE : ostypes.VARIANT_FALSE;
@@ -334,20 +350,19 @@ function InitPropVariantFromBoolean(fVal/*ostypes.BOOL*/, ppropvar/*ostypes.PROP
 
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/bb762305%28v=vs.85%29.aspx
  * NOTE1: I have to write my own InitPropVariantFromString because its not in a dll its defined in a header
- * NOTE2: When using this see notes on MSDN doc page chat of PROPVAIRANT ( http://msdn.microsoft.com/en-us/library/windows/desktop/aa380072%28v=vs.85%29.aspx )this guy says: "VT_LPWSTR must be allocated with CoTaskMemAlloc :: (Presumably this also applies to VT_LPSTR) VT_LPWSTR is described as being a string pointer with no information on how it is allocated. You might then assume that the PROPVARIANT doesn't own the string and just has a pointer to it, but you'd be wrong. In fact, the string stored in a VT_LPWSTR PROPVARIANT must be allocated using CoTaskMemAlloc and be freed using CoTaskMemFree. Evidence for this: Look at what the inline InitPropVariantFromString function does: It sets a VT_LPWSTR using SHStrDupW, which in turn allocates the string using CoTaskMemAlloc. Knowing that, it's obvious that PropVariantClear is expected to free the string using CoTaskMemFree. I can't find this explicitly documented anywhere, which is a shame, but step through this code in a debugger and you can confirm that the string is freed by PropVariantClear: ```#include <Propvarutil.h>	int wmain(int argc, TCHAR *lpszArgv[])	{	PROPVARIANT pv;	InitPropVariantFromString(L"Moo", &pv);	::PropVariantClear(&pv);	}```  If  you put some other kind of string pointer into a VT_LPWSTR PROPVARIANT your program is probably going to crash."
+ * NOTE2: When using this see notes on MSDN doc page chat of PROPVARIANT ( http://msdn.microsoft.com/en-us/library/windows/desktop/aa380072%28v=vs.85%29.aspx )this guy says: "VT_LPWSTR must be allocated with CoTaskMemAlloc :: (Presumably this also applies to VT_LPSTR) VT_LPWSTR is described as being a string pointer with no information on how it is allocated. You might then assume that the PROPVARIANT doesn't own the string and just has a pointer to it, but you'd be wrong. In fact, the string stored in a VT_LPWSTR PROPVARIANT must be allocated using CoTaskMemAlloc and be freed using CoTaskMemFree. Evidence for this: Look at what the inline InitPropVariantFromString function does: It sets a VT_LPWSTR using SHStrDupW, which in turn allocates the string using CoTaskMemAlloc. Knowing that, it's obvious that PropVariantClear is expected to free the string using CoTaskMemFree. I can't find this explicitly documented anywhere, which is a shame, but step through this code in a debugger and you can confirm that the string is freed by PropVariantClear: ```#include <Propvarutil.h>	int wmain(int argc, TCHAR *lpszArgv[])	{	PROPVARIANT pv;	InitPropVariantFromString(L"Moo", &pv);	::PropVariantClear(&pv);	}```  If  you put some other kind of string pointer into a VT_LPWSTR PROPVARIANT your program is probably going to crash."
  * HRESULT InitPropVariantFromString(
  *   __in_   PCWSTR psz,
  *   __out_  PROPVARIANT *ppropvar
  * );
  */
-function InitPropVariantFromString(psz/*ostypes.PCWSTR*/, ppropvar /*ostypes.PROPVARIANT.ptr*/) {
+function InitPropVariantFromString(psz/*ostypes.PCWSTR*/, ppropvar/*ostypes.PROPVARIANT.ptr*/) {
 	//console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal, propvarPtr.contents.pwszVal.toSource(), uneval(propvarPtr.contents.pwszVal));
 	//console.log('propvarPtr', propvarPtr);
 	// console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal);
 	// console.log('propvarPtr.contents.pwszVal.address()', propvarPtr.contents.pwszVal.address());
 	
-	
-	var hr_SHStrDup = SHStrDup(psz, ppropvar.address());
+	var hr_SHStrDup = SHStrDup(psz, ppropvar.contents.pwszVal.address()); //note in PROPVARIANT defintion `pwszVal` is defined as `LPWSTR` and `SHStrDup` expects second arg as `LPTSTR.ptr` but both `LPTSTR` and `LPWSTR` are defined the same with `ctypes.jschar` so this should be no problem
 	console.info('hr_SHStrDup:', hr_SHStrDup, hr_SHStrDup.toString(), uneval(hr_SHStrDup));
 	
 	// console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal);
@@ -407,6 +422,7 @@ function shutdown() {
 function main() {
 	//do code here
 	
+	/****** i dont use shell so i dont think
 	//start - shell link, which i think is needed for all COM due to the `hr = shellLink.QueryInterface(shellLinkPtr, IID_IPropertyStore.address(), propertyStorePtr.address());`
 	var IShellLinkWVtbl = new ctypes.StructType('IShellLinkWVtbl');
 	var IShellLinkW = new ctypes.StructType('IshellLinkW', [{
@@ -415,6 +431,12 @@ function main() {
 	var IShellLinkWPtr = new ctypes.PointerType(IShellLinkW);
 	IShellLinkWVtbl.define(
 		[{
+			/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms682521%28v=vs.85%29.aspx
+			 * HRESULT QueryInterface(
+			 *   __in_   REFIID riid,
+			 *   __out_  void **ppvObject
+			 * );
+			 */
 			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
 				ostypes.HRESULT, [
 					IShellLinkW.ptr,
@@ -553,7 +575,7 @@ function main() {
 		}]
 	);
 	//end - shell link, which i think is needed for all COM
-	
+	*/
 	
 	//start - IPropertyStore vtbl
 	var IPropertyStoreVtbl = new ctypes.StructType('IPropertyStoreVtbl');
@@ -658,28 +680,46 @@ function main() {
 	// end - looks like something i would run in _dec or just in main
 	*/
 	
-	//var IPropertyStore_SetValue = function(pps /** IPopertyStore pointer **/ , pkey /** PROPERTYKEY **/ , pszValue /** PCWSTR **/ ) {
-	var IPropertyStore_SetValue = function(pps /** IPropertyStorePtr **/ , pkey /** ostypes.PROPERTYKEY **/ , pszValue /** ostypes.PCWSTR **/ ) {
+	// from: http://blogs.msdn.com/b/oldnewthing/archive/2011/06/01/10170113.aspx
+	var IPropertyStore_SetValue = function(pps/*IPropertyStore.ptr*/, pkey/*ostypes.REFPROPERTYKEY*/, pszValue/*ostypes.PCWSTR*/) {
 		//pps must be passed in as reference
-		var v = new ostypes.PROPVARIANT(); // PROPVARIANT
+		var ppropvar = ostypes.PROPVARIANT();
 
-		var rez = InitPropVariantFromString(pszValue, v.address());
-		if (rez) {
+		var hr_InitPropVariantFromString = InitPropVariantFromString(pszValue, ppropvar.address());
+		if (checkHRESULT(hr_InitPropVariantFromString)) {
 			console.info('pps.SetValue', pps.SetValue);
-			pps.SetValue(pkey, v);
+			pps.SetValue(pkey, ppropvar.address());
+			var rez_PropVariantClear = PropVariantClear(ppropvar.address());
+			console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
 		} else {
 			throw new Error('failed InitPropVariantFromString');
 		}
-		return true;
+		return hr_InitPropVariantFromString;
 	}
 	
 	ppvPtr = new IPropertyStorePtr();
-	var hr_SHGetPropertyStoreForWindow = SHGetPropertyStoreForWindow(hwnd, IID_IPropertyStore, ppvPtr.address());
+	var hr_SHGetPropertyStoreForWindow = SHGetPropertyStoreForWindow(hwnd, IID_IPropertyStore, ppvPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
 	console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
 	if (!checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow')) { //this throws so no need to do an if on hr brelow, im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
 		throw new Error('checkHRESULT error');
 	}
 	ppv = ppvPtr.contents.lpVtbl.contents;
+	
+	// start get PKEY's
+	var fmtid_ID = fmtid_RelaunchCommand = fmtid_RelaunchDisplayNameResource = fmtid_RelaunchIcon = new struct_GUID();
+	var hr_fmtid = CLSIDFromString('{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}', myGUID.address()); // same for guid for: ID, RelaunchCommand, RelaunchDisplayNameResourche, RelaunchIcon, and IsDestListSeparator // source: https://github.com/truonghinh/TnX/blob/260a8a623751ffbce14bad6018ea48febbc21bc6/TnX-v8/Microsoft.Windows.Shell/Standard/ShellProvider.cs#L358
+	checkHRESULT(hr_fmtid, 'hr_fmtid'); //this throws on error
+	
+	var PKEY_AppUserModel_ID = new struct_PROPERTYKEY(fmtid_ID, 5);
+	var PKEY_AppUserModel_RelaunchCommand = new struct_PROPERTYKEY(fmtid_RelaunchCommand, 2);
+	var PKEY_AppUserModel_RelaunchDisplayNameResource = new struct_PROPERTYKEY(fmtid_RelaunchDisplayNameResource, 4);
+	var PKEY_AppUserModel_RelaunchIcon = new struct_PROPERTYKEY(fmtid_RelaunchIcon, 3);
+
+	// end get PKEY's
+	
+	IPropertyStore_SetValue(ppv.address(), PKEY_AppUserModel_ID, ostypes.PCWSTR('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+	IPropertyStore_SetValue(ppv.address(), PKEY_AppUserModel_RelaunchCommand, ostypes.PCWSTR('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+	IPropertyStore_SetValue(ppv.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ostypes.PCWSTR('C:\\full\\path\\to\\scratch.exe,-1'));
 	
 	
 }

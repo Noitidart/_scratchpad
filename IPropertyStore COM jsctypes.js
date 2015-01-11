@@ -154,6 +154,66 @@ var wintypesInit = function() {
 	]);
 	this.REFPROPVARIANT = new ctypes.PointerType(this.PROPVARIANT);
 	
+	// VTABLE's
+	var IPropertyStoreVtbl = new ctypes.StructType('IPropertyStoreVtbl');
+	var IPropertyStore = new ctypes.StructType('IPropertyStore', [{
+		'lpVtbl': IPropertyStoreVtbl.ptr
+	}]);
+	this.IPropertyStorePtr = new ctypes.PointerType(IPropertyStore);
+
+	IPropertyStoreVtbl.define(
+		[{
+			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IPropertyStore.ptr,
+					this.REFIID,
+					this.VOIDPTR
+				]).ptr
+		}, {
+			'AddRef': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.ULONG, [
+					IPropertyStore.ptr
+				]).ptr
+		}, {
+			'Release': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.ULONG, [
+					IPropertyStore.ptr
+				]).ptr
+		}, {
+			'Commit': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IPropertyStore.ptr
+				]).ptr
+		}, {
+			'GetAt': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IPropertyStore.ptr,
+					this.DWORD,			// iProp
+					this.PROPERTYKEY.ptr	//*pkey
+				]).ptr
+		}, {
+			'GetCount': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IPropertyStore.ptr,
+					this.DWORD.ptr	// *cProps
+				]).ptr
+		}, {
+			'GetValue': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IPropertyStore.ptr,
+					this.REFPROPERTYKEY,		// key
+					this.PROPVARIANT.ptr		// *pv
+				]).ptr
+		}, {
+			'SetValue': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IPropertyStore.ptr,
+					this.REFPROPERTYKEY,		// key
+					this.REFPROPVARIANT		// propvar
+				]).ptr
+		}]
+	);
+	
 	// CONSTANTS
 	this.COINIT_APARTMENTTHREADED = 0x2; //https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.CLSCTX_INPROC_SERVER = 0x1;
@@ -383,10 +443,11 @@ function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore.ptr*/, pkey/*os
 	console.info('pps.SetValue', pps.contents.SetValue);
 	var hr_SetValue = pps.contents.SetValue(vtblPpsPtr, pkey, ppropvar.address());
 	checkHRESULT(hr_SetValue, 'IPropertyStore_SetValue');
+	
 	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
 	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
 
-	return hr_InitPropVariantFromString;
+	return hr_SetValue;
 }
 // end - helper functions
 
@@ -426,264 +487,13 @@ function shutdown() {
 
 function main() {
 	//do code here
-	
-	/****** i dont use shell so i dont think
-	//start - shell link, which i think is needed for all COM due to the `hr = shellLink.QueryInterface(shellLinkPtr, IID_IPropertyStore.address(), propertyStorePtr.address());`
-	var IShellLinkWVtbl = new ctypes.StructType('IShellLinkWVtbl');
-	var IShellLinkW = new ctypes.StructType('IshellLinkW', [{
-		'lpVtbl': IShellLinkWVtbl.ptr
-	}]);
-	var IShellLinkWPtr = new ctypes.PointerType(IShellLinkW);
-	IShellLinkWVtbl.define(
-		[{
-			// http://msdn.microsoft.com/en-us/library/windows/desktop/ms682521%28v=vs.85%29.aspx
-			 * HRESULT QueryInterface(
-			 *   __in_   REFIID riid,
-			 *   __out_  void **ppvObject
-			 * );
-			 //
-			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.REFIID,
-					ostypes.VOIDPTR
-				]).ptr
-		}, {
-			'AddRef': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.ULONG, [
-					IShellLinkW.ptr
-				]).ptr
-		}, {
-			'Release': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.ULONG, [
-					IShellLinkW.ptr
-				]).ptr
-		}, {
-			'GetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPTSTR,	// pszArgs
-					ostypes.INT		// cchMaxPath
-				]).ptr
-		}, {
-			'GetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPTSTR,	// pszName
-					ostypes.INT		// cchMaxName
-				]).ptr
-		}, {
-			'GetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.WORD.ptr	// *pwHotkey
-				]).ptr
-		}, {
-			'GetIconLocation': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPTSTR,		// pszIconPath
-					ostypes.INT,		// cchIconPath
-					ostypes.INT.ptr		// *piIcon
-				]).ptr
-		}, {
-			'GetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.PIDLIST_ABSOLUTE.ptr	// *ppidl
-				]).ptr
-		}, {
-			'GetPath': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPTSTR,					// pszFile
-					ostypes.INT,					// cchMaxPath
-					ostypes.WIN32_FIND_DATA.ptr,	// *pfd
-					ostypes.DWORD					// fFlags
-				]).ptr
-		}, {
-			'GetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.INT.ptr		// *piShowCmd
-				]).ptr
-		}, {
-			'GetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPTSTR,		// pszDir
-					ostypes.INT			// cchMaxPath
-				]).ptr
-		}, {
-			'Resolve': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.HWND,	// hwnd
-					ostypes.DWORD	// fFlags
-				]).ptr
-		}, {
-			'SetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPCTSTR		// pszArgs
-				]).ptr
-		}, {
-			'SetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPCTSTR		// pszName
-				]).ptr
-		}, {
-			'SetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.WORD	// wHotkey
-				]).ptr
-		}, {
-			'SetIconLocation': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPCTSTR,	// pszIconPath
-					ostypes.INT			// iIcon
-				]).ptr
-		}, {
-			'SetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.PCIDLIST_ABSOLUTE	// pidl
-				]).ptr
-		}, {
-			'SetPath': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPCTSTR		// pszFile
-				]).ptr
-		}, {
-			'SetRelativePath': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPCTSTR,	// pszPathRel
-					ostypes.DWORD		// dwReserved
-				]).ptr
-		}, {
-			'SetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.INT		// iShowCmd
-				]).ptr
-		}, {
-			'SetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.LPCTSTR		// pszDir
-				]).ptr
-		}]
-	);
-	//end - shell link, which i think is needed for all COM
-	*/
-	
-	//start - IPropertyStore vtbl
-	var IPropertyStoreVtbl = new ctypes.StructType('IPropertyStoreVtbl');
-	var IPropertyStore = new ctypes.StructType('IPropertyStore', [{
-		'lpVtbl': IPropertyStoreVtbl.ptr
-	}]);
-	var IPropertyStorePtr = new ctypes.PointerType(IPropertyStore);
 
-	IPropertyStoreVtbl.define(
-		[{
-			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IPropertyStore.ptr,
-					ostypes.REFIID,
-					ostypes.VOIDPTR
-				]).ptr
-		}, {
-			'AddRef': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.ULONG, [
-					IPropertyStore.ptr
-				]).ptr
-		}, {
-			'Release': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.ULONG, [
-					IPropertyStore.ptr
-				]).ptr
-		}, {
-			'Commit': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IPropertyStore.ptr
-				]).ptr
-		}, {
-			'GetAt': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IPropertyStore.ptr,
-					ostypes.DWORD,			// iProp
-					ostypes.PROPERTYKEY.ptr	//*pkey
-				]).ptr
-		}, {
-			'GetCount': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IPropertyStore.ptr,
-					ostypes.DWORD.ptr	// *cProps
-				]).ptr
-		}, {
-			'GetValue': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IPropertyStore.ptr,
-					ostypes.REFPROPERTYKEY,		// key
-					ostypes.PROPVARIANT.ptr		// *pv
-				]).ptr
-		}, {
-			'SetValue': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IPropertyStore.ptr,
-					ostypes.REFPROPERTYKEY,		// key
-					ostypes.REFPROPVARIANT		// propvar
-				]).ptr
-		}]
-	);
-	//end - IPropertyStore vtbl
-
-	/****** i dont use shell so i dont think i need to do CoInitializeEx stuff
-	// start - looks like something i would run in _dec or just in main	
-    var hrCoInitializeEx = ostypes.HRESULT(_dec('CoInitializeEx')(null, ostypes.COINIT_APARTMENTTHREADED));
-	
-    if(ostypes.S_OK.toString() == hrCoInitializeEx.toString() || ostypes.S_FALSE.toString() == hrCoInitializeEx.toString()) {
-		shouldUninitialize = true;
-    } else {
-		throw('Unexpected return value from CoInitializeEx: ' + hrCoInitializeEx);
-    }
-	// end - looks like something i would run in _dec or just in main
-	*/
-	/****** i think no need for shell due to commented out block below so removing this
-	// start - looks like something i would run in _dec or just in main
-	var CLSID_ShellLink = new ostypes.GUID();
-	var hr_CLSIDFromString_CLSIDShellLink = _dec('CLSIDFromString')('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
-	checkHRESULT(hr_CLSIDFromString_CLSIDShellLink, 'CLSIDFromString (CLSID_ShellLink)');
-
-	var IID_IShellLink = new ostypes.GUID();
-	var hr_CLSIDFromString_IIDShellLink = _dec('CLSIDFromString')('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
-	checkHRESULT(hr_CLSIDFromString_IIDShellLink, 'CLSIDFromString (IID_ShellLink)');
-
-	shellLinkPtr = new IShellLinkWPtr();
-	var hr_CoCreateInstance = _dec('CoCreateInstance')(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
-	checkHRESULT(hr_CoCreateInstance, 'CoCreateInstance');
-	shellLink = shellLinkPtr.contents.lpVtbl.contents;
-	// end - looks like something i would run in _dec or just in main	
-	*/
 	// start - looks like something i would run in _dec or just in main
 	var IID_IPropertyStore = new ostypes.GUID();
 	var hr_CLSIDFromString_IIDIPropertyStore = _dec('CLSIDFromString')('{886d8eeb-8cf2-4446-8d02-cdba1dbdcf99}', IID_IPropertyStore.address()); // IID_IPersistFile was on the MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/ms687223%28v=vs.85%29.aspx) under Requirements however IID_IPropertyStore was not on its MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/bb761474%28v=vs.85%29.aspx) so I got this from github
 	console.info('hr_CLSIDFromString_IIDIPropertyStore:', hr_CLSIDFromString_IIDIPropertyStore, hr_CLSIDFromString_IIDIPropertyStore.toString(), uneval(hr_CLSIDFromString_IIDIPropertyStore));
 	checkHRESULT(hr_CLSIDFromString_IIDIPropertyStore, 'CLSIDFromString (IID_IPropertyStore)');
 
-	/****** i think no need for shell as SHGetPropertyStoreForWindow gives me the IPropertyStore
-	propertyStorePtr = new IPropertyStorePtr();
-	hr = shellLink.QueryInterface(shellLinkPtr, IID_IPropertyStore.address(), propertyStorePtr.address());
-	console.info('hr:', hr, hr.toString(), uneval(hr));
-	checkHRESULT(hr, 'QueryInterface (IShellLink->IPersistFile)');
-	propertyStore = propertyStorePtr.contents.lpVtbl.contents;
-	// end - looks like something i would run in _dec or just in main
-	*/	
 	var tWin = Services.wm.getMostRecentWindow(null);
 	var tBaseWin = tWin.QueryInterface(Ci.nsIInterfaceRequestor)
 						.getInterface(Ci.nsIWebNavigation)
@@ -693,7 +503,7 @@ function main() {
 	var cHwnd = ostypes.HWND(ctypes.UInt64(tBaseWin.nativeHandle));
 	
 	try {
-		var ppsPtr = new IPropertyStorePtr();
+		var ppsPtr = new ostypes.IPropertyStorePtr();
 		var hr_SHGetPropertyStoreForWindow = _dec('SHGetPropertyStoreForWindow')(cHwnd, IID_IPropertyStore.address(), ppsPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
 		console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
 		checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow') //this throws so no need to do an if on hr brelow here are my notes from the old gist: //im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
@@ -716,7 +526,13 @@ function main() {
 
 		// end get PKEY's
 		
-		IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_ID.address(), ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_ID.address(), ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		if (hr_IPSSetValue == ostypes.S_OK) {
+			console.log('SUCCESSFULLY SetValue on AppUserModel_ID');
+		} else {
+			console.error('Failed to SetValue on AppUserModel_ID, hr:', hr_IPSSetValue, hr_IPSSetValue.toString(), uneval(hr_IPSSetValue));
+			throw new Error('Failed to SetValue on AppUserModel_ID, hr:' + hr_IPSSetValue);
+		}
 		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchCommand, ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
 		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ctypes.jschar.array()('C:\\full\\path\\to\\scratch.exe,-1'));
 	} catch(ex) {
@@ -734,11 +550,7 @@ function main() {
 }
 
 // start - globals for my main stuff
-var propertyStorePtr;
-var propertyStore;
-var shellLinkPtr;
-var shellLink;
-var shouldUninitialize;
+
 // end - globals
 
 try {

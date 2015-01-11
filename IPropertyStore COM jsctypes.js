@@ -434,20 +434,34 @@ function InitPropVariantFromString(psz/*ostypes.PCWSTR*/, ppropvar/*ostypes.PROP
 }
 
 // from: http://blogs.msdn.com/b/oldnewthing/archive/2011/06/01/10170113.aspx
-function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore.ptr*/, pkey/*ostypes.REFPROPERTYKEY*/, pszValue/*ostypes.PCWSTR*/) { // i introduced vtblPpsPtr as i need it for js-ctypes
+function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostypes.REFPROPERTYKEY*/, pszValue/*ostypes.PCWSTR*/) { // i introduced vtblPpsPtr as i need it for js-ctypes
 	var ppropvar = new ostypes.PROPVARIANT();
 
 	var hr_InitPropVariantFromString = InitPropVariantFromString(pszValue, ppropvar.address());
 	checkHRESULT(hr_InitPropVariantFromString, 'failed InitPropVariantFromString'); //this will throw if HRESULT is bad
 
-	console.info('pps.SetValue', pps.contents.SetValue);
-	var hr_SetValue = pps.contents.SetValue(vtblPpsPtr, pkey, ppropvar.address());
+	console.info('pps.SetValue', pps.SetValue);
+	var hr_SetValue = pps.SetValue(vtblPpsPtr, pkey, ppropvar.address());
 	checkHRESULT(hr_SetValue, 'IPropertyStore_SetValue');
 	
 	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
 	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
 
 	return hr_SetValue;
+}
+
+function IPropertyStore_GetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostypes.REFPROPERTYKEY*/, ppropvar /*ostypes.PROPVARIANT*/) { // i introduced vtblPpsPtr as i need it for js-ctypes
+
+	console.info('pps.GetValue', pps.GetValue);
+	var hr_GetValue = pps.GetValue(vtblPpsPtr, pkey, ppropvar.address());
+	checkHRESULT(hr_GetValue, 'IPropertyStore_GetValue');
+	
+	console.info('ppropvar:', ppropvar, ppropvar.toString(), uneval(ppropvar));
+	
+	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
+	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
+
+	return hr_GetValue;
 }
 // end - helper functions
 
@@ -519,20 +533,36 @@ function main() {
 		console.info('fmtid_ID:', fmtid_ID, fmtid_ID.toString(), uneval(fmtid_ID));
 		console.info('fmtid_RelaunchCommand:', fmtid_RelaunchCommand, fmtid_RelaunchCommand.toString(), uneval(fmtid_RelaunchCommand));
 		
-		var PKEY_AppUserModel_ID = new ostypes.PROPERTYKEY(fmtid_ID, 5);
-		var PKEY_AppUserModel_RelaunchCommand = new ostypes.PROPERTYKEY(fmtid_RelaunchCommand, 2);
-		var PKEY_AppUserModel_RelaunchDisplayNameResource = new ostypes.PROPERTYKEY(fmtid_RelaunchDisplayNameResource, 4);
-		var PKEY_AppUserModel_RelaunchIconResource = new ostypes.PROPERTYKEY(fmtid_RelaunchIconResource, 3);
+		var PKEY_AppUserModel_ID = ostypes.PROPERTYKEY(fmtid_ID, 5);
+		var PKEY_AppUserModel_RelaunchCommand = ostypes.PROPERTYKEY(fmtid_RelaunchCommand, 2);
+		var PKEY_AppUserModel_RelaunchDisplayNameResource = ostypes.PROPERTYKEY(fmtid_RelaunchDisplayNameResource, 4);
+		var PKEY_AppUserModel_RelaunchIconResource = ostypes.PROPERTYKEY(fmtid_RelaunchIconResource, 3);
 
 		// end get PKEY's
-		
-		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_ID.address(), ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
-		if (hr_IPSSetValue == ostypes.S_OK) {
-			console.log('SUCCESSFULLY SetValue on AppUserModel_ID');
+
+		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		console.log('ostypes.S_OK.toString():', ostypes.S_OK.toString());
+		console.log('ostypes.HRESULT(hr_IPSSetValue).toString():', ostypes.HRESULT(hr_IPSSetValue).toString());
+		if (ostypes.HRESULT(hr_IPSSetValue).toString() == ostypes.S_OK.toString()) {
+			console.log('SUCCESSFULLY SetValue on AppUserModel_ID', hr_IPSSetValue, hr_IPSSetValue.toString(), uneval(hr_IPSSetValue));
 		} else {
 			console.error('Failed to SetValue on AppUserModel_ID, hr:', hr_IPSSetValue, hr_IPSSetValue.toString(), uneval(hr_IPSSetValue));
 			throw new Error('Failed to SetValue on AppUserModel_ID, hr:' + hr_IPSSetValue);
 		}
+
+		/*
+		var ppropvar = new ostypes.PROPVARIANT();
+		var hr_IPSGetValue = IPropertyStore_GetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), ppropvar);
+		console.log('ostypes.S_OK.toString():', ostypes.S_OK.toString());
+		console.log('ostypes.HRESULT(hr_IPSGetValue).toString():', ostypes.HRESULT(hr_IPSGetValue).toString());
+		if (ostypes.HRESULT(hr_IPSGetValue).toString() == ostypes.S_OK.toString()) {
+			console.log('SUCCESSFULLY GetValue on AppUserModel_ID', hr_IPSGetValue, hr_IPSGetValue.toString(), uneval(hr_IPSGetValue));
+			console.info('ppropvar:', ppropvar, ppropvar.toString(), uneval(ppropvar));
+		} else {
+			console.error('Failed to GetValue on AppUserModel_ID, hr:', hr_IPSGetValue, hr_IPSGetValue.toString(), uneval(hr_IPSGetValue));
+			throw new Error('Failed to GetValue on AppUserModel_ID, hr:' + hr_IPSGetValue);
+		}
+		*/
 		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchCommand, ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
 		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ctypes.jschar.array()('C:\\full\\path\\to\\scratch.exe,-1'));
 	} catch(ex) {

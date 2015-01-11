@@ -52,7 +52,7 @@ var wintypesInit = function() {
 	*   DWORD pid;
 	* } PROPERTYKEY;
 	*/
-	this.PROPERTYKEY = ctypes.StructType('PROPERTYKEY', [
+	this.PROPERTYKEY = new ctypes.StructType('PROPERTYKEY', [
 		{ 'fmtid': this.GUID },
 		{ 'pid': this.DWORD }
 	]);
@@ -140,7 +140,7 @@ var wintypesInit = function() {
 	*   };
 	* } PROPVARIANT;
 	*/
-	this.PROPVARIANT = ctypes.StructType('PROPVARIANT', [
+	this.PROPVARIANT = new ctypes.StructType('PROPVARIANT', [
 		{'vt': this.VARTYPE},		// constants for this are available at MSDN: http://msdn.microsoft.com/en-us/library/windows/desktop/aa380072%28v=vs.85%29.aspx
 		{'wReserved1': this.WORD},
 		{'wReserved2': this.WORD},
@@ -435,7 +435,7 @@ function InitPropVariantFromString(psz/*ostypes.PCWSTR*/, ppropvar/*ostypes.PROP
 
 // from: http://blogs.msdn.com/b/oldnewthing/archive/2011/06/01/10170113.aspx
 function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostypes.REFPROPERTYKEY*/, pszValue/*ostypes.PCWSTR*/) { // i introduced vtblPpsPtr as i need it for js-ctypes
-	var ppropvar = new ostypes.PROPVARIANT();
+	var ppropvar = ostypes.PROPVARIANT();
 
 	var hr_InitPropVariantFromString = InitPropVariantFromString(pszValue, ppropvar.address());
 	checkHRESULT(hr_InitPropVariantFromString, 'failed InitPropVariantFromString'); //this will throw if HRESULT is bad
@@ -457,6 +457,9 @@ function IPropertyStore_GetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostype
 	checkHRESULT(hr_GetValue, 'IPropertyStore_GetValue');
 	
 	console.info('ppropvar:', ppropvar, ppropvar.toString(), uneval(ppropvar));
+	
+	var hr_Commit = pps.Commit(ppsPtr);
+	console.info('hr_Commit:', hr_Commit, hr_Commit.toString(), uneval(hr_Commit));
 	
 	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
 	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
@@ -494,7 +497,7 @@ function main() {
 	var cHwnd = ostypes.HWND(ctypes.UInt64(tBaseWin.nativeHandle));
 	
 	try {
-		var ppsPtr = new ostypes.IPropertyStorePtr();
+		var ppsPtr = new ostypes.IPropertyStorePtr(); // i have to use new event though ostypes.IPropertyStorePtr is defined as `new ...` this is how TimAbradles did it: https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L422  this is probably because its not a new StructType but a new PointerType. probably only `new StructType`'s dont need the `new` when created in js runtime stuff like this line
 		var hr_SHGetPropertyStoreForWindow = _dec('SHGetPropertyStoreForWindow')(cHwnd, IID_IPropertyStore.address(), ppsPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
 		console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
 		checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow') //this throws so no need to do an if on hr brelow here are my notes from the old gist: //im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
@@ -503,21 +506,21 @@ function main() {
 		
 		// start get PKEY's
 		var fmtid_ID = fmtid_RelaunchCommand = fmtid_RelaunchDisplayNameResource = fmtid_RelaunchIconResource = new ostypes.GUID();
-		var hr_fmtid = _dec('CLSIDFromString')('{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}', fmtid_ID.address()); // same for guid for: ID, RelaunchCommand, RelaunchDisplayNameResourche, RelaunchIconResource, and IsDestListSeparator // source: https://github.com/truonghinh/TnX/blob/260a8a623751ffbce14bad6018ea48febbc21bc6/TnX-v8/Microsoft.Windows.Shell/Standard/ShellProvider.cs#L358
+		var hr_fmtid = _dec('CLSIDFromString')('{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}', fmtid_ID.address()); // same for guid for: ID, RelaunchCommand, RelaunchDisplayNameResourche, RelaunchIconResource, and IsDestListSeparator // source1: msdn, see links to respective msdn pages on the comment on the PKEY's below //source2: https://github.com/truonghinh/TnX/blob/260a8a623751ffbce14bad6018ea48febbc21bc6/TnX-v8/Microsoft.Windows.Shell/Standard/ShellProvider.cs#L358
 		checkHRESULT(hr_fmtid, 'hr_fmtid'); //this throws on error
 		
 		// doing these console.info's to make sure when i do CLSIDFromString on fmtid_ID that its going to the others as reference // test is as expected, ah!
 		console.info('fmtid_ID:', fmtid_ID, fmtid_ID.toString(), uneval(fmtid_ID));
 		console.info('fmtid_RelaunchCommand:', fmtid_RelaunchCommand, fmtid_RelaunchCommand.toString(), uneval(fmtid_RelaunchCommand));
 		
-		var PKEY_AppUserModel_ID = ostypes.PROPERTYKEY(fmtid_ID, 5);
-		var PKEY_AppUserModel_RelaunchCommand = ostypes.PROPERTYKEY(fmtid_RelaunchCommand, 2);
-		var PKEY_AppUserModel_RelaunchDisplayNameResource = ostypes.PROPERTYKEY(fmtid_RelaunchDisplayNameResource, 4);
-		var PKEY_AppUserModel_RelaunchIconResource = ostypes.PROPERTYKEY(fmtid_RelaunchIconResource, 3);
+		var PKEY_AppUserModel_ID = ostypes.PROPERTYKEY(fmtid_ID, 5); // guid and pid from: http://msdn.microsoft.com/en-us/library/dd391569%28v=vs.85%29.aspx
+		var PKEY_AppUserModel_RelaunchCommand = ostypes.PROPERTYKEY(fmtid_RelaunchCommand, 2);// guid and pid from: http://msdn.microsoft.com/en-us/library/dd391571%28v=vs.85%29.aspx
+		var PKEY_AppUserModel_RelaunchDisplayNameResource = ostypes.PROPERTYKEY(fmtid_RelaunchDisplayNameResource, 4); // guid and pid from: http://msdn.microsoft.com/en-us/library/dd391572%28v=vs.85%29.aspx
+		var PKEY_AppUserModel_RelaunchIconResource = ostypes.PROPERTYKEY(fmtid_RelaunchIconResource, 3); // guid and pid from: http://msdn.microsoft.com/en-us/library/dd391573%28v=vs.85%29.aspx
 
 		// end get PKEY's
 
-		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), ostypes.WCHAR.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
 		console.log('ostypes.S_OK.toString():', ostypes.S_OK.toString());
 		console.log('ostypes.HRESULT(hr_IPSSetValue).toString():', ostypes.HRESULT(hr_IPSSetValue).toString());
 		if (ostypes.HRESULT(hr_IPSSetValue).toString() == ostypes.S_OK.toString()) {
@@ -528,7 +531,7 @@ function main() {
 		}
 
 		/*
-		var ppropvar = new ostypes.PROPVARIANT();
+		var ppropvar = ostypes.PROPVARIANT();
 		var hr_IPSGetValue = IPropertyStore_GetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), ppropvar);
 		console.log('ostypes.S_OK.toString():', ostypes.S_OK.toString());
 		console.log('ostypes.HRESULT(hr_IPSGetValue).toString():', ostypes.HRESULT(hr_IPSGetValue).toString());
@@ -540,8 +543,9 @@ function main() {
 			throw new Error('Failed to GetValue on AppUserModel_ID, hr:' + hr_IPSGetValue);
 		}
 		*/
-		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchCommand, ctypes.jschar.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
-		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ctypes.jschar.array()('C:\\full\\path\\to\\scratch.exe,-1'));
+		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchCommand, ostypes.WCHAR.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ostypes.WCHAR.array()('C:\\full\\path\\to\\scratch.exe,-1'));
+		
 	} catch(ex) {
 		throw ex;
 	} finally {

@@ -138,7 +138,7 @@ var wintypesInit = function() {
 	* } PROPVARIANT;
 	*/
 	this.PROPVARIANT = ctypes.StructType('PROPVARIANT', [
-		{'vt': this.VARTYPE},
+		{'vt': this.VARTYPE},		// constants for this are available at MSDN: http://msdn.microsoft.com/en-us/library/windows/desktop/aa380072%28v=vs.85%29.aspx
 		{'wReserved1': this.WORD},
 		{'wReserved2': this.WORD},
 		{'wReserved3': this.WORD},
@@ -146,6 +146,8 @@ var wintypesInit = function() {
 		// https://bugzilla.mozilla.org/show_bug.cgi?id=535378 "You can always
 		// typecast pointers, at least as long as you know which type is the biggest"
 		//note: important: // {'unionDevShouldSetThis': ctypes.voidptr_t }
+		{ 'pwszVal': this.LPWSTR } // for InitPropVariantFromString // when using this see notes on MSDN doc page chat of PROPVAIRANT ( http://msdn.microsoft.com/en-us/library/windows/desktop/aa380072%28v=vs.85%29.aspx )this guy says: "VT_LPWSTR must be allocated with CoTaskMemAlloc :: (Presumably this also applies to VT_LPSTR) VT_LPWSTR is described as being a string pointer with no information on how it is allocated. You might then assume that the PROPVARIANT doesn't own the string and just has a pointer to it, but you'd be wrong. In fact, the string stored in a VT_LPWSTR PROPVARIANT must be allocated using CoTaskMemAlloc and be freed using CoTaskMemFree. Evidence for this: Look at what the inline InitPropVariantFromString function does: It sets a VT_LPWSTR using SHStrDupW, which in turn allocates the string using CoTaskMemAlloc. Knowing that, it's obvious that PropVariantClear is expected to free the string using CoTaskMemFree. I can't find this explicitly documented anywhere, which is a shame, but step through this code in a debugger and you can confirm that the string is freed by PropVariantClear: ```#include <Propvarutil.h>	int wmain(int argc, TCHAR *lpszArgv[])	{	PROPVARIANT pv;	InitPropVariantFromString(L"Moo", &pv);	::PropVariantClear(&pv);	}```  If  you put some other kind of string pointer into a VT_LPWSTR PROPVARIANT your program is probably going to crash."
+		{ 'boolVal:', this.
 	]);
 	this.REFPROPVARIANT = new ctypes.PointerType(this.PROPVARIANT);
 	
@@ -154,6 +156,9 @@ var wintypesInit = function() {
 	this.CLSCTX_INPROC_SERVER = 0x1;
 	this.S_OK = new this.HRESULT(0); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
 	this.S_FALSE = new this.HRESULT(1); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
+	this.VT_BOOL = 0x000B; // 11
+	this.VT_LPWSTR = 0x001F; // 31
+	ppropvar.boolVal = fVal ? ostypes.VARIANT_TRUE : ostypes.VARIANT_FALSE;
 }
 var ostypes = new wintypesInit();
 
@@ -255,6 +260,16 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DWORD		// dwCoInit
 		);
 	},
+	CoTaskMemFree: function() {
+		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms680722%28v=vs.85%29.aspx
+		 * void CoTaskMemFree(
+		 *   __in_opt_  LPVOID pv
+		 * );
+		 */
+		return _lib('Ole32.dll').declare('CoTaskMemFree', ctypes.winapi_abi,
+			ostypes.LPVOID	// pv
+		);
+	},
 	CoUninitialize: function() {
 		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms688715%28v=vs.85%29.aspx
 		 * void CoUninitialize(void);
@@ -277,6 +292,19 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.REFIID,		// riid
 			ostypes.VOIDPTR.ptr	// **ppv // arai on irc 1/11/2015 // 01:21	noida	hey arrai capella would void** be ctypes.voidptr_t? or ctypes.voidptr_t.ptr? // 01:23	arai	I think they are totally different types, and it should be ctypes.voidptr_t.ptr
 		);
+	},
+	SHStrDup: function() {
+		/* http://msdn.microsoft.com/en-us/library/windows/desktop/bb759924%28v=vs.85%29.aspx
+		* HRESULT SHStrDup(
+		* __in_ LPCTSTR pszSource,
+		* __out_ LPTSTR *ppwsz
+		* );
+		*/
+		var SHStrDup = _lib('Shlwapi.dll').declare('SHStrDupW', ctypes.winapi_abi,
+			ostypes.HRESULT,	// return
+			ostypes.LPCTSTR,	// LPCTSTR // old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr // im trying to pass PCWSTR here, i am making it as `ctypes.jschar.array()('blah blah').address()`
+			ostypes.LPTSTR		// LPTSTR // old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr
+		); 
 	}
 }
 // end - predefine your declares here
@@ -289,37 +317,62 @@ function checkHRESULT(hr, funcName) {
 }
 
 /* http://msdn.microsoft.com/en-us/library/windows/desktop/bb762305%28v=vs.85%29.aspx
- * NOTE: I have to write my own InitPropVariantFromString because its not in a dll its defined in a header
+ * NOTE1: I have to write my own InitPropVariantFromString because its not in a dll its defined in a header
+ * I looked at wine's implementation ( https://github.com/wine-mirror/wine/blob/master/include/propvarutil.h#L88 ) and compared
+ * it to the usage example on MSDN doc page linked here, and Raymond's example of "I set the PROP­VARIANT manually instead of using Init­Prop­Variant­From­Boolean just to emphasize that the boolVal must be VARIANT_TRUE and not TRUE." ( http://blogs.msdn.com/b/oldnewthing/archive/2011/06/01/10170113.aspx )
  * HRESULT InitPropVariantFromString(
- *   __on_   PCWSTR psz,
- *   __out_  PROPVARIANT *ppropvar
+ *   __in_   BOOL fVal,
  *   __out_  PROPVARIANT *ppropvar
  * );
  */
-function InitPropVariantFromString(string /* ostypes.PCWSTR */ , propvarPtr /* ostypes.PROPVARIANT.ptr */ ) {
+function InitPropVariantFromBoolean(fVal/*ostypes.BOOL*/, ppropvar/*ostypes.PROPVARIANT.ptr*/) {
+	// returns ostypes.HRESULT
+	ppropvar.vt = ostypes.VT_BOOL;
+	ppropvar.boolVal = fVal ? ostypes.VARIANT_TRUE : ostypes.VARIANT_FALSE;
+	return ostypes.S_OK;
+}
+
+/* http://msdn.microsoft.com/en-us/library/windows/desktop/bb762305%28v=vs.85%29.aspx
+ * NOTE1: I have to write my own InitPropVariantFromString because its not in a dll its defined in a header
+ * NOTE2: When using this see notes on MSDN doc page chat of PROPVAIRANT ( http://msdn.microsoft.com/en-us/library/windows/desktop/aa380072%28v=vs.85%29.aspx )this guy says: "VT_LPWSTR must be allocated with CoTaskMemAlloc :: (Presumably this also applies to VT_LPSTR) VT_LPWSTR is described as being a string pointer with no information on how it is allocated. You might then assume that the PROPVARIANT doesn't own the string and just has a pointer to it, but you'd be wrong. In fact, the string stored in a VT_LPWSTR PROPVARIANT must be allocated using CoTaskMemAlloc and be freed using CoTaskMemFree. Evidence for this: Look at what the inline InitPropVariantFromString function does: It sets a VT_LPWSTR using SHStrDupW, which in turn allocates the string using CoTaskMemAlloc. Knowing that, it's obvious that PropVariantClear is expected to free the string using CoTaskMemFree. I can't find this explicitly documented anywhere, which is a shame, but step through this code in a debugger and you can confirm that the string is freed by PropVariantClear: ```#include <Propvarutil.h>	int wmain(int argc, TCHAR *lpszArgv[])	{	PROPVARIANT pv;	InitPropVariantFromString(L"Moo", &pv);	::PropVariantClear(&pv);	}```  If  you put some other kind of string pointer into a VT_LPWSTR PROPVARIANT your program is probably going to crash."
+ * HRESULT InitPropVariantFromString(
+ *   __in_   PCWSTR psz,
+ *   __out_  PROPVARIANT *ppropvar
+ * );
+ */
+function InitPropVariantFromString(psz/*ostypes.PCWSTR*/, ppropvar /*ostypes.PROPVARIANT.ptr*/) {
 	//console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal, propvarPtr.contents.pwszVal.toSource(), uneval(propvarPtr.contents.pwszVal));
 	//console.log('propvarPtr', propvarPtr);
 	// console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal);
 	// console.log('propvarPtr.contents.pwszVal.address()', propvarPtr.contents.pwszVal.address());
 	
 	
-	var hr_SHStrDup = SHStrDup(string, propvarPtr.contents.pwszVal.address());
+	var hr_SHStrDup = SHStrDup(psz, ppropvar.address());
 	console.info('hr_SHStrDup:', hr_SHStrDup, hr_SHStrDup.toString(), uneval(hr_SHStrDup));
 	
 	// console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal);
 	if (!checkHRESULT(hr_SHStrDup)) {
 		console.error('should never get here I THINK as if we get here then we have to do PropVariantInit, which is just a memset which we dont have to do per @nmaier on stackoverflow [firefox-addon][jsctypes]');
+		throw new Error('should never get here I THINK as if we get here then we have to do PropVariantInit, which is just a memset which we dont have to do per @nmaier on stackoverflow [firefox-addon][jsctypes]');
 		//PropVariantInit(propvarPtr); //can skip this, it just does a memset
 	} else {
+		ppropvar.vt = ostypes.VT_LPWSTR;
 		console.log('as expected checkHRESULT of hr_SHStrDup was true');
 	}
-	return true;
+	return hr_SHStrDup;
 }
 // end - helper functions
 
 function shutdown() {
 	// do in here what you want to do before shutdown
 	
+	if (ppv) {
+		try {
+			ppv.Release(ppvPtr);
+		} catch (ex) {
+			Cu.reportError('Failure releasing ppv: ' + ex);
+		}
+	}
 	if (propertyStore) {
 		try {
 			propertyStore.Release(propertyStorePtr);
@@ -620,18 +673,20 @@ function main() {
 		return true;
 	}
 	
-	var ppvPtr = new IPropertyStorePtr();
+	ppvPtr = new IPropertyStorePtr();
 	var hr_SHGetPropertyStoreForWindow = SHGetPropertyStoreForWindow(hwnd, IID_IPropertyStore, ppvPtr.address());
 	console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
 	if (!checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow')) { //this throws so no need to do an if on hr brelow, im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
 		throw new Error('checkHRESULT error');
 	}
-	var ppv = ppvPtr.contents.lpVtbl.contents;
+	ppv = ppvPtr.contents.lpVtbl.contents;
 	
 	
 }
 
 // start - globals for my main stuff
+var ppvPtr;
+var ppv;
 var propertyStorePtr;
 var propertyStore;
 var shellLinkPtr;

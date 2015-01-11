@@ -5,18 +5,25 @@ var wintypesInit = function() {
 	this.BOOL = ctypes.int;
 	this.DWORD = ctypes.unsigned_long;
 	this.HRESULT = ctypes.long;
+	this.HWND = ctypes.voidptr_t;
+	this.INT = ctypes.INT;
+	this.PCIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L115
+	this.PIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L106
 	this.ULONG = ctypes.unsigned_long;
 	this.VARTYPE = ctypes.unsigned_short;
 	this.VOIDPTR = ctypes.voidptr_t
 	this.WCHAR = ctypes.jschar;
+	this.WIN32_FIND_DATA = ctypes.voidptr_t;
 	this.WORD = ctypes.unsigned_short;
 	
 	// ADVANCED TYPES (ones that are based on the basic types)
+	this.LPTSTR = new ctypes.PointerType(WCHAR);
+	this.LPCTSTR = LPTSTR;
 	this.LPWSTR = new ctypes.PointerType(WCHAR);
 	this.LPCWSTR = LPWSTR;
 	this.LPOLESTR = LPWSTR;
 	this.LPCOLESTR = LPOLESTR;
-	
+	 
 	// BASIC STRUCTURES
 	this.GUID = ctypes.StructType('GUID', [ // http://msdn.microsoft.com/en-us/library/ff718266%28v=prot.10%29.aspx
 		{ 'Data1': ctypes.unsigned_long },
@@ -136,8 +143,11 @@ var wintypesInit = function() {
 		// typecast pointers, at least as long as you know which type is the biggest"
 		{'unionDevShouldSetThis': this.VOIDPTR }
 	]);
-	// CONSTANTS
+	this.REFPROPVARIANT = new ctypes.PointerType(this.PROPVARIANT);
 	
+	// CONSTANTS
+	this.S_OK = new this.HRESULT(0); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
+	this.S_FALSE = new this.HRESULT(1); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
 }
 var ostypes = new wintypesInit();
 
@@ -211,9 +221,26 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.UINT	// fWinIni
 		);
 	}
+	CLSIDFromString: function() {
+		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms680589%28v=vs.85%29.aspx
+		 * HRESULT CLSIDFromString(
+		 *   __in_ LPCOLESTR lpsz,
+		 *   __out_ LPCLSID pclsid
+		 * );
+		*/
+		var CLSIDFromString = _lib('Ole32.dll').declare('CLSIDFromString', ctypes.winapi_abi,
+			ostypes.HRESULT,	// return
+			ostypes.LPCOLESTR,	// lpsz
+			ostypes.GUID.ptr	// pclsid
+		); 
+	}
 }
 // end - predefine your declares here
-
+function checkHRESULT(hr, funcName) {
+	if(hr < 0) {
+		throw 'HRESULT ' + hr + ' returned from function ' + funcName;
+	}
+}
 // start - helper functions
 
 // end - helper functions
@@ -228,6 +255,158 @@ function shutdown() {
 
 function main() {
 	//do code here
+	
+	//start - shell link, which i think is needed for all COM due to the `hr = shellLink.QueryInterface(shellLinkPtr, IID_IPropertyStore.address(), propertyStorePtr.address());`
+	var IShellLinkWVtbl = new ctypes.StructType('IShellLinkWVtbl');
+
+	const IShellLinkW = new ctypes.StructType('IshellLinkW', [{
+		'lpVtbl': IShellLinkWVtbl.ptr
+	}]);
+	const IShellLinkWPtr = new ctypes.PointerType(IShellLinkW);
+
+	IShellLinkWVtbl.define(
+		[{
+			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.REFIID,
+					ostypes.VOIDPTR
+				]).ptr
+		}, {
+			'AddRef': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.ULONG, [
+					IShellLinkW.ptr
+				]).ptr
+		}, {
+			'Release': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.ULONG, [
+					IShellLinkW.ptr
+				]).ptr
+		}, {
+			'GetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPTSTR,	// pszArgs
+					ctypes.INT		// cchMaxPath
+				]).ptr
+		}, {
+			'GetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPTSTR	// pszName
+					ostypes.INT		// cchMaxName
+				]).ptr
+		}, {
+			'GetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.WORD.ptr	// *pwHotkey
+				]).ptr
+		}, {
+			'GetIconLocation': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPTSTR,		// pszIconPath
+					ostypes.INT,		// cchIconPath
+					ostpyes.INT.ptr		// *piIcon
+				]).ptr
+		}, {
+			'GetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.PIDLIST_ABSOLUTE.ptr	// *ppidl
+				]).ptr
+		}, {
+			'GetPath': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPTSTR,					// pszFile
+					ostypes.INT,					// cchMaxPath
+					ostypes.WIN32_FIND_DATA.ptr,	// *pfd
+					ostypes.DWORD					// fFlags
+				]).ptr
+		}, {
+			'GetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.INT.ptr		// *piShowCmd
+				]).ptr
+		}, {
+			'GetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPTSTR,		// pszDir
+					ostypes.INT			// cchMaxPath
+				]).ptr
+		}, {
+			'Resolve': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.HWND,	// hwnd
+					ostypes.DWORD	// fFlags
+				]).ptr
+		}, {
+			'SetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPCTSTR		// pszArgs
+				]).ptr
+		}, {
+			'SetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPCTSTR		// pszName
+				]).ptr
+		}, {
+			'SetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					WORD	// wHotkey
+				]).ptr
+		}, {
+			'SetIconLocation': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPCTSTR,	// pszIconPath
+					ostypes.INT			// iIcon
+				]).ptr
+		}, {
+			'SetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.PCIDLIST_ABSOLUTE	// pidl
+				]).ptr
+		}, {
+			'SetPath': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPCTSTR		// pszFile
+				]).ptr
+		}, {
+			'SetRelativePath': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPCTSTR,	// pszPathRel
+					ostypes.DWORD		// dwReserved
+				]).ptr
+		}, {
+			'SetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.INT		// iShowCmd
+				]).ptr
+		}, {
+			'SetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
+				ostypes.HRESULT, [
+					IShellLinkW.ptr,
+					ostypes.LPCWSTR
+				]).ptr
+		} ]
+	);
+	//end - shell link, which i think is needed for all COM
+	
+	
+	
 	var IPropertyStoreVtbl = new ctypes.StructType('IPropertyStoreVtbl');
 
 	var IPropertyStore = new ctypes.StructType('IPropertyStore', [{
@@ -281,12 +460,30 @@ function main() {
 		}, {
 			'SetValue': ctypes.FunctionType(ctypes.stdcall_abi,
 				ostypes.HRESULT, [
-					IProper.ptr,
-					LPCOLESTR
+					IPropertyStore.ptr,
+					ostypes.REFPROPERTYKEY,		// key
+					ostypes.REFPROPVARIANT		// propvar
 				]).ptr
 		}]
 	);
 
+	
+	
+	// start - looks like something i would run in _dec or just in main
+    var IID_IPropertyStore = new ostypes.GUID();
+	var hr;
+    hr = CLSIDFromString('{886d8eeb-8cf2-4446-8d02-cdba1dbdcf99}', IID_IPropertyStore.address()); // IID_IPersistFile was on the MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/ms687223%28v=vs.85%29.aspx) under Requirements however IID_IPropertyStore was not on its MSDN page (http://msdn.microsoft.com/en-us/library/windows/desktop/bb761474%28v=vs.85%29.aspx) so I got this from github
+	console.info('hr:', hr, hr.toString(), uneval(hr));
+    checkHRESULT(hr, 'CLSIDFromString (IID_IPropertyStore)');
+
+    propertyStorePtr = new IPropertyStorePtr();
+    hr = shellLink.QueryInterface(shellLinkPtr, IID_IPropertyStore.address(), propertyStorePtr.address());
+	console.info('hr:', hr, hr.toString(), uneval(hr));
+    checkHRESULT(hr, 'QueryInterface (IShellLink->IPersistFile)');
+    propertyStore = propertyStorePtr.contents.lpVtbl.contents;
+	// end - looks like something i would run in _dec or just in main
+	
+	
 }
 
 try {

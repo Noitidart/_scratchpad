@@ -458,7 +458,7 @@ function IPropertyStore_GetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostype
 	
 	console.info('ppropvar:', ppropvar, ppropvar.toString(), uneval(ppropvar));
 	
-	var hr_Commit = pps.Commit(ppsPtr);
+	var hr_Commit = pps.Commit(vtblPpsPtr);
 	console.info('hr_Commit:', hr_Commit, hr_Commit.toString(), uneval(hr_Commit));
 	
 	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());

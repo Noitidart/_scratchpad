@@ -116,7 +116,6 @@ let removeObserver = sel_registerName('removeObserver:name:object:')
 
 
 // [notificationName_**** release]
-let release = sel_registerName('release');
 objc_msgSend(notificationName_onScreenSaverStarted, release);
 
 objc.close();

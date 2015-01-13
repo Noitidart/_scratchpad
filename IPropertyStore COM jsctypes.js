@@ -512,12 +512,12 @@ function main() {
 	var tHwnd = ostypes.HWND(ctypes.UInt64(tBaseWin.nativeHandle));
 	console.info('tHwnd:', tHwnd, tHwnd.toString(), uneval(tHwnd));
 	
-	var tRootHwnd = _dec('GetAncestor')(tHwnd, ostypes.GA_ROOT);
-	console.info('tRootHwnd:', tRootHwnd, tRootHwnd.toString(), uneval(tRootHwnd));
+	var tTopLevelHwnd = _dec('GetAncestor')(tHwnd, ostypes.GA_ROOT); // should make sure we have topLevelHWND per MXR: http://mxr.mozilla.org/mozilla-release/source/widget/windows/WinTaskbar.cpp#75
+	console.info('tTopLevelHwnd:', tTopLevelHwnd, tTopLevelHwnd.toString(), uneval(tTopLevelHwnd));
 	
 	try {
 		var ppsPtr = new ostypes.IPropertyStorePtr(); // i have to use new event though ostypes.IPropertyStorePtr is defined as `new ...` this is how TimAbradles did it: https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L422  this is probably because its not a new StructType but a new PointerType. probably only `new StructType`'s dont need the `new` when created in js runtime stuff like this line
-		var hr_SHGetPropertyStoreForWindow = _dec('SHGetPropertyStoreForWindow')(tRootHwnd, IID_IPropertyStore.address(), ppsPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
+		var hr_SHGetPropertyStoreForWindow = _dec('SHGetPropertyStoreForWindow')(tTopLevelHwnd, IID_IPropertyStore.address(), ppsPtr.address()); //I figured out IID_IPropertyStore in the calls above, `CLSIDFromString`, I do this in place of the `IID_PPV_ARGS` macro, I could just make those two lines I did above the `IID_PPV_ARGS` function. Also see this Stackoverflow topic about IID_PPV_ARGS: http://stackoverflow.com/questions/24542806/can-iid-ppv-args-be-skipped-in-jsctypes-win7
 		console.info('hr_SHGetPropertyStoreForWindow:', hr_SHGetPropertyStoreForWindow, hr_SHGetPropertyStoreForWindow.toString(), uneval(hr_SHGetPropertyStoreForWindow));
 		checkHRESULT(hr_SHGetPropertyStoreForWindow, 'SHGetPropertyStoreForWindow') //this throws so no need to do an if on hr brelow here are my notes from the old gist: //im not sure that was possible anyways as hr is now `-2147467262` and its throwing, before thi, with my `if (hr)` it would continue thinking it passed
 

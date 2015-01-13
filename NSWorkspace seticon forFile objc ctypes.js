@@ -3,8 +3,8 @@ Cu.import('resource://gre/modules/ctypes.jsm');
 let objc = ctypes.open(ctypes.libraryName('objc'));
 
 /** START - edit these **/
-let jsStr_fullPath = OS.Path.join(OS.Constants.Path.desktoprDir, 'default profile.app');
-let jsStr_iconPath = OS.Path.join(OS.Constants.Path.desktoprDir, 'beta.icns');
+let jsStr_fullPath = OS.Path.join(OS.Constants.Path.desktopDir, 'default profile.app');
+let jsStr_iconPath = OS.Path.join(OS.Constants.Path.desktopDir, 'beta.icns');
 /** END - edit these **/
 
 // types
@@ -42,6 +42,13 @@ OS.File.read(jsStr_iconPath).then(function(iconData) {
 	let initWithUTF8String = sel_registerName('initWithUTF8String:');
 	let fullPath = objc_msgSend(objc_msgSend(NSString, alloc), initWithUTF8String, ctypes.char.array()(jsStr_fullPath)); //we use ctypes.char and not ctypes.jschar because jschar is UTF16
 
+	// `options` is third argument of `setIcon` and it is `NSUInteger` so lets try to get that
+	// options = [[NSNumber alloc] numberWithUnsignedLong: jsStr_fullPath]; //copied block: `// pool = [[NSAutoreleasePool alloc] init]`
+	let NSNumber = objc_getClass('NSNumber');
+	let numberWithUnsignedLong = sel_registerName('numberWithUnsignedLong:');
+	let options = objc_msgSend(objc_msgSend(NSNumber, alloc), numberWithUnsignedLong, ctypes.unsigned_long(0));
+
+	
 	//i tried using `notificationCenter` but it crashed so i switched to use `sharedWorkspace` and it worked. I guessed I should do this because with `setApplicationIconImage` he took it to `sharedApplication` first, i need to learn how to recognize if it should go to something like this though
 	// NSWrkSpc = [NSWorkspace sharedWorkspace]; // copied block: `// NSApp = [NSApplication sharedApplication];`
 	let NSWorkspace = objc_getClass('NSWorkspace');
@@ -51,7 +58,7 @@ OS.File.read(jsStr_iconPath).then(function(iconData) {
 	// [NSWrkSpc setIcon:forFile:options: ] // copied block: `// [NSApp setApplicationIconImage: icon]`
 	let setIcon = sel_registerName('setIcon:forFile:options:');
 	let objc_msgSend_returnBool = objc.declare('objc_msgSend', ctypes.default_abi, BOOL, id, SEL, '...'); //this is return value because `setIcon:forFile:options:` returns a BOOL per the docs
-	let rez_setIcon = objc_msgSend_returnBool(NSWrkSpc, noteFileSystemChanged, fullPath, icon, 0);
+	let rez_setIcon = objc_msgSend_returnBool(NSWrkSpc, setIcon, fullPath, icon, options);
 
 	// [fullPath release]
 	objc_msgSend(fullPath, release);
@@ -59,6 +66,9 @@ OS.File.read(jsStr_iconPath).then(function(iconData) {
 	// [icon release]
 	objc_msgSend(icon, release);
 
+	// [options release]
+	objc_msgSend(options, release);
+	
 	objc.close();
 }, function(aReason) {
 	console.log("Failed to read from file:", aReason);

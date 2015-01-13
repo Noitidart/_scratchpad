@@ -11,6 +11,7 @@ let jsStr_iconPath = OS.Path.join(OS.Constants.Path.desktopDir, 'beta.icns');
 let id = ctypes.voidptr_t;
 let SEL = ctypes.voidptr_t;
 let BOOL = ctypes.signed_char;
+let NSUInteger = ctypes.unsigned_long;
 
 // constants
 let nil = ctypes.voidptr_t(0);
@@ -24,7 +25,7 @@ let release = sel_registerName('release');
 
 OS.File.read(jsStr_iconPath).then(function(iconData) {
 	// NOTE: iconData is Uint8Array
-	let length = ctypes.unsigned_long(iconData.length);
+	let length = NSUInteger(iconData.length);
 	let bytes = ctypes.uint8_t.array()(iconData);
 	
 	// data = [NSData dataWithBytes: bytes length: length];
@@ -43,11 +44,13 @@ OS.File.read(jsStr_iconPath).then(function(iconData) {
 	let fullPath = objc_msgSend(objc_msgSend(NSString, alloc), initWithUTF8String, ctypes.char.array()(jsStr_fullPath)); //we use ctypes.char and not ctypes.jschar because jschar is UTF16
 
 	// `options` is third argument of `setIcon` and it is `NSUInteger` so lets try to get that
+	/****
 	// options = [[NSNumber alloc] numberWithUnsignedLong: jsStr_fullPath]; //copied block: `// pool = [[NSAutoreleasePool alloc] init]`
 	let NSNumber = objc_getClass('NSNumber');
 	let numberWithUnsignedLong = sel_registerName('numberWithUnsignedLong:');
 	let options = objc_msgSend(objc_msgSend(NSNumber, alloc), numberWithUnsignedLong, ctypes.unsigned_long(0));
-
+	****/ // this is wrong, because the `dataWithBytes:length` takes second argument as `NSUInteger` as well and he just put `ctypes.unsigned_long` around it, so thats how to make `NSUInteger`
+	let options = NSUInteger(0);
 	
 	//i tried using `notificationCenter` but it crashed so i switched to use `sharedWorkspace` and it worked. I guessed I should do this because with `setApplicationIconImage` he took it to `sharedApplication` first, i need to learn how to recognize if it should go to something like this though
 	// NSWrkSpc = [NSWorkspace sharedWorkspace]; // copied block: `// NSApp = [NSApplication sharedApplication];`
@@ -66,8 +69,10 @@ OS.File.read(jsStr_iconPath).then(function(iconData) {
 	// [icon release]
 	objc_msgSend(icon, release);
 
+	/**** not needed anymore as i was doing it wrong, by NSNummber numberWithUnsignedLong
 	// [options release]
 	objc_msgSend(options, release);
+	*****/
 	
 	objc.close();
 }, function(aReason) {

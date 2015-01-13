@@ -3,7 +3,7 @@ Cu.import('resource://gre/modules/ctypes.jsm');
 let objc = ctypes.open(ctypes.libraryName('objc'));
 
 /** START - edit these **/
-let jsStrPath = OS.Path.join(OS.Constants.Path.desktoprDir, 'ctypes make.js');
+let jsStrPath = OS.Path.join(OS.Constants.Path.desktopDir, 'ctypes make.js');
 /** END - edit these **/
 
 // types

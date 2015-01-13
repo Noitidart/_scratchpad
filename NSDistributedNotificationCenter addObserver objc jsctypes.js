@@ -12,6 +12,9 @@ let SEL = objc_selector.ptr;
 let BOOL = ctypes.signed_char;
 let IMP = ctypes.voidptr_t;
 
+// contstants
+let nil = ctypes.voidptr_t(0);
+
 // "functions"? better word for it?
 let objc_getClass = objc.declare('objc_getClass', ctypes.default_abi, id, ctypes.char.ptr);
 let sel_registerName = objc.declare('sel_registerName', ctypes.default_abi, SEL, ctypes.char.ptr);
@@ -36,14 +39,15 @@ let defaultCenter = sel_registerName('defaultCenter');
 let NSDistCent = objc_msgSend(NSDistributedNotificationCenter, defaultCenter);
 
 //create notificationObserver's
-let NSString_notificationSelector_onScreenSaverStarted = objc_msgSend(objc_msgSend(NSString, alloc), initWithUTF8String, ctypes.char.array()('onScreenSaverStarted:'));
-let notificationSelector_onScreenSaverStarted = sel_registerName(NSString_notificationSelector_onScreenSaverStarted); // because of description here: https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Miscellaneous/Foundation_Functions/index.html#//apple_ref/c/func/NSSelectorFromString  and because this is how js-macosx demo sets selector here: https://github.com/Noitidart/js-macosx/blob/notificationCenter/bootstrap.js#L91
+//let NSString_notificationSelector_onScreenSaverStarted = objc_msgSend(objc_msgSend(NSString, alloc), initWithUTF8String, ctypes.char.array()('onScreenSaverStarted:'));
+//let notificationSelector_onScreenSaverStarted = sel_registerName(NSString_notificationSelector_onScreenSaverStarted); // because of description here: https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Miscellaneous/Foundation_Functions/index.html#//apple_ref/c/func/NSSelectorFromString  and because this is how js-macosx demo sets selector here: https://github.com/Noitidart/js-macosx/blob/notificationCenter/bootstrap.js#L91
+let notificationSelector_onScreenSaverStarted = sel_registerName('onScreenSaverStarted:'); // because of description here: https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Miscellaneous/Foundation_Functions/index.html#//apple_ref/c/func/NSSelectorFromString  and because this is how js-macosx demo sets selector here: https://github.com/Noitidart/js-macosx/blob/notificationCenter/bootstrap.js#L91
 
 let notificationName_onScreenSaverStarted = objc_msgSend(objc_msgSend(NSString, alloc), initWithUTF8String, ctypes.char.array()('com.apple.screensaver.didstart'));
 
 ////////////////start - seriously confused
-let NSNotification = objc_getClass('NSNotification'); // im not sure if i need this
-let objc_msgSend_NSNotification = objc.declare('objc_msgSend', ctypes.default_abi, NSNotification, id, SEL, '...'); //this is return value // im not sure if i need this
+//let NSNotification = objc_getClass('NSNotification'); // im not sure if i need this
+//let objc_msgSend_NSNotification = objc.declare('objc_msgSend', ctypes.default_abi, NSNotification, id, SEL, '...'); //this is return value // im not sure if i need this
 
 //start - onScreenSaverStarted
 // trying to make this: http://mxr.mozilla.org/chromium/source/src/chrome/browser/idle_mac.mm#57
@@ -78,7 +82,7 @@ let delegate_onScreenSaverStarted = objc_allocateClassPair(NSObject, 'onScreenSa
 
 let class_addMethod = objc.declare('class_addMethod', ctypes.default_abi, BOOL, id, SEL, IMP, ctypes.char.ptr); // move this to functions section at top
 
-let ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, ctypes.void,[])
+let ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, ctypes.void_t, [])
 
 function jscallback_onScreenSaverStarted() {
 	console.log('TRIGGERD: onScreenSaverStarted');
@@ -105,10 +109,10 @@ objc_msgSend(pool, release);
 
 // [NSDistCent addObserver:selector:name:object: ***, ***, notificationName_****, nil] // copied block: `// [NSApp setApplicationIconImage: icon]`
 let addObserver = sel_registerName('addObserver:selector:name:object:')
-/*var rez_addObserver = */objc_msgSend(NSDistCent, addObserver, delegateInstance_onScreenSaverStarted, notificationSelector_onScreenSaverStarted, notificationName_onScreenSaverStarted, null); // addObserver returns void so no need for `var rez_addObserver = `
+/*var rez_addObserver = */objc_msgSend(NSDistCent, addObserver, delegateInstance_onScreenSaverStarted, notificationSelector_onScreenSaverStarted, notificationName_onScreenSaverStarted, nil); // addObserver returns void so no need for `var rez_addObserver = `
 
 // [NSDistCent removeObserver:name:object: notificationName_****, nil] // copied block: `// [NSApp setApplicationIconImage: icon]`
-let removeObserver = sel_registerName('removeObserver:name:object:')
+//let removeObserver = sel_registerName('removeObserver:name:object:')
 // /*var rez_removeObserver = */objc_msgSend(NSDistCent, removeObserver, notificationName_onScreenSaverStarted, null);
 
 

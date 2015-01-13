@@ -31,7 +31,7 @@ OS.File.read(jsStr_iconPath).then(function(iconData) {
 	// data = [NSData dataWithBytes: bytes length: length];
 	let NSData = objc_getClass('NSData');
 	let dataWithBytes_length = sel_registerName('dataWithBytes:length:');
-	let data = objc_msgSend(NSData, dataWithBytes_length, bytes, length);
+	let data = objc_msgSend(NSData, dataWithBytes_length, bytes, length); //how come we dont do `objc_msgSend(objc_msgSend(NSData, alloc)...` here? how did you know you didnt have to `alloc`?
 	
 	// icon = [[NSImage alloc] initWithData: data];
 	let NSImage = objc_getClass('NSImage');
@@ -61,7 +61,7 @@ OS.File.read(jsStr_iconPath).then(function(iconData) {
 	// [NSWrkSpc setIcon:forFile:options: ] // copied block: `// [NSApp setApplicationIconImage: icon]`
 	let setIcon = sel_registerName('setIcon:forFile:options:');
 	let objc_msgSend_returnBool = objc.declare('objc_msgSend', ctypes.default_abi, BOOL, id, SEL, '...'); //this is return value because `setIcon:forFile:options:` returns a BOOL per the docs
-	let rez_setIcon = objc_msgSend_returnBool(NSWrkSpc, setIcon, fullPath, icon, options);
+	let rez_setIcon = objc_msgSend_returnBool(NSWrkSpc, setIcon, icon, fullPath, options);
 
 	// [fullPath release]
 	objc_msgSend(fullPath, release);

@@ -15,12 +15,12 @@ let IMP = ctypes.voidptr_t;
 // contstants
 let nil = ctypes.voidptr_t(0);
 
-// "functions"? better word for it?
+// common functions
 let objc_getClass = objc.declare('objc_getClass', ctypes.default_abi, id, ctypes.char.ptr);
 let sel_registerName = objc.declare('sel_registerName', ctypes.default_abi, SEL, ctypes.char.ptr);
 let objc_msgSend = objc.declare('objc_msgSend', ctypes.default_abi, id, id, SEL, '...');
 
-// commonly used stuff // whats a better word then "stuff", "functions"?
+// common selectors
 let alloc = sel_registerName('alloc');
 let init = sel_registerName('init');
 let release = sel_registerName('release');
@@ -81,16 +81,16 @@ let NSObject = objc_getClass('NSObject');
 let delegate_onScreenSaverStarted = objc_allocateClassPair(NSObject, 'onScreenSaverStarted', 0);
 
 let class_addMethod = objc.declare('class_addMethod', ctypes.default_abi, BOOL, id, SEL, IMP, ctypes.char.ptr); // move this to functions section at top
-
+//
 let ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, ctypes.void_t, [])
 
-function jscallback_onScreenSaverStarted() {
+function jscallback_onScreenSaverStarted(self, sel) {
 	console.log('TRIGGERD: onScreenSaverStarted');
 }
 
 let callback_onScreenSaverStarted = ftype_onScreenSaverStarted.ptr(jscallback_onScreenSaverStarted);
-
-let rez_class_addMethod = class_addMethod(delegate_onScreenSaverStarted, notificationSelector_onScreenSaverStarted, callback_onScreenSaverStarted, 'onScreenSaverStarted');
+//
+let rez_class_addMethod = class_addMethod(delegate_onScreenSaverStarted, notificationSelector_onScreenSaverStarted, callback_onScreenSaverStarted, nil);
 console.info('rez_class_addMethod:', rez_class_addMethod, rez_class_addMethod.toString(), uneval(rez_class_addMethod));
 
 let objc_registerClassPair = objc.declare('objc_registerClassPair', ctypes.default_abi, id, id);
@@ -98,11 +98,7 @@ objc_registerClassPair(delegate_onScreenSaverStarted);
 
 let delegateInstance_onScreenSaverStarted = objc_msgSend(objc_msgSend(delegate_onScreenSaverStarted, alloc), init);
 
-
-//objc.classes.TestJSClass.alloc ().init ().autorelease ();
-
-
-objc_msgSend(pool, release);
+// objc_msgSend(pool, release); //do this on shutdown
 ////////////////end - seriously confused
 
 //end - onScreenSaverStarted

@@ -68,19 +68,20 @@ objc_registerClassPair(delegate_onScreenSaverStarted);
 
 var delegateInstance_onScreenSaverStarted = objc_msgSend(objc_msgSend(delegate_onScreenSaverStarted, alloc), init);
 
-// objc_msgSend(pool, release); //do this on shutdown
+objc_msgSend(pool, release); //maybe do this instead on shutdown?
 //end - onScreenSaverStarted
 
 // [NSDistCent addObserver:selector:name:object: ***, ***, notificationName_****, nil] // copied block: `// [NSApp setApplicationIconImage: icon]`
 var addObserver = sel_registerName('addObserver:selector:name:object:')
 /*var rez_addObserver = */objc_msgSend(NSDistCent, addObserver, delegateInstance_onScreenSaverStarted, notificationSelector_onScreenSaverStarted, notificationName_onScreenSaverStarted, nil); // addObserver returns void so no need for `var rez_addObserver = `
 
-// [NSDistCent removeObserver:name:object: notificationName_****, nil] // copied block: `// [NSApp setApplicationIconImage: icon]`
-var removeObserver = sel_registerName('removeObserver:name:object:')
-// /*var rez_removeObserver = */objc_msgSend(NSDistCent, removeObserver, notificationName_onScreenSaverStarted, null);
+function removeObsAndClose() {
+	// [NSDistCent removeObserver:name:object: notificationName_****, nil] // copied block: `// [NSApp setApplicationIconImage: icon]`
+	var removeObserver = sel_registerName('removeObserver:name:object:')
+	/*var rez_removeObserver = */objc_msgSend(NSDistCent, removeObserver, delegateInstance_onScreenSaverStarted, notificationName_onScreenSaverStarted, nil);
 
+	// [notificationName_**** release]
+	objc_msgSend(notificationName_onScreenSaverStarted, release);
 
-// [notificationName_**** release]
-objc_msgSend(notificationName_onScreenSaverStarted, release);
-
-objc.close();
+	objc.close();
+|

@@ -12,9 +12,10 @@ var SEL = objc_selector.ptr;
 var BOOL = ctypes.signed_char;
 var IMP = ctypes.voidptr_t;
 var objc_class = new ctypes.StructType('objc_class');
+var VOID = ctypes.voidptr_t;
 
 // contstants
-var nil = ctypes.voidptr_t(ctypes.UInt64('0x0');
+var nil = ctypes.voidptr_t(ctypes.UInt64('0x0'));
 
 // common functions
 var objc_getClass = objc.declare('objc_getClass', ctypes.default_abi, id, ctypes.char.ptr);
@@ -58,7 +59,7 @@ if (class_NoitidartsOnScreenSaverStartedDelegateClass.isNull()) {
 
 var class_addMethod = objc.declare('class_addMethod', ctypes.default_abi, BOOL, id, SEL, IMP, ctypes.char.ptr); // move this to functions section at top
 //
-var ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, ctypes.void_t, [])
+var ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, VOID, [id, SEL, id]);
 
 function jsCallback_onScreenSaverStarted(c_arg1__self, c_arg2__sel, objc_arg1__NSNotificationP44tr) {
 	console.log('TRIGGERD: onScreenSaverStarted');
@@ -72,7 +73,7 @@ if (rez_class_addMethod != 1) {
 	throw new Error('rez_class_addMethod is not 1, so class_addMethod failed');
 }
 
-var objc_registerClassPair = objc.declare('objc_registerClassPair', ctypes.default_abi, id, id);
+var objc_registerClassPair = objc.declare('objc_registerClassPair', ctypes.default_abi, VOID, id);
 objc_registerClassPair(class_NoitidartsOnScreenSaverStartedDelegateClass);
 
 var instance__class_NoitidartsOnScreenSaverStartedDelegateClass = objc_msgSend(objc_msgSend(class_NoitidartsOnScreenSaverStartedDelegateClass, alloc), init);
@@ -84,7 +85,7 @@ objc_msgSend(pool, release); //maybe do this instead on shutdown?
 var addObserver = sel_registerName('addObserver:selector:name:object:')
 var rez_addObserver = objc_msgSend(NSDistCent, addObserver, instance__class_NoitidartsOnScreenSaverStartedDelegateClass, notificationSelector_onScreenSaverStarted, notificationName_onScreenSaverStarted, nil); // addObserver returns void so no need for `var rez_addObserver = `
 console.info('rez_addObserver:', rez_addObserver, rez_addObserver.toString(), uneval(rez_addObserver), rez_addObserver.isNull());
-// WEIRD: ASK ABOUT THIS: rez_addObserver is being returned as not null, its usually something like `ctypes.voidptr_t(ctypes.UInt64(0x30004))`
+// WEIRD: ASK ABOUT THIS: rez_addObserver is being returned as not null, its usually something like `ctypes.voidptr_t(ctypes.UInt64(0x30004))` docs say it should return void
 
 function removeObsAndClose() {
 	// [NSDistCent removeObserver:name:object: notificationName_****, nil] // copied block: `// [NSApp setApplicationIconImage: icon]`

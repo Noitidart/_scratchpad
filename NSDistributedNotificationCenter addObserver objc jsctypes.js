@@ -73,15 +73,19 @@ objc_msgSend(pool, release); //maybe do this instead on shutdown?
 
 // [NSDistCent addObserver:selector:name:object: ***, ***, notificationName_****, nil] // copied block: `// [NSApp setApplicationIconImage: icon]`
 var addObserver = sel_registerName('addObserver:selector:name:object:')
-/*var rez_addObserver = */objc_msgSend(NSDistCent, addObserver, delegateInstance_onScreenSaverStarted, notificationSelector_onScreenSaverStarted, notificationName_onScreenSaverStarted, nil); // addObserver returns void so no need for `var rez_addObserver = `
+var rez_addObserver = objc_msgSend(NSDistCent, addObserver, delegateInstance_onScreenSaverStarted, notificationSelector_onScreenSaverStarted, notificationName_onScreenSaverStarted, nil); // addObserver returns void so no need for `var rez_addObserver = `
+console.info('rez_addObserver:', rez_addObserver, rez_addObserver.toString(), uneval(rez_addObserver));
+// WEIRD: ASK ABOUT THIS: rez_addObserver is being returned as not null, its usually something like `ctypes.voidptr_t(ctypes.UInt64(0x30004))`
 
 function removeObsAndClose() {
 	// [NSDistCent removeObserver:name:object: notificationName_****, nil] // copied block: `// [NSApp setApplicationIconImage: icon]`
 	var removeObserver = sel_registerName('removeObserver:name:object:')
-	/*var rez_removeObserver = */objc_msgSend(NSDistCent, removeObserver, delegateInstance_onScreenSaverStarted, notificationName_onScreenSaverStarted, nil);
-
+	var rez_removeObserver = objc_msgSend(NSDistCent, removeObserver, delegateInstance_onScreenSaverStarted, notificationName_onScreenSaverStarted, nil);
+	console.info('rez_removeObserver:', rez_removeObserver, rez_removeObserver.toString(), uneval(rez_removeObserver));
+	// verified: rez_removeObserver is void, it is returned as `ctypes.voidptr_t(ctypes.UInt64(0))`
+	
 	// [notificationName_**** release]
 	objc_msgSend(notificationName_onScreenSaverStarted, release);
 
 	objc.close();
-|
+}

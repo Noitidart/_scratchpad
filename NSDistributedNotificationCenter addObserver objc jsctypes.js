@@ -90,7 +90,7 @@ function jscallback_onScreenSaverStarted(self, sel) {
 
 let callback_onScreenSaverStarted = ftype_onScreenSaverStarted.ptr(jscallback_onScreenSaverStarted);
 //
-let rez_class_addMethod = class_addMethod(delegate_onScreenSaverStarted, notificationSelector_onScreenSaverStarted, callback_onScreenSaverStarted, nil);
+let rez_class_addMethod = class_addMethod(delegate_onScreenSaverStarted, notificationSelector_onScreenSaverStarted, callback_onScreenSaverStarted, 'onScreenSaverStarted:');
 console.info('rez_class_addMethod:', rez_class_addMethod, rez_class_addMethod.toString(), uneval(rez_class_addMethod));
 
 let objc_registerClassPair = objc.declare('objc_registerClassPair', ctypes.default_abi, id, id);

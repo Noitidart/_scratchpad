@@ -45,7 +45,7 @@ var class_addMethod = objc.declare('objc_allocateClassPair', ctypes.default_abi,
  *   Class superclass,
  *   const char *name,
  *   size_t extraBytes
- * ); 
+ * );
  */
 var objc_allocateClassPair = objc.declare('objc_allocateClassPair', ctypes.default_abi,
 	CLASS,		// return
@@ -124,11 +124,12 @@ var initWithUTF8String = sel_registerName('initWithUTF8String:');
 var NSDistributedNotificationCenter = objc_getClass('NSDistributedNotificationCenter');
 var defaultCenter = sel_registerName('defaultCenter');
 var NSDistCent = objc_msgSend(NSDistributedNotificationCenter, defaultCenter);
+console.info('NSDistCent:', NSDistCent, NSDistCent.toString(), uneval(NSDistCent), NSDistCent.isNull());
 
 //create notificationObserver's
 var notificationSelector_onScreenSaverStarted = sel_registerName('onScreenSaverStarted:'); // because of description here: https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Miscellaneous/Foundation_Functions/index.html#//apple_ref/c/func/NSSelectorFromString  and because this is how js-macosx demo sets selector here: https://github.com/Noitidart/js-macosx/blob/notificationCenter/bootstrap.js#L91
 var notificationName_onScreenSaverStarted = objc_msgSend(objc_msgSend(NSString, alloc), initWithUTF8String, CHAR.array()('com.apple.screensaver.didstart'));
-
+console.info('notificationName_onScreenSaverStarted:', notificationName_onScreenSaverStarted, notificationName_onScreenSaverStarted.toString(), uneval(notificationName_onScreenSaverStarted), notificationName_onScreenSaverStarted.isNull());
 /*
 // NSAutoPool = [[NSAutoreleasePool alloc] init]
 var NSAutoreleasePool = objc_getClass('NSAutoreleasePool');
@@ -137,12 +138,13 @@ var pool = objc_msgSend(objc_msgSend(NSAutoreleasePool, alloc), init);
 
 var NSObject = objc_getClass('NSObject');
 var class_NoitidartsOnScreenSaverStartedDelegateClass = objc_allocateClassPair(NSObject, 'NoitidartsOnScreenSaverStartedDelegateClass', 0); //delegate is what callback is in js
+console.info('class_NoitidartsOnScreenSaverStartedDelegateClass:', class_NoitidartsOnScreenSaverStartedDelegateClass, class_NoitidartsOnScreenSaverStartedDelegateClass.toString(), uneval(class_NoitidartsOnScreenSaverStartedDelegateClass), class_NoitidartsOnScreenSaverStartedDelegateClass.isNull());
 if (class_NoitidartsOnScreenSaverStartedDelegateClass.isNull()) {
 	console.info('class_NoitidartsOnScreenSaverStartedDelegateClass:', class_NoitidartsOnScreenSaverStartedDelegateClass, class_NoitidartsOnScreenSaverStartedDelegateClass.toString(), uneval(class_NoitidartsOnScreenSaverStartedDelegateClass));
 	throw new Error('class_NoitidartsOnScreenSaverStartedDelegateClass is NIL, so objc_allocateClassPair failed');
 }
 //
-var ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, VOID, [ID, SEL, ID]);
+var ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, VOID, [ID, SEL, NSNOTIFICATION.ptr]);
 
 function jsCallback_onScreenSaverStarted(c_arg1__self, c_arg2__sel, objc_arg1__NSNotificationPtr) {
 	console.log('TRIGGERD: onScreenSaverStarted');
@@ -160,6 +162,7 @@ if (rez_class_addMethod != 1) {
 objc_registerClassPair(class_NoitidartsOnScreenSaverStartedDelegateClass);
 
 var instance__class_NoitidartsOnScreenSaverStartedDelegateClass = objc_msgSend(objc_msgSend(class_NoitidartsOnScreenSaverStartedDelegateClass, alloc), init);
+console.info('instance__class_NoitidartsOnScreenSaverStartedDelegateClass:', instance__class_NoitidartsOnScreenSaverStartedDelegateClass, instance__class_NoitidartsOnScreenSaverStartedDelegateClass.toString(), uneval(instance__class_NoitidartsOnScreenSaverStartedDelegateClass), instance__class_NoitidartsOnScreenSaverStartedDelegateClass.isNull());
 /*
 objc_msgSend(pool, release); //maybe do this instead on shutdown?
 */

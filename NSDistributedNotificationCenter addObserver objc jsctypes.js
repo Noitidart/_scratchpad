@@ -10,7 +10,7 @@ var BOOL = ctypes.signed_char;
 var CHAR = ctypes.char;
 var ID = ctypes.voidptr_t;
 var IMP = ctypes.voidptr_t;
-var NSNOTIFICATION = new ctypes.StructType('NSNOTIFICATION');
+var NSNOTIFICATION = new ctypes.StructType('NSNotification');
 var OBJC_CLASS = new ctypes.StructType('objc_class');
 var OBJC_SELECTOR = new ctypes.StructType('objc_selector');
 var SIZE_T = ctypes.size_t;
@@ -32,7 +32,7 @@ var NIL = ctypes.voidptr_t(ctypes.UInt64('0x0'));
  *   const char *types
  * ); 
  */
-var class_addMethod = objc.declare('objc_allocateClassPair', ctypes.default_abi,
+var class_addMethod = objc.declare('class_addMethod', ctypes.default_abi,
 	BOOL,		// return
 	CLASS,		// cls
 	SEL,		// name

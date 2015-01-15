@@ -191,5 +191,8 @@ function removeObsAndClose() {
 	// [notificationName_**** release]
 	objc_msgSend(notificationName_onScreenSaverStarted, release);
 
+	// [instance__class_NoitidartsOnScreenSaverStartedDelegateClass release]
+	objc_msgSend(instance__class_NoitidartsOnScreenSaverStartedDelegateClass, release);
+	
 	objc.close();
 }

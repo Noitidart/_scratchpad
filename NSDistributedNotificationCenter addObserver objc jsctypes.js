@@ -61,8 +61,9 @@ var class_addMethod = objc.declare('class_addMethod', ctypes.default_abi, BOOL, 
 //
 var ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, VOID, [id, SEL, id]);
 
-function jsCallback_onScreenSaverStarted(c_arg1__self, c_arg2__sel, objc_arg1__NSNotificationP44tr) {
+function jsCallback_onScreenSaverStarted(c_arg1__self, c_arg2__sel, objc_arg1__NSNotificationPtr) {
 	console.log('TRIGGERD: onScreenSaverStarted');
+	return nil; // because i defined the as I'm going to return `VOID` so i must make my javascript callback return what i set it would `var ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, VOID, [id, SEL, id]);`. // otherwise it throws this error: 
 }
 
 var callback_onScreenSaverStarted = ftype_onScreenSaverStarted.ptr(jsCallback_onScreenSaverStarted);
@@ -86,6 +87,7 @@ var addObserver = sel_registerName('addObserver:selector:name:object:')
 var rez_addObserver = objc_msgSend(NSDistCent, addObserver, instance__class_NoitidartsOnScreenSaverStartedDelegateClass, notificationSelector_onScreenSaverStarted, notificationName_onScreenSaverStarted, nil); // addObserver returns void so no need for `var rez_addObserver = `
 console.info('rez_addObserver:', rez_addObserver, rez_addObserver.toString(), uneval(rez_addObserver), rez_addObserver.isNull());
 // WEIRD: ASK ABOUT THIS: rez_addObserver is being returned as not null, its usually something like `ctypes.voidptr_t(ctypes.UInt64(0x30004))` docs say it should return void
+// verified: if run addObserver twice, it returns the same thing, it really adds two observers, the return value is same in both situations, doing a single removeObserver removes both
 
 function removeObsAndClose() {
 	// [NSDistCent removeObserver:name:object: notificationName_****, nil] // copied block: `// [NSApp setApplicationIconImage: icon]`
@@ -93,7 +95,10 @@ function removeObsAndClose() {
 	var rez_removeObserver = objc_msgSend(NSDistCent, removeObserver, instance__class_NoitidartsOnScreenSaverStartedDelegateClass, notificationName_onScreenSaverStarted, nil);
 	console.info('rez_removeObserver:', rez_removeObserver, rez_removeObserver.toString(), uneval(rez_removeObserver), rez_removeObserver.isNull());
 	// verified: rez_removeObserver is void, it is returned as `ctypes.voidptr_t(ctypes.UInt64('0x0'))`
-	
+	// verified if i remove twice then rez_removeObserver is not null
+	if (!rez_removeObserver.isNull()) {
+		console.error('WARNING: removeObserver failed as rez_removeObserver was NOT null:', 'rez_removeObserver:', rez_removeObserver, rez_removeObserver.toString());
+	}
 	var rez_objc_disposeClassPair = objc_disposeClassPair(class_NoitidartsOnScreenSaverStartedDelegateClass);
 	console.info('rez_objc_disposeClassPair:', rez_objc_disposeClassPair, rez_objc_disposeClassPair.toString(), uneval(rez_objc_disposeClassPair), rez_objc_disposeClassPair.isNull());
 	

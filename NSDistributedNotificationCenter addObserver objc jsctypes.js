@@ -36,7 +36,7 @@ var class_addMethod = objc.declare('objc_allocateClassPair', ctypes.default_abi,
 	BOOL,		// return
 	CLASS,		// cls
 	SEL,		// name
-	IMP			// imp
+	IMP,		// imp
 	CHAR.ptr	// *types
 );
 

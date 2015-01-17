@@ -5,10 +5,25 @@ var objc = ctypes.open(ctypes.libraryName('objc'));
 var ID = ctypes.voidptr_t;
 var SEL = ctypes.voidptr_t;
 var BOOL = ctypes.signed_char;
-var NSUInteger = ctypes.unsigned_long;
+if (bit64) {
+	var NSUInteger = ctypes.unsigned_long;
+} else {
+	var NSUInteger = ctypes.unsigned_int;
+}
 
 // constants
+var bit64 = (ctypes.voidptr_t.size == 8);
 var NIL = ctypes.voidptr_t(ctypes.UInt64('0x0'));
+if (bit64) {
+	var NSIntegerMax = ctypes.Int64('0x7FFFFFFFFFFFFFFF'); /*toString: 9223372036854775807 /*python: 2 ** 63 -1) */
+	var NSIntegerMin = ctypes.Int64('-9223372036854775808'); /*python: -(2 ** 63)) */
+	var NSUIntegerMax = ctypes.UInt64('0xffffffffffffffff'); /*toString: 18446744073709551615*/ /*python: 2**64-1) */
+} else {
+	var NSIntegerMax = Math.pow(2, 31) - 1; /*python: 2 ** 31 -1) */
+	var NSIntegerMin = Math.pow(2, 31) * -1; /*python: -(2 ** 31)) */
+	var NSUIntegerMax = Math.pow(2, 32) - 1; /*python: 2**32-1) */
+}
+var NSNotFound = NSIntegerMax; // NSNotFound is different on 32 bit vs 64 bit platforms, so don't hardcode or store that value anywhere. // http://stackoverflow.com/questions/6360574/nsnotfound-nsinteger-nsuinteger-and-nsrange-location
 
 //common functions
 var objc_getClass = objc.declare('objc_getClass', ctypes.default_abi, id, ctypes.char.ptr);
@@ -122,8 +137,17 @@ function AddIcon(installed_path /* NSString* */, dmb_app_path /* NSString* */) {
 	console.info('persistent_apps:', persistent_apps, persistent_apps.toString(), uneval(persistent_apps), persistent_apps.isNull());
 
 	// NSMutableArray* persistent_app_paths = PersistentAppPaths(persistent_apps);
-	var persistent_app_paths = PersistentAppPaths(persistent_apps)
-
+	var persistent_app_paths = PersistentAppPaths(persistent_apps);
+	
+	if (persistent_app_paths.isNull()) {
+		throw 'IconAddFailure';
+	}
+	
+	//NSUInteger already_installed_app_index = NSNotFound;
+	var already_installed_app_index = NSNotFound;
+	
+	//NSUInteger app_index = NSNotFound;
+	var app_index = NSNotFound
 }
 
 function PersistentAppPaths(persistent_apps /* NSArray* */) {
@@ -221,34 +245,6 @@ function PersistentAppPaths(persistent_apps /* NSArray* */) {
 	
 	return app_paths;
 }
-
-
-
-
-
-// NSApp = [NSApplication sharedApplication];
-var NSApplication = objc_getClass('NSApplication');
-var sharedApplication = sel_registerName('sharedApplication');
-var NSApp = objc_msgSend(NSApplication, sharedApplication);
-
-// [NSApp isHidden]
-var isHidden = sel_registerName('isHidden');
-var objc_msgSend_returnBool = objc.declare('objc_msgSend', ctypes.default_abi, BOOL, id, SEL, '...'); //this is return value because `isHidden` returns a BOOL per the docs
-var rez_isHidden = objc_msgSend_returnBool(NSApp, isHidden);
-console.info('rez_isHidden:', rez_isHidden, rez_isHidden.toString(), uneval(rez_isHidden));
-
-if (rez_isHidden == 0) {
-	console.log('Firefox is HIDDEN!');
-} else if (rez_isHidden == 1) {
-	console.log('Firefox is showing.');
-} else {
-	console.warn('rez_isHidden was not 0 or 1, this should never happen, if it did, objc should error and crash the browser');
-}
-
-
-
-
-
 
 // [__NSString release]
 for (var p in __NSString) {

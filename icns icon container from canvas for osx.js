@@ -21,7 +21,7 @@ function makeIcnsOfPaths(paths, pathToSaveIt, doc) {
 		//then delete iconset dir
 	
 	//start - define callbacks
-	var makeIconSetDir = functon() {
+	var makeIconSetDir = function() {
 		return OS.File.makeDir(pathToSaveIt.replace(/icns$/i, 'iconset'), {unixMode: FileUtils.PERMS_DIRECTORY, ignoreExisting: true});
 	}
 	

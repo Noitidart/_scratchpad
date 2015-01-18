@@ -70,7 +70,7 @@ function installPngsAsLinuxIcon(paths, nameOfIcon, doc) {
 			},
 			function(aReason) {
 				console.error('Rejected promise: `promise_installPngsAsLinuxIcon` - aReason:', aReason);
-				defer_saveBlobAsPngToRespectiveDir.reject(aReason);
+				defer_saveBlobAsPngToRespectiveDir.reject({rejectorOf_promiseName:'promise_writeAtomic', aReason:aReason});
 			}
 		);
 		

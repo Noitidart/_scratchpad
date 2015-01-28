@@ -1,4 +1,5 @@
 Cu.import('resource://gre/modules/ctypes.jsm')
+Cu.import('resource://gre/modules/osfile.jsm')
 
 var wintypesInit = function() {	
 	// BASIC TYPES (ones that arent equal to something predefined by me)
@@ -445,92 +446,100 @@ var persistFilePtr;
 function main() {
 	//do code here
 
-	// start - looks like something i would run in _dec or just in main
-
-	try {
-		var hr = ostypes.HRESULT(CoInitializeEx(null, ostypes.COINIT_APARTMENTTHREADED));
-		if(S_OK.toString() == hr.toString() || S_FALSE.toString() == hr.toString()) {
-			shouldUninitialize = true;
-		} else {
-			throw('Unexpected return value from CoInitializeEx: ' + hr);
-		}
-		
-
-		var CLSID_ShellLink = new GUID();
-		var hr = CLSIDFromString('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
-		checkHRESULT(hr, 'CLSIDFromString (CLSID_ShellLink)');
-		
-		var IID_IShellLink = new GUID();
-		hr = CLSIDFromString('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
-		checkHRESULT(hr, 'CLSIDFromString (IID_ShellLink)');
-
-		shellLinkPtr = new IShellLinkWPtr();
-		var hr = CoCreateInstance(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
-		checkHRESULT(hr, 'CoCreateInstance');
-		shellLink = shellLinkPtr.contents.lpVtbl.contents;
-
-		var IID_IPersistFile = new GUID();
-		var hr = CLSIDFromString('{0000010b-0000-0000-C000-000000000046}', IID_IPersistFile.address());
-		checkHRESULT(hr, 'CLSIDFromString (IID_IPersistFile)');
-
-		persistFilePtr = new IPersistFilePtr();
-		var hr = shellLink.QueryInterface(shellLinkPtr, IID_IPersistFile.address(), persistFilePtr.address());
-		checkHRESULT(hr, 'QueryInterface (IShellLink->IPersistFile)');
-		persistFile = persistFilePtr.contents.lpVtbl.contents;
-		
-		
-		var shortcutFile = null;
-		var targetFile = null;
-		var workingDir = null; // The working directory is optional unless the target requires a working directory. For example, if an application creates a Shell link to a Microsoft Word document that uses a template residing in a different directory, the application would use this method to set the working directory.
-		var args = null;
-		var description = null;
-		var iconFile = null;
-		var iconIndex = null;
-		
-		if(shortcutFile.exists()) {
-			var hr = persistFile.Load(persistFilePtr, shortcutFile.path, 0);
-			checkHRESULT(hr, "Load");
-		}
-
-		if(targetFile) {
-			var hr = shellLink.SetPath(shellLinkPtr, targetFile.path);
-			checkHRESULT(hr, "SetPath");
-		}
-
-		if(workingDir) {
-			var hr = shellLink.SetWorkingDirectory(shellLinkPtr, workingDir.path);
-			checkHRESULT(hr, "SetWorkingDirectory");
-		}
-
-		if(args) {
-			var hr = shellLink.SetArguments(shellLinkPtr, args);
-			checkHRESULT(hr, "SetArguments");
-		}
-
-		if(description) {
-			var hr = shellLink.SetDescription(shellLinkPtr, description);
-			checkHRESULT(hr, "SetDescription");
-		}
-
-		if(iconFile) {
-			var hr = shellLink.SetIconLocation(shellLinkPtr, iconFile.path, iconIndex? iconIndex : 0);
-			checkHRESULT(hr, "SetIconLocation");
-		}
-
-		var hr = persistFile.Save(persistFilePtr, shortcutFile.path, -1);
-		checkHRESULT(hr, "Save");
-		
-	} catch(ex) {
-		throw ex;
-	} finally {
-		if (pps) {
-			try {
-				pps.Release(ppsPtr);
-			} catch (ex) {
-				console.error('Failure releasing pps: ', ex);
-			}
-		}
+	var hr = ostypes.HRESULT(CoInitializeEx(null, ostypes.COINIT_APARTMENTTHREADED));
+	if(S_OK.toString() == hr.toString() || S_FALSE.toString() == hr.toString()) {
+		shouldUninitialize = true;
+	} else {
+		throw('Unexpected return value from CoInitializeEx: ' + hr);
 	}
+	
+	var CLSID_ShellLink = new GUID();
+	var hr = CLSIDFromString('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
+	checkHRESULT(hr, 'CLSIDFromString (CLSID_ShellLink)');
+	
+	var IID_IShellLink = new GUID();
+	hr = CLSIDFromString('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
+	checkHRESULT(hr, 'CLSIDFromString (IID_ShellLink)');
+
+	shellLinkPtr = new IShellLinkWPtr();
+	var hr = CoCreateInstance(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
+	checkHRESULT(hr, 'CoCreateInstance');
+	shellLink = shellLinkPtr.contents.lpVtbl.contents;
+
+	var IID_IPersistFile = new GUID();
+	var hr = CLSIDFromString('{0000010b-0000-0000-C000-000000000046}', IID_IPersistFile.address());
+	checkHRESULT(hr, 'CLSIDFromString (IID_IPersistFile)');
+
+	persistFilePtr = new IPersistFilePtr();
+	var hr = shellLink.QueryInterface(shellLinkPtr, IID_IPersistFile.address(), persistFilePtr.address());
+	checkHRESULT(hr, 'QueryInterface (IShellLink->IPersistFile)');
+	persistFile = persistFilePtr.contents.lpVtbl.contents;
+	
+	var shortcutFile = null; // string path, must end in .lnk
+	var targetFile = FileUtils.getFile('XREExeF', []).path; // string path
+	var workingDir = null; // The working directory is optional unless the target requires a working directory. For example, if an application creates a Shell link to a Microsoft Word document that uses a template residing in a different directory, the application would use this method to set the working directory.
+	var args = '-P -no-remote'; // command line arguments // string
+	var description = 'my sc via jsctypes'; // string
+	var iconFile = OS.Path.join(OS.Constants.Path.desktopDir, 'ppbeta.ico'); // string path
+	var iconIndex = null; // integer
+	
+	var cancelFinally = true;
+	
+	//will overwrite existing
+	var promise_createShortcutFile = OS.File.writeAtomic(shortcutFile, '', {tmpPath:shortcutFile + '.bkp', encoding:'utf-8'});
+	promise_createShortcutFile.then(
+		function(aVal) {
+			console.log('Fullfilled - promise_createShortcutFile - ', aVal);
+				
+			var hr = persistFile.Load(persistFilePtr, shortcutFile.path, 0);
+			checkHRESULT(hr, 'Load');						
+
+			if(targetFile) {
+				var hr = shellLink.SetPath(shellLinkPtr, targetFile.path);
+				checkHRESULT(hr, 'SetPath');
+			}
+
+			if(workingDir) {
+				var hr = shellLink.SetWorkingDirectory(shellLinkPtr, workingDir.path);
+				checkHRESULT(hr, 'SetWorkingDirectory');
+			}
+
+			if(args) {
+				var hr = shellLink.SetArguments(shellLinkPtr, args);
+				checkHRESULT(hr, 'SetArguments');
+			}
+
+			if(description) {
+				var hr = shellLink.SetDescription(shellLinkPtr, description);
+				checkHRESULT(hr, 'SetDescription');
+			}
+
+			if(iconFile) {
+				var hr = shellLink.SetIconLocation(shellLinkPtr, iconFile.path, iconIndex? iconIndex : 0);
+				checkHRESULT(hr, 'SetIconLocation');
+			}
+
+			var hr = persistFile.Save(persistFilePtr, shortcutFile.path, -1);
+			checkHRESULT(hr, 'Save');
+			
+			console.log('Shortcut succesfully created');
+			
+			shutdown();
+			
+		},
+		function(aReason) {
+			var refObj = {name:'promise_createShortcutFile', aReason:aReason};
+			console.error('Rejected - promise_createShortcutFile - ', refObj);
+			//throw refObj; //dont throw as this is reject of final promise
+			shutdown();
+		}
+	).catch(
+		function(aCaught) {
+			console.error('Caught - promise_createShortcutFile - ', aCaught);
+			// throw aCaught;
+			shutdown();
+		}
+	);
 	
 }
 
@@ -543,5 +552,7 @@ try {
 } catch(ex) {
 	throw ex;
 } finally {
-	shutdown();
+	if (!cancelFinally) {
+		shutdown();
+	}
 }

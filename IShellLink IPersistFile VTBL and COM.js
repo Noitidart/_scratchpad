@@ -58,12 +58,12 @@ var wintypesInit = function() {
 	this.IShellLinkWPtr = new ctypes.PointerType(IShellLinkW);
 
 	IShellLinkWVtbl.define(
-		[{
+		[{ //start inherit from IUnknown
 			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IShellLinkW.ptr,
-					this.REFIID,
-					this.VOIDPTR
+					this.REFIID,	// riid
+					this.VOIDPTR	// **ppvObject
 				]).ptr
 		}, {
 			'AddRef': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -75,12 +75,26 @@ var wintypesInit = function() {
 				this.ULONG, [
 					IShellLinkW.ptr
 				]).ptr
-		}, {
-			'GetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
+		}, { //end inherit from IUnknown //start IShellLinkW
+			'GetPath': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IShellLinkW.ptr,
-					this.LPTSTR,	// pszArgs
-					this.INT		// cchMaxPath
+					this.LPTSTR,				// pszFile
+					this.INT,					// cchMaxPath
+					this.WIN32_FIND_DATA.ptr,	// *pfd
+					this.DWORD					// fFlags
+				]).ptr
+		}, {
+			'GetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.PIDLIST_ABSOLUTE.ptr	// *ppidl
+				]).ptr
+		}, {
+			'SetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.PCIDLIST_ABSOLUTE	// pidl
 				]).ptr
 		}, {
 			'GetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -90,10 +104,60 @@ var wintypesInit = function() {
 					this.INT		// cchMaxName
 				]).ptr
 		}, {
+			'SetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.LPCTSTR		// pszName
+				]).ptr
+		}, {
+			'GetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.LPTSTR,		// pszDir
+					this.INT			// cchMaxPath
+				]).ptr
+		}, {
+			'SetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.LPCTSTR
+				]).ptr
+		}, {
+			'GetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.LPTSTR,	// pszArgs
+					this.INT		// cchMaxPath
+				]).ptr
+		}, {
+			'SetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.LPCTSTR		// pszArgs
+				]).ptr
+		}, {
 			'GetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IShellLinkW.ptr,
 					this.WORD.ptr	// *pwHotkey
+				]).ptr
+		}, {
+			'SetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.WORD	// wHotkey
+				]).ptr
+		}, {
+			'GetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.INT.ptr		// *piShowCmd
+				]).ptr
+		}, {
+			'SetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IShellLinkW.ptr,
+					this.INT		// iShowCmd
 				]).ptr
 		}, {
 			'GetIconLocation': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -104,76 +168,11 @@ var wintypesInit = function() {
 					this.INT.ptr	// *piIcon
 				]).ptr
 		}, {
-			'GetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.PIDLIST_ABSOLUTE.ptr	// *ppidl
-				]).ptr
-		}, {
-			'GetPath': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.LPTSTR,				// pszFile
-					this.INT,					// cchMaxPath
-					this.WIN32_FIND_DATA.ptr,	// *pfd
-					this.DWORD					// fFlags
-				]).ptr
-		}, {
-			'GetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.INT.ptr		// *piShowCmd
-				]).ptr
-		}, {
-			'GetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.LPTSTR,		// pszDir
-					this.INT			// cchMaxPath
-				]).ptr
-		}, {
-			'Resolve': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.HWND,	// hwnd
-					this.DWORD	// fFlags
-				]).ptr
-		}, {
-			'SetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.LPCTSTR		// pszArgs
-				]).ptr
-		}, {
-			'SetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.LPCTSTR		// pszName
-				]).ptr
-		}, {
-			'SetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.WORD	// wHotkey
-				]).ptr
-		}, {
 			'SetIconLocation': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IShellLinkW.ptr,
 					this.LPCTSTR,	// pszIconPath
 					this.INT		// iIcon
-				]).ptr
-		}, {
-			'SetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.PCIDLIST_ABSOLUTE	// pidl
-				]).ptr
-		}, {
-			'SetPath': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IShellLinkW.ptr,
-					this.LPCTSTR		// pszFile
 				]).ptr
 		}, {
 			'SetRelativePath': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -183,18 +182,19 @@ var wintypesInit = function() {
 					this.DWORD		// dwReserved
 				]).ptr
 		}, {
-			'SetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
+			'Resolve': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IShellLinkW.ptr,
-					this.INT		// iShowCmd
+					this.HWND,	// hwnd
+					this.DWORD	// fFlags
 				]).ptr
 		}, {
-			'SetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
+			'SetPath': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IShellLinkW.ptr,
-					this.LPCTSTR
+					this.LPCTSTR	// pszFile
 				]).ptr
-		} ]
+		}]
 	);
 	//end - shell link, which i think is needed for all COM
 
@@ -212,8 +212,8 @@ var wintypesInit = function() {
 			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IPersistFile.ptr,
-					this.REFIID,
-					this.VOIDPTR
+					this.REFIID,	// riid
+					this.VOIDPTR	// **ppvObject
 				]).ptr
 		}, {
 			'AddRef': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -231,13 +231,7 @@ var wintypesInit = function() {
 					IPersistFile.ptr,
 					this.CLSID.ptr	// *pClassID
 				]).ptr
-		}, { //end inherit from IPersist
-			'GetCurFile': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IPersistFile.ptr,
-					this.LPOLESTR.ptr	// *ppszFileName
-				]).ptr
-		}, {
+		}, { //end inherit from IPersist // start IPersistFile
 			'IsDirty': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IPersistFile.ptr,
@@ -262,6 +256,12 @@ var wintypesInit = function() {
 					IPersistFile.ptr,
 					this.LPCOLESTR	// pszFileName
 				]).ptr
+		}, {
+			'GetCurFile': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IPersistFile.ptr,
+					this.LPOLESTR.ptr	// *ppszFileName
+				]).ptr
 		}
 	]);
 	// end - IPersistFile
@@ -269,13 +269,8 @@ var wintypesInit = function() {
 	// CONSTANTS
 	this.COINIT_APARTMENTTHREADED = 0x2; //https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.CLSCTX_INPROC_SERVER = 0x1;
-	this.GA_ROOT = 2;
 	this.S_OK = new this.HRESULT(0); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
 	this.S_FALSE = new this.HRESULT(1); // http://msdn.microsoft.com/en-us/library/windows/desktop/aa378137%28v=vs.85%29.aspx
-	this.VARIANT_FALSE = this.VARIANT_BOOL(0); //http://blogs.msdn.com/b/oldnewthing/archive/2004/12/22/329884.aspx
-	this.VARIANT_TRUE = this.VARIANT_BOOL(-1); //http://blogs.msdn.com/b/oldnewthing/archive/2004/12/22/329884.aspx // im not doing new this.VARIANT_BOOL becuase as we see in this shortcut js-ctypes they simply do HRESULT(value) ( https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L389 )
-	this.VT_BOOL = 0x000B; // 11
-	this.VT_LPWSTR = 0x001F; // 31
 }
 var ostypes = new wintypesInit();
 
@@ -436,11 +431,13 @@ function main() {
 	var hr_CLSID_ShellLink = _dec('CLSIDFromString')('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
 	console.info('hr_CLSID_ShellLink:', hr_CLSID_ShellLink, hr_CLSID_ShellLink.toString(), uneval(hr_CLSID_ShellLink));
 	checkHRESULT(hr_CLSID_ShellLink, 'CLSIDFromString (CLSID_ShellLink)');
+	console.info('CLSID_ShellLink:', CLSID_ShellLink, CLSID_ShellLink.toString(), uneval(CLSID_ShellLink));
 	
 	var IID_IShellLink = new ostypes.GUID();
 	hr_IID_IShellLink = _dec('CLSIDFromString')('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
 	console.info('hr_IID_IShellLink:', hr_IID_IShellLink, hr_IID_IShellLink.toString(), uneval(hr_IID_IShellLink));
 	checkHRESULT(hr_IID_IShellLink, 'CLSIDFromString (IID_ShellLink)');
+	console.info('IID_IShellLink:', IID_IShellLink, IID_IShellLink.toString(), uneval(IID_IShellLink));
 
 	shellLinkPtr = new ostypes.IShellLinkWPtr();
 	var hr_CoCreateInstance = _dec('CoCreateInstance')(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
@@ -452,7 +449,8 @@ function main() {
 	var hr_IID_IPersistFile =_dec('CLSIDFromString')('{0000010b-0000-0000-C000-000000000046}', IID_IPersistFile.address());
 	console.info('hr_IID_IPersistFile:', hr_IID_IPersistFile, hr_IID_IPersistFile.toString(), uneval(hr_IID_IPersistFile));
 	checkHRESULT(hr_IID_IPersistFile, 'CLSIDFromString (IID_IPersistFile)');
-
+	console.info('IID_IPersistFile:', IID_IPersistFile, IID_IPersistFile.toString(), uneval(IID_IPersistFile));
+	
 	persistFilePtr = new ostypes.IPersistFilePtr();
 	var hr_shellLinkQI = shellLink.QueryInterface(shellLinkPtr, IID_IPersistFile.address(), persistFilePtr.address());
 	console.info('hr_shellLinkQI:', hr_shellLinkQI, hr_shellLinkQI.toString(), uneval(hr_shellLinkQI));

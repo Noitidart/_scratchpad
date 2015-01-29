@@ -468,37 +468,44 @@ function main() {
 	promise_createShortcutFile.then(
 		function(aVal) {
 			console.log('Fullfilled - promise_createShortcutFile - ', aVal);
-				
-			var hr = persistFile.Load(persistFilePtr, shortcutFile, 0);
-			checkHRESULT(hr, 'Load');						
+
+			var hr_Load = persistFile.Load(persistFilePtr, shortcutFile, 0);
+			checkHRESULT(hr_Load, 'Load');
+			console.info('hr_Load:', hr_Load, hr_Load.toString(), uneval(hr_Load));
 
 			if(targetFile) {
-				var hr = shellLink.SetPath(shellLinkPtr, targetFile);
-				checkHRESULT(hr, 'SetPath');
+				var hr_SetPath = shellLink.SetPath(shellLinkPtr, targetFile);
+				checkHRESULT(hr_SetPath, 'SetPath');
+				console.info('hr_SetPath:', hr_SetPath, hr_SetPath.toString(), uneval(hr_SetPath));
 			}
 
 			if(workingDir) {
-				var hr = shellLink.SetWorkingDirectory(shellLinkPtr, workingDir);
+				var hr_SetWorkingDirectory = shellLink.SetWorkingDirectory(shellLinkPtr, workingDir);
 				checkHRESULT(hr, 'SetWorkingDirectory');
+				console.info('hr_SetWorkingDirectory:', hr_SetWorkingDirectory, hr_SetWorkingDirectory.toString(), uneval(hr_SetWorkingDirectory));
 			}
 
 			if(args) {
-				var hr = shellLink.SetArguments(shellLinkPtr, args);
-				checkHRESULT(hr, 'SetArguments');
+				var hr_SetArguments = shellLink.SetArguments(shellLinkPtr, args);
+				checkHRESULT(hr_SetArguments, 'SetArguments');
+				console.info('hr_SetArguments:', hr_SetArguments, hr_SetArguments.toString(), uneval(hr_SetArguments));
 			}
 
 			if(description) {
-				var hr = shellLink.SetDescription(shellLinkPtr, description);
-				checkHRESULT(hr, 'SetDescription');
+				var hr_SetDescription = shellLink.SetDescription(shellLinkPtr, description);
+				checkHRESULT(hr_SetDescription, 'SetDescription');
+				console.info('hr_SetDescription:', hr_SetDescription, hr_SetDescription.toString(), uneval(hr_SetDescription));
 			}
 
 			if(iconFile) {
-				var hr = shellLink.SetIconLocation(shellLinkPtr, iconFile, iconIndex? iconIndex : 0);
-				checkHRESULT(hr, 'SetIconLocation');
+				var hr_SetIconLocation = shellLink.SetIconLocation(shellLinkPtr, iconFile, iconIndex? iconIndex : 0);
+				checkHRESULT(hr_SetIconLocation, 'SetIconLocation');
+				console.info('hr_SetIconLocation:', hr_SetIconLocation, hr_SetIconLocation.toString(), uneval(hr_SetIconLocation));
 			}
 
-			var hr = persistFile.Save(persistFilePtr, shortcutFile, -1);
-			checkHRESULT(hr, 'Save');
+			var hr_Save = persistFile.Save(persistFilePtr, shortcutFile, -1);
+			checkHRESULT(hr_Save, 'Save');
+			console.info('hr_Save:', hr_Save, hr_Save.toString(), uneval(hr_Save));
 			
 			console.log('Shortcut succesfully created');
 			

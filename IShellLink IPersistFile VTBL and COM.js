@@ -52,7 +52,7 @@ var wintypesInit = function() {
 	//start - shell link, which i think is needed for all COM due to the `hr = shellLink.QueryInterface(shellLinkPtr, IID_IPropertyStore.address(), propertyStorePtr.address());`
 	var IShellLinkWVtbl = new ctypes.StructType('IShellLinkWVtbl');
 
-	const IShellLinkW = new ctypes.StructType('IShellLinkW', [{
+	var IShellLinkW = new ctypes.StructType('IShellLinkW', [{
 		'lpVtbl': IShellLinkWVtbl.ptr
 	}]);
 	this.IShellLinkWPtr = new ctypes.PointerType(IShellLinkW);
@@ -113,7 +113,7 @@ var wintypesInit = function() {
 			'GetPath': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IShellLinkW.ptr,
-					this.LPTSTR,					// pszFile
+					this.LPTSTR,				// pszFile
 					this.INT,					// cchMaxPath
 					this.WIN32_FIND_DATA.ptr,	// *pfd
 					this.DWORD					// fFlags
@@ -161,7 +161,7 @@ var wintypesInit = function() {
 				this.HRESULT, [
 					IShellLinkW.ptr,
 					this.LPCTSTR,	// pszIconPath
-					this.INT			// iIcon
+					this.INT		// iIcon
 				]).ptr
 		}, {
 			'SetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -192,7 +192,7 @@ var wintypesInit = function() {
 			'SetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IShellLinkW.ptr,
-					this.LPCWSTR
+					this.LPCTSTR
 				]).ptr
 		} ]
 	);
@@ -424,33 +424,39 @@ var persistFilePtr;
 function main() {
 	//do code here
 
-	var hr = ostypes.HRESULT(_dec('CoInitializeEx')(null, ostypes.COINIT_APARTMENTTHREADED));
-	if(ostypes.S_OK.toString() == hr.toString() || ostypes.S_FALSE.toString() == hr.toString()) {
+	var hr_CoInitializeEx = ostypes.HRESULT(_dec('CoInitializeEx')(null, ostypes.COINIT_APARTMENTTHREADED));
+	console.info('hr_CoInitializeEx:', hr_CoInitializeEx, hr_CoInitializeEx.toString(), uneval(hr_CoInitializeEx));
+	if(ostypes.S_OK.toString() == hr_CoInitializeEx.toString() || ostypes.S_FALSE.toString() == hr_CoInitializeEx.toString()) {
 		shouldUninitialize = true;
 	} else {
 		throw('Unexpected return value from CoInitializeEx: ' + hr);
 	}
 	
 	var CLSID_ShellLink = new ostypes.GUID();
-	var hr = _dec('CLSIDFromString')('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
-	checkHRESULT(hr, 'CLSIDFromString (CLSID_ShellLink)');
+	var hr_CLSID_ShellLink = _dec('CLSIDFromString')('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
+	console.info('hr_CLSID_ShellLink:', hr_CLSID_ShellLink, hr_CLSID_ShellLink.toString(), uneval(hr_CLSID_ShellLink));
+	checkHRESULT(hr_CLSID_ShellLink, 'CLSIDFromString (CLSID_ShellLink)');
 	
 	var IID_IShellLink = new ostypes.GUID();
-	hr = _dec('CLSIDFromString')('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
-	checkHRESULT(hr, 'CLSIDFromString (IID_ShellLink)');
+	hr_IID_IShellLink = _dec('CLSIDFromString')('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
+	console.info('hr_IID_IShellLink:', hr_IID_IShellLink, hr_IID_IShellLink.toString(), uneval(hr_IID_IShellLink));
+	checkHRESULT(hr_IID_IShellLink, 'CLSIDFromString (IID_ShellLink)');
 
 	shellLinkPtr = new ostypes.IShellLinkWPtr();
-	var hr = _dec('CoCreateInstance')(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
-	checkHRESULT(hr, 'CoCreateInstance');
+	var hr_CoCreateInstance = _dec('CoCreateInstance')(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
+	console.info('hr_CoCreateInstance:', hr_CoCreateInstance, hr_CoCreateInstance.toString(), uneval(hr_CoCreateInstance));
+	checkHRESULT(hr_CoCreateInstance, 'CoCreateInstance');
 	shellLink = shellLinkPtr.contents.lpVtbl.contents;
 
 	var IID_IPersistFile = new ostypes.GUID();
-	var hr =_dec('CLSIDFromString')('{0000010b-0000-0000-C000-000000000046}', IID_IPersistFile.address());
-	checkHRESULT(hr, 'CLSIDFromString (IID_IPersistFile)');
+	var hr_IID_IPersistFile =_dec('CLSIDFromString')('{0000010b-0000-0000-C000-000000000046}', IID_IPersistFile.address());
+	console.info('hr_IID_IPersistFile:', hr_IID_IPersistFile, hr_IID_IPersistFile.toString(), uneval(hr_IID_IPersistFile));
+	checkHRESULT(hr_IID_IPersistFile, 'CLSIDFromString (IID_IPersistFile)');
 
 	persistFilePtr = new ostypes.IPersistFilePtr();
-	var hr = shellLink.QueryInterface(shellLinkPtr, IID_IPersistFile.address(), persistFilePtr.address());
-	checkHRESULT(hr, 'QueryInterface (IShellLink->IPersistFile)');
+	var hr_shellLinkQI = shellLink.QueryInterface(shellLinkPtr, IID_IPersistFile.address(), persistFilePtr.address());
+	console.info('hr_shellLinkQI:', hr_shellLinkQI, hr_shellLinkQI.toString(), uneval(hr_shellLinkQI));
+	checkHRESULT(hr_shellLinkQI, 'QueryInterface (IShellLink->IPersistFile)');
 	persistFile = persistFilePtr.contents.lpVtbl.contents;
 	
 	var shortcutFile = OS.Path.join(OS.Constants.Path.desktopDir, 'jsctypes.lnk'); // string path, must end in .lnk
@@ -464,48 +470,51 @@ function main() {
 	cancelFinally = true;
 	
 	//will overwrite existing
-	var promise_createShortcutFile = OS.File.writeAtomic(shortcutFile, '', {tmpPath:shortcutFile + '.bkp', encoding:'utf-8'});
-	promise_createShortcutFile.then(
+	var promise_checkExists = OS.File.exists(shortcutFile);
+	promise_checkExists.then(
 		function(aVal) {
-			console.log('Fullfilled - promise_createShortcutFile - ', aVal);
+			console.log('Fullfilled - promise_checkExists - ', aVal);
 
-			var hr_Load = persistFile.Load(persistFilePtr, shortcutFile, 0);
-			checkHRESULT(hr_Load, 'Load');
-			console.info('hr_Load:', hr_Load, hr_Load.toString(), uneval(hr_Load));
+			if (aVal) {
+				//exists
+				var hr_Load = persistFile.Load(persistFilePtr, shortcutFile, 0);
+				console.info('hr_Load:', hr_Load, hr_Load.toString(), uneval(hr_Load));
+				checkHRESULT(hr_Load, 'Load');
+			}
 
 			if(targetFile) {
 				var hr_SetPath = shellLink.SetPath(shellLinkPtr, targetFile);
-				checkHRESULT(hr_SetPath, 'SetPath');
 				console.info('hr_SetPath:', hr_SetPath, hr_SetPath.toString(), uneval(hr_SetPath));
+				checkHRESULT(hr_SetPath, 'SetPath');
 			}
 
 			if(workingDir) {
 				var hr_SetWorkingDirectory = shellLink.SetWorkingDirectory(shellLinkPtr, workingDir);
-				checkHRESULT(hr, 'SetWorkingDirectory');
 				console.info('hr_SetWorkingDirectory:', hr_SetWorkingDirectory, hr_SetWorkingDirectory.toString(), uneval(hr_SetWorkingDirectory));
+				checkHRESULT(hr, 'SetWorkingDirectory');
 			}
 
 			if(args) {
 				var hr_SetArguments = shellLink.SetArguments(shellLinkPtr, args);
-				checkHRESULT(hr_SetArguments, 'SetArguments');
 				console.info('hr_SetArguments:', hr_SetArguments, hr_SetArguments.toString(), uneval(hr_SetArguments));
+				checkHRESULT(hr_SetArguments, 'SetArguments');
 			}
 
 			if(description) {
 				var hr_SetDescription = shellLink.SetDescription(shellLinkPtr, description);
-				checkHRESULT(hr_SetDescription, 'SetDescription');
 				console.info('hr_SetDescription:', hr_SetDescription, hr_SetDescription.toString(), uneval(hr_SetDescription));
+				checkHRESULT(hr_SetDescription, 'SetDescription');
 			}
 
 			if(iconFile) {
 				var hr_SetIconLocation = shellLink.SetIconLocation(shellLinkPtr, iconFile, iconIndex? iconIndex : 0);
-				checkHRESULT(hr_SetIconLocation, 'SetIconLocation');
 				console.info('hr_SetIconLocation:', hr_SetIconLocation, hr_SetIconLocation.toString(), uneval(hr_SetIconLocation));
+				checkHRESULT(hr_SetIconLocation, 'SetIconLocation');
 			}
 
 			var hr_Save = persistFile.Save(persistFilePtr, shortcutFile, -1);
-			checkHRESULT(hr_Save, 'Save');
 			console.info('hr_Save:', hr_Save, hr_Save.toString(), uneval(hr_Save));
+			checkHRESULT(hr_Save, 'Save');
 			
 			console.log('Shortcut succesfully created');
 			
@@ -513,14 +522,14 @@ function main() {
 			
 		},
 		function(aReason) {
-			var refObj = {name:'promise_createShortcutFile', aReason:aReason};
-			console.error('Rejected - promise_createShortcutFile - ', refObj);
+			var refObj = {name:'promise_checkExists', aReason:aReason};
+			console.error('Rejected - promise_checkExists - ', refObj);
 			//throw refObj; //dont throw as this is reject of final promise
 			shutdown();
 		}
 	).catch(
 		function(aCaught) {
-			console.error('Caught - promise_createShortcutFile - ', aCaught);
+			console.error('Caught - promise_checkExists - ', aCaught);
 			// throw aCaught;
 			shutdown();
 		}

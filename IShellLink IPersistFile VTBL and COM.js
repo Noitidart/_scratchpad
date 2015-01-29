@@ -60,139 +60,139 @@ var wintypesInit = function() {
 	IShellLinkWVtbl.define(
 		[{
 			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.REFIID,
-					ostypes.VOIDPTR
+					this.REFIID,
+					this.VOIDPTR
 				]).ptr
 		}, {
 			'AddRef': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.ULONG, [
+				this.ULONG, [
 					IShellLinkW.ptr
 				]).ptr
 		}, {
 			'Release': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.ULONG, [
+				this.ULONG, [
 					IShellLinkW.ptr
 				]).ptr
 		}, {
 			'GetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPTSTR,	// pszArgs
-					ctypes.INT		// cchMaxPath
+					this.LPTSTR,	// pszArgs
+					this.INT		// cchMaxPath
 				]).ptr
 		}, {
 			'GetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPTSTR	// pszName
-					ostypes.INT		// cchMaxName
+					this.LPTSTR,	// pszName
+					this.INT		// cchMaxName
 				]).ptr
 		}, {
 			'GetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.WORD.ptr	// *pwHotkey
+					this.WORD.ptr	// *pwHotkey
 				]).ptr
 		}, {
 			'GetIconLocation': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPTSTR,		// pszIconPath
-					ostypes.INT,		// cchIconPath
-					ostpyes.INT.ptr		// *piIcon
+					this.LPTSTR,	// pszIconPath
+					this.INT,		// cchIconPath
+					this.INT.ptr	// *piIcon
 				]).ptr
 		}, {
 			'GetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.PIDLIST_ABSOLUTE.ptr	// *ppidl
+					this.PIDLIST_ABSOLUTE.ptr	// *ppidl
 				]).ptr
 		}, {
 			'GetPath': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPTSTR,					// pszFile
-					ostypes.INT,					// cchMaxPath
-					ostypes.WIN32_FIND_DATA.ptr,	// *pfd
-					ostypes.DWORD					// fFlags
+					this.LPTSTR,					// pszFile
+					this.INT,					// cchMaxPath
+					this.WIN32_FIND_DATA.ptr,	// *pfd
+					this.DWORD					// fFlags
 				]).ptr
 		}, {
 			'GetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.INT.ptr		// *piShowCmd
+					this.INT.ptr		// *piShowCmd
 				]).ptr
 		}, {
 			'GetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPTSTR,		// pszDir
-					ostypes.INT			// cchMaxPath
+					this.LPTSTR,		// pszDir
+					this.INT			// cchMaxPath
 				]).ptr
 		}, {
 			'Resolve': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.HWND,	// hwnd
-					ostypes.DWORD	// fFlags
+					this.HWND,	// hwnd
+					this.DWORD	// fFlags
 				]).ptr
 		}, {
 			'SetArguments': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPCTSTR		// pszArgs
+					this.LPCTSTR		// pszArgs
 				]).ptr
 		}, {
 			'SetDescription': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPCTSTR		// pszName
+					this.LPCTSTR		// pszName
 				]).ptr
 		}, {
 			'SetHotKey': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					WORD	// wHotkey
+					this.WORD	// wHotkey
 				]).ptr
 		}, {
 			'SetIconLocation': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPCTSTR,	// pszIconPath
-					ostypes.INT			// iIcon
+					this.LPCTSTR,	// pszIconPath
+					this.INT			// iIcon
 				]).ptr
 		}, {
 			'SetIDList': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.PCIDLIST_ABSOLUTE	// pidl
+					this.PCIDLIST_ABSOLUTE	// pidl
 				]).ptr
 		}, {
 			'SetPath': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPCTSTR		// pszFile
+					this.LPCTSTR		// pszFile
 				]).ptr
 		}, {
 			'SetRelativePath': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPCTSTR,	// pszPathRel
-					ostypes.DWORD		// dwReserved
+					this.LPCTSTR,	// pszPathRel
+					this.DWORD		// dwReserved
 				]).ptr
 		}, {
 			'SetShowCmd': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.INT		// iShowCmd
+					this.INT		// iShowCmd
 				]).ptr
 		}, {
 			'SetWorkingDirectory': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IShellLinkW.ptr,
-					ostypes.LPCWSTR
+					this.LPCWSTR
 				]).ptr
 		} ]
 	);
@@ -210,57 +210,57 @@ var wintypesInit = function() {
 	IPersistFileVtbl.define(
 		[{ //start inherit from IUnknown
 			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
-					IShellLinkW.ptr,
-					ostypes.REFIID,
-					ostypes.VOIDPTR
+				this.HRESULT, [
+					IPersistFile.ptr,
+					this.REFIID,
+					this.VOIDPTR
 				]).ptr
 		}, {
 			'AddRef': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.ULONG, [
-					IShellLinkW.ptr
+				this.ULONG, [
+					IPersistFile.ptr
 				]).ptr
 		}, {
 			'Release': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.ULONG, [
-					IShellLinkW.ptr
+				this.ULONG, [
+					IPersistFile.ptr
 				]).ptr
 		}, { //end inherit from IUnknown //start inherit from IPersist
 			'GetClassID': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IPersistFile.ptr,
-					ostypes.CLSID.ptr	// *pClassID
+					this.CLSID.ptr	// *pClassID
 				]).ptr
 		}, { //end inherit from IPersist
 			'GetCurFile': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IPersistFile.ptr,
-					ostypes.LPOLESTR.ptr	// *ppszFileName
+					this.LPOLESTR.ptr	// *ppszFileName
 				]).ptr
 		}, {
 			'IsDirty': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IPersistFile.ptr,
 				]).ptr
 		}, {
 			'Load': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IPersistFile.ptr,
-					ostypes.LPCOLESTR,	// pszFileName
-					ostypes.DWORD		// dwMode
+					this.LPCOLESTR,	// pszFileName
+					this.DWORD		// dwMode
 				]).ptr
 		}, {
 			'Save': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IPersistFile.ptr,
-					ostypes.LPCOLESTR,	// pszFileName
-					ostypes.BOOL		// fRemember
+					this.LPCOLESTR,	// pszFileName
+					this.BOOL		// fRemember
 				]).ptr
 		}, {
 			'SaveCompleted': ctypes.FunctionType(ctypes.stdcall_abi,
-				ostypes.HRESULT, [
+				this.HRESULT, [
 					IPersistFile.ptr,
-					ostypes.LPCOLESTR	// pszFileName
+					this.LPCOLESTR	// pszFileName
 				]).ptr
 		}
 	]);
@@ -358,16 +358,6 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DWORD		// dwCoInit
 		);
 	},
-	CoTaskMemFree: function() {
-		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms680722%28v=vs.85%29.aspx
-		 * void CoTaskMemFree(
-		 *   __in_opt_  LPVOID pv
-		 * );
-		 */
-		return _lib('Ole32.dll').declare('CoTaskMemFree', ctypes.winapi_abi,
-			ostypes.LPVOID	// pv
-		);
-	},
 	CoUninitialize: function() {
 		/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms688715%28v=vs.85%29.aspx
 		 * void CoUninitialize(void);
@@ -375,19 +365,6 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		return _lib('Ole32.dll').declare('CoUninitialize', ctypes.winapi_abi,
 			ostypes.VOID	// return
 		);
-	},
-	SHStrDup: function() {
-		/* http://msdn.microsoft.com/en-us/library/windows/desktop/bb759924%28v=vs.85%29.aspx
-		* HRESULT SHStrDup(
-		* __in_ LPCTSTR pszSource,
-		* __out_ LPTSTR *ppwsz
-		* );
-		*/
-		return _lib('Shlwapi.dll').declare('SHStrDupW', ctypes.winapi_abi,
-			ostypes.HRESULT,	// return
-			ostypes.LPCTSTR,	// pszSource	// old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr // im trying to pass PCWSTR here, i am making it as `ctypes.jschar.array()('blah blah').address()`
-			ostypes.LPTSTR.ptr	// *ppwsz	 	// old val from old Gist of mine RelunchCommand@yajd `ctypes.voidptr_t` and the notes from then: // can possibly also make this ctypes.char.ptr
-		); 
 	}
 }
 // end - predefine your declares here
@@ -436,6 +413,7 @@ function shutdown() {
 	}
 }
 
+var cancelFinally;
 // main globals
 var shouldUninitialize;
 var shellLink;
@@ -446,44 +424,44 @@ var persistFilePtr;
 function main() {
 	//do code here
 
-	var hr = ostypes.HRESULT(CoInitializeEx(null, ostypes.COINIT_APARTMENTTHREADED));
-	if(S_OK.toString() == hr.toString() || S_FALSE.toString() == hr.toString()) {
+	var hr = ostypes.HRESULT(_dec('CoInitializeEx')(null, ostypes.COINIT_APARTMENTTHREADED));
+	if(ostypes.S_OK.toString() == hr.toString() || ostypes.S_FALSE.toString() == hr.toString()) {
 		shouldUninitialize = true;
 	} else {
 		throw('Unexpected return value from CoInitializeEx: ' + hr);
 	}
 	
-	var CLSID_ShellLink = new GUID();
-	var hr = CLSIDFromString('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
+	var CLSID_ShellLink = new ostypes.GUID();
+	var hr = _dec('CLSIDFromString')('{00021401-0000-0000-C000-000000000046}', CLSID_ShellLink.address());
 	checkHRESULT(hr, 'CLSIDFromString (CLSID_ShellLink)');
 	
-	var IID_IShellLink = new GUID();
-	hr = CLSIDFromString('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
+	var IID_IShellLink = new ostypes.GUID();
+	hr = _dec('CLSIDFromString')('{000214F9-0000-0000-C000-000000000046}', IID_IShellLink.address());
 	checkHRESULT(hr, 'CLSIDFromString (IID_ShellLink)');
 
-	shellLinkPtr = new IShellLinkWPtr();
-	var hr = CoCreateInstance(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
+	shellLinkPtr = new ostypes.IShellLinkWPtr();
+	var hr = _dec('CoCreateInstance')(CLSID_ShellLink.address(), null, ostypes.CLSCTX_INPROC_SERVER, IID_IShellLink.address(), shellLinkPtr.address());
 	checkHRESULT(hr, 'CoCreateInstance');
 	shellLink = shellLinkPtr.contents.lpVtbl.contents;
 
-	var IID_IPersistFile = new GUID();
-	var hr = CLSIDFromString('{0000010b-0000-0000-C000-000000000046}', IID_IPersistFile.address());
+	var IID_IPersistFile = new ostypes.GUID();
+	var hr =_dec('CLSIDFromString')('{0000010b-0000-0000-C000-000000000046}', IID_IPersistFile.address());
 	checkHRESULT(hr, 'CLSIDFromString (IID_IPersistFile)');
 
-	persistFilePtr = new IPersistFilePtr();
+	persistFilePtr = new ostypes.IPersistFilePtr();
 	var hr = shellLink.QueryInterface(shellLinkPtr, IID_IPersistFile.address(), persistFilePtr.address());
 	checkHRESULT(hr, 'QueryInterface (IShellLink->IPersistFile)');
 	persistFile = persistFilePtr.contents.lpVtbl.contents;
 	
-	var shortcutFile = null; // string path, must end in .lnk
+	var shortcutFile = OS.Path.join(OS.Constants.Path.desktopDir, 'jsctypes.lnk'); // string path, must end in .lnk
 	var targetFile = FileUtils.getFile('XREExeF', []).path; // string path
-	var workingDir = null; // The working directory is optional unless the target requires a working directory. For example, if an application creates a Shell link to a Microsoft Word document that uses a template residing in a different directory, the application would use this method to set the working directory.
+	var workingDir = null; // string path // from MSDN: The working directory is optional unless the target requires a working directory. For example, if an application creates a Shell link to a Microsoft Word document that uses a template residing in a different directory, the application would use this method to set the working directory.
 	var args = '-P -no-remote'; // command line arguments // string
 	var description = 'my sc via jsctypes'; // string
 	var iconFile = OS.Path.join(OS.Constants.Path.desktopDir, 'ppbeta.ico'); // string path
 	var iconIndex = null; // integer
 	
-	var cancelFinally = true;
+	cancelFinally = true;
 	
 	//will overwrite existing
 	var promise_createShortcutFile = OS.File.writeAtomic(shortcutFile, '', {tmpPath:shortcutFile + '.bkp', encoding:'utf-8'});
@@ -491,16 +469,16 @@ function main() {
 		function(aVal) {
 			console.log('Fullfilled - promise_createShortcutFile - ', aVal);
 				
-			var hr = persistFile.Load(persistFilePtr, shortcutFile.path, 0);
+			var hr = persistFile.Load(persistFilePtr, shortcutFile, 0);
 			checkHRESULT(hr, 'Load');						
 
 			if(targetFile) {
-				var hr = shellLink.SetPath(shellLinkPtr, targetFile.path);
+				var hr = shellLink.SetPath(shellLinkPtr, targetFile);
 				checkHRESULT(hr, 'SetPath');
 			}
 
 			if(workingDir) {
-				var hr = shellLink.SetWorkingDirectory(shellLinkPtr, workingDir.path);
+				var hr = shellLink.SetWorkingDirectory(shellLinkPtr, workingDir);
 				checkHRESULT(hr, 'SetWorkingDirectory');
 			}
 
@@ -515,11 +493,11 @@ function main() {
 			}
 
 			if(iconFile) {
-				var hr = shellLink.SetIconLocation(shellLinkPtr, iconFile.path, iconIndex? iconIndex : 0);
+				var hr = shellLink.SetIconLocation(shellLinkPtr, iconFile, iconIndex? iconIndex : 0);
 				checkHRESULT(hr, 'SetIconLocation');
 			}
 
-			var hr = persistFile.Save(persistFilePtr, shortcutFile.path, -1);
+			var hr = persistFile.Save(persistFilePtr, shortcutFile, -1);
 			checkHRESULT(hr, 'Save');
 			
 			console.log('Shortcut succesfully created');

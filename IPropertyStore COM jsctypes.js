@@ -163,12 +163,12 @@ var wintypesInit = function() {
 	this.IPropertyStorePtr = new ctypes.PointerType(IPropertyStore);
 
 	IPropertyStoreVtbl.define(
-		[{
+		[{ //start inherit from IUnknown
 			'QueryInterface': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IPropertyStore.ptr,
-					this.REFIID,
-					this.VOIDPTR
+					this.REFIID,	// riid
+					this.VOIDPTR	// **ppvObject
 				]).ptr
 		}, {
 			'AddRef': ctypes.FunctionType(ctypes.stdcall_abi,
@@ -180,37 +180,37 @@ var wintypesInit = function() {
 				this.ULONG, [
 					IPropertyStore.ptr
 				]).ptr
-		}, {
-			'Commit': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IPropertyStore.ptr
-				]).ptr
-		}, {
-			'GetAt': ctypes.FunctionType(ctypes.stdcall_abi,
-				this.HRESULT, [
-					IPropertyStore.ptr,
-					this.DWORD,			// iProp
-					this.PROPERTYKEY.ptr	//*pkey
-				]).ptr
-		}, {
+		}, { //end inherit from IUnknown //start IPropertyStore
 			'GetCount': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IPropertyStore.ptr,
 					this.DWORD.ptr	// *cProps
 				]).ptr
 		}, {
+			'GetAt': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IPropertyStore.ptr,
+					this.DWORD,				// iProp
+					this.PROPERTYKEY.ptr	//*pkey
+				]).ptr
+		}, {
 			'GetValue': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IPropertyStore.ptr,
-					this.REFPROPERTYKEY,		// key
-					this.PROPVARIANT.ptr		// *pv
+					this.REFPROPERTYKEY,	// key
+					this.PROPVARIANT.ptr	// *pv
 				]).ptr
 		}, {
 			'SetValue': ctypes.FunctionType(ctypes.stdcall_abi,
 				this.HRESULT, [
 					IPropertyStore.ptr,
-					this.REFPROPERTYKEY,		// key
+					this.REFPROPERTYKEY,	// key
 					this.REFPROPVARIANT		// propvar
+				]).ptr
+		}, {
+			'Commit': ctypes.FunctionType(ctypes.stdcall_abi,
+				this.HRESULT, [
+					IPropertyStore.ptr
 				]).ptr
 		}]
 	);
@@ -443,7 +443,7 @@ function InitPropVariantFromString(psz/*ostypes.PCWSTR*/, ppropvar/*ostypes.PROP
 	// console.log('propvarPtr.contents.pwszVal', propvarPtr.contents.pwszVal);
 	checkHRESULT(hr_SHStrDup, 'InitPropVariantFromString -> hr_SHStrDup'); // this will throw if HRESULT is bad
 
-	ppropvar.vt = ostypes.VT_LPWSTR;
+	ppropvar.contents.vt = ostypes.VT_LPWSTR;
 
 	return hr_SHStrDup;
 }
@@ -539,7 +539,7 @@ function main() {
 
 		// end get PKEY's
 
-		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), ostypes.WCHAR.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), 'Contoso.Scratch'); // can use `ostypes.WCHAR.array()('Contoso.Scratch')` or just use jsstring `'Contoso.Scratch'`, i verified this by finding the default id, and then setting window id to `Contoso.Scratch` which moved the window out, then I set the window back to default id of `'E7CF176E110C211B'` and it went back to original group. THEN I moved it back out by setting to `'Contoso.Scratch'` and then set it to `ostypes.WCHAR.array()('E7CF176E110C211B')` and it put it back into the original group // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
 		console.log('ostypes.S_OK.toString():', ostypes.S_OK.toString());
 		console.log('ostypes.HRESULT(hr_IPSSetValue).toString():', ostypes.HRESULT(hr_IPSSetValue).toString());
 		if (ostypes.HRESULT(hr_IPSSetValue).toString() == ostypes.S_OK.toString()) {

@@ -557,9 +557,11 @@ function main() {
 		///*
 		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), 'Contoso.Scratch'); // can use `ostypes.WCHAR.array()('Contoso.Scratch')` or just use jsstring `'Contoso.Scratch'`, i verified this by finding the default id, and then setting window id to `Contoso.Scratch` which moved the window out, then I set the window back to default id of `'E7CF176E110C211B'` and it went back to original group. THEN I moved it back out by setting to `'Contoso.Scratch'` and then set it to `ostypes.WCHAR.array()('E7CF176E110C211B')` and it put it back into the original group // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
 
-		var hr_Commit = pps.Commit(vtblPpsPtr);
+		/* //commit is not needed
+		var hr_Commit = pps.Commit(ppsPtr);
 		console.info('hr_Commit:', hr_Commit, hr_Commit.toString(), uneval(hr_Commit));
 		checkHRESULT(hr_Commit, 'hr_Commit');
+		*/
 		
 		//*/
 		/*

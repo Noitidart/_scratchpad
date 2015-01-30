@@ -461,10 +461,6 @@ function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostype
 	var hr_SetValue = pps.SetValue(vtblPpsPtr, pkey, ppropvar.address());
 	checkHRESULT(hr_SetValue, 'IPropertyStore_SetValue');
 	
-	var hr_Commit = pps.Commit(vtblPpsPtr);
-	console.info('hr_Commit:', hr_Commit, hr_Commit.toString(), uneval(hr_Commit));
-	checkHRESULT(hr_Commit, 'hr_Commit');
-	
 	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
 	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
 
@@ -558,16 +554,19 @@ function main() {
 		var PKEY_AppUserModel_RelaunchIconResource = ostypes.PROPERTYKEY(fmtid_RelaunchIconResource, 3); // guid and pid from: http://msdn.microsoft.com/en-us/library/dd391573%28v=vs.85%29.aspx
 
 		// end get PKEY's
-		/*
+		///*
 		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), 'Contoso.Scratch'); // can use `ostypes.WCHAR.array()('Contoso.Scratch')` or just use jsstring `'Contoso.Scratch'`, i verified this by finding the default id, and then setting window id to `Contoso.Scratch` which moved the window out, then I set the window back to default id of `'E7CF176E110C211B'` and it went back to original group. THEN I moved it back out by setting to `'Contoso.Scratch'` and then set it to `ostypes.WCHAR.array()('E7CF176E110C211B')` and it put it back into the original group // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
 
-		*/
-		///*
+		var hr_Commit = pps.Commit(vtblPpsPtr);
+		console.info('hr_Commit:', hr_Commit, hr_Commit.toString(), uneval(hr_Commit));
+		checkHRESULT(hr_Commit, 'hr_Commit');
+		
+		//*/
+		/*
 		//var myPPV = ostypes.PROPVARIANT();
 		var jsstr_IPSGetValue = IPropertyStore_GetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), null);
 		console.info('jsstr_IPSGetValue:', jsstr_IPSGetValue, jsstr_IPSGetValue.toString(), uneval(jsstr_IPSGetValue));
-		
-		//*/
+		*/
 		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchCommand, ostypes.WCHAR.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
 		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ostypes.WCHAR.array()('C:\\full\\path\\to\\scratch.exe,-1'));
 		

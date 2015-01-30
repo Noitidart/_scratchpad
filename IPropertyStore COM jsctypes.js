@@ -450,6 +450,8 @@ function InitPropVariantFromString(psz/*ostypes.PCWSTR*/, ppropvar/*ostypes.PROP
 
 // from: http://blogs.msdn.com/b/oldnewthing/archive/2011/06/01/10170113.aspx
 function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostypes.REFPROPERTYKEY*/, pszValue/*ostypes.PCWSTR*/) { // i introduced vtblPpsPtr as i need it for js-ctypes
+	// returns hr of SetValue, but if hr of it failed it will throw, so i dont have to check the return value
+	
 	var ppropvar = ostypes.PROPVARIANT();
 
 	var hr_InitPropVariantFromString = InitPropVariantFromString(pszValue, ppropvar.address());
@@ -461,6 +463,7 @@ function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostype
 	
 	var hr_Commit = pps.Commit(vtblPpsPtr);
 	console.info('hr_Commit:', hr_Commit, hr_Commit.toString(), uneval(hr_Commit));
+	checkHRESULT(hr_Commit, 'hr_Commit');
 	
 	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
 	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
@@ -468,18 +471,35 @@ function IPropertyStore_SetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostype
 	return hr_SetValue;
 }
 
-function IPropertyStore_GetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostypes.REFPROPERTYKEY*/, ppropvar /*ostypes.PROPVARIANT*/) {
-
+function IPropertyStore_GetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostypes.REFPROPERTYKEY*/, ppropvar /*ostypes.PROPVARIANT*/ /* OR NULL if you want jsstr returned */) {
+	// currently setup for String propvariants only, meaning  key pwszVal is populated
+	// returns hr of GetValue if a ostypes.PROPVARIANT() is supplied as ppropvar arg
+	// returns jsstr if ppropvar arg is not supplied (creates a temp propvariant and clears it for function use)
+	
+	var ret_js = false;
+	if (!ppropvar) {
+		ppropvar = ostypes.PROPVARIANT();
+		ret_js = true;
+	}
+	
 	console.info('pps.GetValue', pps.GetValue);
 	var hr_GetValue = pps.GetValue(vtblPpsPtr, pkey, ppropvar.address());
 	checkHRESULT(hr_GetValue, 'IPropertyStore_GetValue');
 	
 	console.info('ppropvar:', ppropvar, ppropvar.toString(), uneval(ppropvar));
 	
-	var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
-	console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
+	if (ret_js) {
+		console.info('ppropvar.pwszVal:', ppropvar.pwszVal, ppropvar.pwszVal.toString(), uneval(ppropvar.pwszVal));
+		var jsstr = ppropvar.pwszVal.readString();
+		
+		var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
+		console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));
 
-	return hr_GetValue;
+		return jsstr;
+	} else {
+		console.warn('remember to clear the PROPVARIANT yourself then');
+		return hr_GetValue;
+	}
 }
 // end - helper functions
 
@@ -538,30 +558,16 @@ function main() {
 		var PKEY_AppUserModel_RelaunchIconResource = ostypes.PROPERTYKEY(fmtid_RelaunchIconResource, 3); // guid and pid from: http://msdn.microsoft.com/en-us/library/dd391573%28v=vs.85%29.aspx
 
 		// end get PKEY's
-
-		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), 'Contoso.Scratch'); // can use `ostypes.WCHAR.array()('Contoso.Scratch')` or just use jsstring `'Contoso.Scratch'`, i verified this by finding the default id, and then setting window id to `Contoso.Scratch` which moved the window out, then I set the window back to default id of `'E7CF176E110C211B'` and it went back to original group. THEN I moved it back out by setting to `'Contoso.Scratch'` and then set it to `ostypes.WCHAR.array()('E7CF176E110C211B')` and it put it back into the original group // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
-		console.log('ostypes.S_OK.toString():', ostypes.S_OK.toString());
-		console.log('ostypes.HRESULT(hr_IPSSetValue).toString():', ostypes.HRESULT(hr_IPSSetValue).toString());
-		if (ostypes.HRESULT(hr_IPSSetValue).toString() == ostypes.S_OK.toString()) {
-			console.log('SUCCESSFULLY SetValue on AppUserModel_ID', hr_IPSSetValue, hr_IPSSetValue.toString(), uneval(hr_IPSSetValue));
-		} else {
-			console.error('Failed to SetValue on AppUserModel_ID, hr:', hr_IPSSetValue, hr_IPSSetValue.toString(), uneval(hr_IPSSetValue));
-			throw new Error('Failed to SetValue on AppUserModel_ID, hr:' + hr_IPSSetValue);
-		}
-
 		/*
-		var ppropvar = ostypes.PROPVARIANT();
-		var hr_IPSGetValue = IPropertyStore_GetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), ppropvar);
-		console.log('ostypes.S_OK.toString():', ostypes.S_OK.toString());
-		console.log('ostypes.HRESULT(hr_IPSGetValue).toString():', ostypes.HRESULT(hr_IPSGetValue).toString());
-		if (ostypes.HRESULT(hr_IPSGetValue).toString() == ostypes.S_OK.toString()) {
-			console.log('SUCCESSFULLY GetValue on AppUserModel_ID', hr_IPSGetValue, hr_IPSGetValue.toString(), uneval(hr_IPSGetValue));
-			console.info('ppropvar:', ppropvar, ppropvar.toString(), uneval(ppropvar));
-		} else {
-			console.error('Failed to GetValue on AppUserModel_ID, hr:', hr_IPSGetValue, hr_IPSGetValue.toString(), uneval(hr_IPSGetValue));
-			throw new Error('Failed to GetValue on AppUserModel_ID, hr:' + hr_IPSGetValue);
-		}
+		var hr_IPSSetValue = IPropertyStore_SetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), 'Contoso.Scratch'); // can use `ostypes.WCHAR.array()('Contoso.Scratch')` or just use jsstring `'Contoso.Scratch'`, i verified this by finding the default id, and then setting window id to `Contoso.Scratch` which moved the window out, then I set the window back to default id of `'E7CF176E110C211B'` and it went back to original group. THEN I moved it back out by setting to `'Contoso.Scratch'` and then set it to `ostypes.WCHAR.array()('E7CF176E110C211B')` and it put it back into the original group // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
+
 		*/
+		///*
+		//var myPPV = ostypes.PROPVARIANT();
+		var jsstr_IPSGetValue = IPropertyStore_GetValue(ppsPtr, pps, PKEY_AppUserModel_ID.address(), null);
+		console.info('jsstr_IPSGetValue:', jsstr_IPSGetValue, jsstr_IPSGetValue.toString(), uneval(jsstr_IPSGetValue));
+		
+		//*/
 		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchCommand, ostypes.WCHAR.array()('Contoso.Scratch')); // the helper function `IPropertyStore_SetValue` already checks hr and throws error if it fails so no need to check return value here
 		//IPropertyStore_SetValue(ppsPtr, pps.address(), PKEY_AppUserModel_RelaunchDisplayNameResource, ostypes.WCHAR.array()('C:\\full\\path\\to\\scratch.exe,-1'));
 		

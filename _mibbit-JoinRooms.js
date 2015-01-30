@@ -7,6 +7,7 @@ var rooms = [
   //'media',
   'introduction',
   //'ux',
+  'jsctypes'
 ];
 
 //var doc = gBrowser.contentDocument;

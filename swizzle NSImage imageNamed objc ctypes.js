@@ -116,46 +116,24 @@ promise_makeMyNSImage.then(
 		//var IMP_specific = ctypes.FunctionType(ctypes.default_abi, ID, [ID, SEL, ID]).ptr; // return of ID is really NSIMAGE and third arg is NSSTRING
 		var swizzled_imageNamed = IMP(js_swizzled_imageNamed); //if use IMP_specific and have variadic IMP defined above, it keeps throwing expecting pointer blah blah. and it wouldnt accept me putting in variadic on this line if do use varidic, on this line it throws `Can't delcare a variadic callback function`
 		
-		//start make my class
-		var NSObject = objc_getClass('NSObject'); // because NSImage is child of NSObject ill do same for my class
-		class_NoitSwizzler = objc_allocateClassPair(NSObject, 'NoitSwizzler', 0);
-		console.info('class_NoitSwizzler:', class_NoitSwizzler, class_NoitSwizzler.toString(), uneval(class_NoitSwizzler), class_NoitSwizzler.isNull());
-		if (class_NoitSwizzler.isNull()) {
-			console.info('class_NoitSwizzler:', class_NoitSwizzler, class_NoitSwizzler.toString(), uneval(class_NoitSwizzler));
-			throw new Error('class_NoitSwizzler is NIL, so objc_allocateClassPair failed');
-		}
-		
-		var rez_class_addMethod = class_addMethod(class_NoitSwizzler, imageNamed, swizzled_imageNamed, '@@:@'); // because return of callback is NSImage so `ctypes.voidptr_t`, first argument is c_arg1__self which is `id` and c_arg2__id sel `SEL` and objc_arg1__NSStringPtr is `voidptr_t`
+		// add swizzled_imageNamed to NSImage
+		var selector_swizzled_imageNamed = sel_registerName('swizzled_imageNamed:');
+		var rez_class_addMethod = class_addMethod(NSImage, selector_swizzled_imageNamed, swizzled_imageNamed, '@@:@'); // because return of callback is NSImage so `ctypes.voidptr_t`, first argument is c_arg1__self which is `id` and c_arg2__id sel `SEL` and objc_arg1__NSStringPtr is `voidptr_t`
 		console.info('rez_class_addMethod:', rez_class_addMethod, rez_class_addMethod.toString(), uneval(rez_class_addMethod));
 		if (rez_class_addMethod != 1) {
 			throw new Error('rez_class_addMethod is not 1, so class_addMethod failed');
 		}
 		
-		objc_registerClassPair(class_NoitSwizzler); // return is void
-		
-		instance__class_NoitSwizzler = objc_msgSend(objc_msgSend(class_NoitSwizzler, alloc), init);
-		console.info('instance__class_NoitSwizzler:', instance__class_NoitSwizzler, instance__class_NoitSwizzler.toString(), uneval(instance__class_NoitSwizzler), instance__class_NoitSwizzler.isNull());
-		//end make my class
-		
-		//var NSImageClass = objc_msgSend(NSImage, classs); // this is same as NSImage. which i got from objc_getClass('NSImage')
-		
-		// "[instance__class_NoitSwizzler class]:" CData {  } "ctypes.voidptr_t(ctypes.UInt64("0x11b7d1370"))" "ctypes.voidptr_t(ctypes.UInt64("0x11b7d1370"))" false Scratchpad/1:141
-		// "[class_NoitSwizzler class]:" CData {  } "ctypes.voidptr_t(ctypes.UInt64("0x11b7d1370"))" "ctypes.voidptr_t(ctypes.UInt64("0x11b7d1370"))" false Scratchpad/1:144
-		// "class_NoitSwizzler:" CData {  } "ctypes.voidptr_t(ctypes.UInt64("0x11b7d1370"))" "ctypes.voidptr_t(ctypes.UInt64("0x11b7d1370"))" false Scratchpad/1:146
-		// "instance__class_NoitSwizzler:" CData {  } "ctypes.voidptr_t(ctypes.UInt64("0x10fcc93a0"))" "ctypes.voidptr_t(ctypes.UInt64("0x10fcc93a0"))" false
-		
-		var originalMethod = class_getInstanceMethod(NSImage, imageNamed); //verified i dont need to do this //may need to use `NSImageClass` instead of `NSImage`
+		var originalMethod = class_getClassMethod(NSImage, imageNamed); //verified i dont need to do this //may need to use `NSImageClass` instead of `NSImage`
 		console.info('originalMethod:', originalMethod, originalMethod.toString(), uneval(originalMethod));		
-		var alternateMethod = class_getInstanceMethod(class_NoitSwizzler, imageNamed); // may have to send into here instance__class_NoitSwizzler but i doubt it
+		var alternateMethod = class_getClassMethod(NSImage, selector_swizzled_imageNamed);
 		console.info('alternateMethod:', alternateMethod, alternateMethod.toString(), uneval(alternateMethod));
 		
 		//results of class_getClassMethod on both:
-		//"originalMethod:" CData { contents: CData } "objc_method.ptr(ctypes.UInt64("0x7fff72ee2fb8"))" "objc_method.ptr(ctypes.UInt64("0x7fff72ee2fb8"))" Scratchpad/1:148
-		//"alternateMethod:" CData {  } "objc_method.ptr(ctypes.UInt64("0x0"))" "objc_method.ptr(ctypes.UInt64("0x0"))"
+
 	
 		//results of class_getInstanceMethod on both:
-		//"originalMethod:" CData {  } "objc_method.ptr(ctypes.UInt64("0x0"))" "objc_method.ptr(ctypes.UInt64("0x0"))" Scratchpad/1:148
-		//"alternateMethod:" CData { contents: CData } "objc_method.ptr(ctypes.UInt64("0x11b4a53c8"))" "objc_method.ptr(ctypes.UInt64("0x11b4a53c8"))"
+
 	
 		//var rez = method_exchangeImplementations(originalMethod, alternateMethod);
 		// rez is void

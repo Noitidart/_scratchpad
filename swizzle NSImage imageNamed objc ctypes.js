@@ -51,8 +51,7 @@ var release = sel_registerName('release');
 
 // my globals
 var myIcon;
-var instance__class_NoitSwizzler;
-var class_NoitSwizzler;
+var swizzled_imageNamed; // have to make this global so it holds strong reference, otherwise the callback gets GC'ed and firefox will crash
 
 function shutdown() {
 	//put code here to unswizzle it
@@ -117,7 +116,7 @@ promise_makeMyNSImage.then(
 		}
 
 		//var IMP_specific = ctypes.FunctionType(ctypes.default_abi, ID, [ID, SEL, ID]).ptr; // return of ID is really NSIMAGE and third arg is NSSTRING
-		var swizzled_imageNamed = IMP(js_swizzled_imageNamed); //if use IMP_specific and have variadic IMP defined above, it keeps throwing expecting pointer blah blah. and it wouldnt accept me putting in variadic on this line if do use varidic, on this line it throws `Can't delcare a variadic callback function`
+		swizzled_imageNamed = IMP(js_swizzled_imageNamed); //if use IMP_specific and have variadic IMP defined above, it keeps throwing expecting pointer blah blah. and it wouldnt accept me putting in variadic on this line if do use varidic, on this line it throws `Can't delcare a variadic callback function`
 		
 		// add swizzled_imageNamed to NSImage
 		var NSImageMeta = objc_getMetaClass('NSImage'); // have to add on meta class otherwise class_getClassMethod will fail to find it

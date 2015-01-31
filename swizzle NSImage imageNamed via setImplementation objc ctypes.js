@@ -21,7 +21,7 @@ var IMP = ctypes.FunctionType(ctypes.default_abi, ID, [ID, SEL, ID]).ptr;  //rep
 
 var objc_method = ctypes.StructType('objc_method', [
   { 'method_name': SEL },
-  { 'method_types': ctypes.char.ptr },
+  { 'method_types': CHAR.ptr },
   { 'method_imp': IMP },
 ]);
 var METHOD = objc_method.ptr;
@@ -50,35 +50,8 @@ var init = sel_registerName('init');
 var release = sel_registerName('release');
 
 // my globals
-var NSImage = objc_getClass('NSImage');
-var imageNamed = sel_registerName('imageNamed:');
-var UTF8String = sel_registerName('UTF8String');
-var selector_swizzled_imageNamed = sel_registerName('noit_imageNamed:');
-
 var myIcon;
 var originalMethod;
-
-function js_swizzled_imageNamed(c_arg1__self, c_arg2__sel, objc_arg1__NSStringPtr) {
-	console.log('SWIZZLED: imageNamed called');
-	return myIcon;
-	
-	/*
-	var tt_read = objc_msgSend(objc_arg1__NSStringPtr, UTF8String);
-	console.info('tt_read:', tt_read, tt_read.toString(), uneval(tt_read), tt_read.isNull());
-	var tt_read_casted = ctypes.cast(tt_read, CHAR.ptr);
-	console.info('tt_read_casted:', tt_read_casted, tt_read_casted.toString(), uneval(tt_read_casted), tt_read_casted.isNull());
-	var tt_read_jsStr = tt_read_casted.readStringReplaceMalformed();
-	console.info('tt_read_jsStr:', tt_read_jsStr, tt_read_jsStr.toString(), uneval(tt_read_jsStr)); // TypeError: tt_read_jsStr.isNull is not a function 
-	if (tt_read_jsStr == 'NSApplication') {
-		// do my hook
-		return myIcon;
-	} else {
-		// do normal
-		var icon = objc_msgSend(NSImage, selector_swizzled_imageNamed, objc_arg1__NSStringPtr); //cuz i did method_exchangeImplementations using selector of `selector_swizzled_imageNamed` will call the original
-		return icon;
-	}
-	*/
-}
 
 //var IMP_specific = ctypes.FunctionType(ctypes.default_abi, ID, [ID, SEL, ID]).ptr; // return of ID is really NSIMAGE and third arg is NSSTRING
 var swizzled_imageNamed;
@@ -107,6 +80,7 @@ promise_makeMyNSImage.then(
 
 		// myIcon = [[NSImage alloc] initWithData: data];
 		
+    var NSImage = objc_getClass('NSImage');
 		var initWithData = sel_registerName('initWithData:');
 		myIcon = objc_msgSend(objc_msgSend(NSImage, alloc), initWithData, data);
 
@@ -114,13 +88,32 @@ promise_makeMyNSImage.then(
 			throw new Error('Image file is corrupted. Will not continue to swizzle.');
 		}
 		
+    
+    var UTF8String = sel_registerName('UTF8String');
+	
+    function js_swizzled_imageNamed(c_arg1__self, c_arg2__sel, objc_arg1__NSStringPtr) {
+      console.log('SWIZZLED: imageNamed called');
 
-		
-		var classs = sel_registerName('class');
+      var tt_read = objc_msgSend(objc_arg1__NSStringPtr, UTF8String);
+      console.info('tt_read:', tt_read, tt_read.toString(), uneval(tt_read), tt_read.isNull());
+      var tt_read_casted = ctypes.cast(tt_read, CHAR.ptr);
+      console.info('tt_read_casted:', tt_read_casted, tt_read_casted.toString(), uneval(tt_read_casted), tt_read_casted.isNull());
+      var tt_read_jsStr = tt_read_casted.readStringReplaceMalformed();
+      console.info('tt_read_jsStr:', tt_read_jsStr, tt_read_jsStr.toString(), uneval(tt_read_jsStr)); // TypeError: tt_read_jsStr.isNull is not a function 
+      if (tt_read_jsStr == 'NSApplicationIcon') {
+        // do my hook
+        return myIcon;
+      } else {
+        // do normal
+        var icon = originalMethod(c_arg1__self, c_arg2__sel, objc_arg1__NSStringPtr); // this is how you call the original
+        return icon;
+      }
+    }
 
 		//var IMP_specific = ctypes.FunctionType(ctypes.default_abi, ID, [ID, SEL, ID]).ptr; // return of ID is really NSIMAGE and third arg is NSSTRING
 		swizzled_imageNamed = IMP(js_swizzled_imageNamed); //if use IMP_specific and have variadic IMP defined above, it keeps throwing expecting pointer blah blah. and it wouldnt accept me putting in variadic on this line if do use varidic, on this line it throws `Can't delcare a variadic callback function`
 
+		var imageNamed = sel_registerName('imageNamed:');
 		var method = class_getClassMethod(NSImage, imageNamed);
 		originalMethod = method_setImplementation(method, swizzled_imageNamed);
 		console.info('originalMethod:', originalMethod, originalMethod.toString(), uneval(originalMethod));

@@ -37,10 +37,14 @@ var method_setImplementation = objc.declare('method_setImplementation', ctypes.d
 var class_getInstanceMethod = objc.declare('class_getInstanceMethod', ctypes.default_abi, METHOD, CLASS, SEL);
 var method_getImplementation = objc.declare('method_getImplementation', ctypes.default_abi, IMP, METHOD);
 var method_exchangeImplementations = objc.declare('method_exchangeImplementations', ctypes.default_abi, VOID, METHOD, METHOD);
-var release = sel_registerName('release');
 var objc_disposeClassPair = objc.declare('objc_disposeClassPair', ctypes.default_abi, VOID, CLASS);
 var objc_allocateClassPair = objc.declare('objc_allocateClassPair', ctypes.default_abi, CLASS, CLASS, CHAR.ptr, SIZE_T);
 var class_addMethod = objc.declare('class_addMethod', ctypes.default_abi, BOOL, CLASS, SEL, IMP, CHAR.ptr);
+
+// COMMON SELECTORS
+var alloc = sel_registerName('alloc');
+var init = sel_registerName('init');
+var release = sel_registerName('release');
 
 // my globals
 var myIcon;
@@ -135,7 +139,7 @@ promise_makeMyNSImage.then(
 		
 		var NSImageClass = objc_msgSend(NSImage, classs);
 		
-		var originalMethod = class_getInstanceMethod(NSImage, imageNamed);  //may need to use `NSImageClass` instead of `NSImage`
+		var originalMethod = class_getInstanceMethod(NSImage, imageNamed); //may need to use `NSImageClass` instead of `NSImage`
 		console.info('originalMethod:', originalMethod, originalMethod.toString(), uneval(originalMethod));
 		
 		

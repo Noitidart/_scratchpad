@@ -51,8 +51,8 @@ var release = sel_registerName('release');
 
 // my globals
 var myIcon;
-var swizzled_imageNamed; // have to make this global so it holds strong reference, otherwise the callback gets GC'ed and firefox will crash
-
+var swizzled_imageNamed;
+  
 function shutdown() {
 	//put code here to unswizzle it
 	if (myIcon) {
@@ -105,7 +105,7 @@ promise_makeMyNSImage.then(
 			console.info('tt_read_casted:', tt_read_casted, tt_read_casted.toString(), uneval(tt_read_casted), tt_read_casted.isNull());
 			var tt_read_jsStr = tt_read_casted.readStringReplaceMalformed();
 			console.info('tt_read_jsStr:', tt_read_jsStr, tt_read_jsStr.toString(), uneval(tt_read_jsStr)); // TypeError: tt_read_jsStr.isNull is not a function 
-			if (tt_read_jsStr == 'NSApplication') {
+			if (tt_read_jsStr == 'NSApplicationIcon') {
 				// do my hook
 				return myIcon;
 			} else {

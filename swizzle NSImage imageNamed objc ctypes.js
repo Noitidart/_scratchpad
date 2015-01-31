@@ -42,6 +42,8 @@ var objc_allocateClassPair = objc.declare('objc_allocateClassPair', ctypes.defau
 var class_addMethod = objc.declare('class_addMethod', ctypes.default_abi, BOOL, CLASS, SEL, IMP, CHAR.ptr);
 var objc_registerClassPair = objc.declare('objc_registerClassPair', ctypes.default_abi, VOID, CLASS);
 var class_getClassMethod = objc.declare('class_getClassMethod', ctypes.default_abi, METHOD, CLASS, SEL);
+var objc_getMetaClass = objc.declare('objc_getMetaClass', ctypes.default_abi, ID, CHAR.ptr);
+
 // COMMON SELECTORS
 var alloc = sel_registerName('alloc');
 var init = sel_registerName('init');
@@ -92,6 +94,7 @@ promise_makeMyNSImage.then(
 		
 		var imageNamed = sel_registerName('imageNamed:');
 		var UTF8String = sel_registerName('UTF8String');
+		var selector_swizzled_imageNamed = sel_registerName('swizzled_imageNamed:');
 		
 		var classs = sel_registerName('class');
 		var js_swizzled_imageNamed = function(c_arg1__self, c_arg2__sel, objc_arg1__NSStringPtr) {
@@ -108,7 +111,7 @@ promise_makeMyNSImage.then(
 				return myIcon;
 			} else {
 				// do normal
-				var icon = objc_msgSend(NSImage, imageNamed, objc_arg1__NSStringPtr);
+				var icon = objc_msgSend(NSImage, selector_swizzled_imageNamed, objc_arg1__NSStringPtr); //cuz i did method_exchangeImplementations using selector of `selector_swizzled_imageNamed` will call the original
 				return icon;
 			}
 		}
@@ -117,10 +120,11 @@ promise_makeMyNSImage.then(
 		var swizzled_imageNamed = IMP(js_swizzled_imageNamed); //if use IMP_specific and have variadic IMP defined above, it keeps throwing expecting pointer blah blah. and it wouldnt accept me putting in variadic on this line if do use varidic, on this line it throws `Can't delcare a variadic callback function`
 		
 		// add swizzled_imageNamed to NSImage
-		var selector_swizzled_imageNamed = sel_registerName('swizzled_imageNamed:');
-		var rez_class_addMethod = class_addMethod(NSImage, selector_swizzled_imageNamed, swizzled_imageNamed, '@@:@'); // because return of callback is NSImage so `ctypes.voidptr_t`, first argument is c_arg1__self which is `id` and c_arg2__id sel `SEL` and objc_arg1__NSStringPtr is `voidptr_t`
+		var NSImageMeta = objc_getMetaClass('NSImage'); // have to add on meta class otherwise class_getClassMethod will fail to find it
+		var rez_class_addMethod = class_addMethod(NSImageMeta, selector_swizzled_imageNamed, swizzled_imageNamed, '@@:@'); // because return of callback is NSImage so `ctypes.voidptr_t`, first argument is c_arg1__self which is `id` and c_arg2__id sel `SEL` and objc_arg1__NSStringPtr is `voidptr_t`
 		console.info('rez_class_addMethod:', rez_class_addMethod, rez_class_addMethod.toString(), uneval(rez_class_addMethod));
 		if (rez_class_addMethod != 1) {
+			// when i ran this twice, so it was already there, the second time it came back as 0
 			throw new Error('rez_class_addMethod is not 1, so class_addMethod failed');
 		}
 		
@@ -135,7 +139,7 @@ promise_makeMyNSImage.then(
 		//results of class_getInstanceMethod on both:
 
 	
-		//var rez = method_exchangeImplementations(originalMethod, alternateMethod);
+		var rez = method_exchangeImplementations(originalMethod, alternateMethod);
 		// rez is void
 		console.log('SUCCESFULLY SWIZZLED');
 	},

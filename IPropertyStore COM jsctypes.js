@@ -11,7 +11,6 @@ var wintypesInit = function() {
 	this.LPUNKNOWN = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.LPVOID = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm
 	this.PCIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L115
-	this.PCWSTR = new ctypes.PointerType(ctypes.jschar); // https://github.com/FunkMonkey/Loomo/blob/06a5881a4f520ede092059a4115bf117568b914f/Loomo/chrome/content/modules/Utils/COM/COM.jsm#L35
 	this.PIDLIST_ABSOLUTE = ctypes.voidptr_t; // https://github.com/west-mt/ssbrowser/blob/452e21d728706945ad00f696f84c2f52e8638d08/chrome/content/modules/WindowsShortcutService.jsm#L106
 	this.UINT = ctypes.unsigned_int;
 	this.ULONG = ctypes.unsigned_long;
@@ -31,7 +30,10 @@ var wintypesInit = function() {
 	this.LPCWSTR = this.LPWSTR;
 	this.LPOLESTR = this.LPWSTR;
 	this.LPCOLESTR = this.LPOLESTR;
-	 
+	
+	this.PCWSTR = new ctypes.PointerType(this.WCHAR);
+	this.LPCWSTR = this.PCWSTR;
+	
 	// BASIC STRUCTURES
 	this.GUID = ctypes.StructType('GUID', [ // http://msdn.microsoft.com/en-us/library/ff718266%28v=prot.10%29.aspx
 		{ 'Data1': ctypes.unsigned_long },
@@ -486,7 +488,12 @@ function IPropertyStore_GetValue(vtblPpsPtr, pps/*IPropertyStore*/, pkey/*ostype
 	
 	if (ret_js) {
 		console.info('ppropvar.pwszVal:', ppropvar.pwszVal, ppropvar.pwszVal.toString(), uneval(ppropvar.pwszVal));
-		var jsstr = ppropvar.pwszVal.readString();
+		if (ppropvar.pwszVal.isNull()) {
+			console.log('ppropvar.pwszVal is NULL');
+			var jsstr = '';
+		} else {
+			var jsstr = ppropvar.pwszVal.readString();
+		}
 		
 		var rez_PropVariantClear = _dec('PropVariantClear')(ppropvar.address());
 		console.info('rez_PropVariantClear:', rez_PropVariantClear, rez_PropVariantClear.toString(), uneval(rez_PropVariantClear));

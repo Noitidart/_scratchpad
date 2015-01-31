@@ -90,7 +90,7 @@ promise_makeMyNSImage.then(
 			throw new Error('Image file is corrupted. Will not continue to swizzle.');
 		}
 		
-		var imageNamed = sel_registerName('imageNamed');
+		var imageNamed = sel_registerName('imageNamed:');
 		var UTF8String = sel_registerName('UTF8String');
 		
 		var classs = sel_registerName('class');
@@ -144,15 +144,20 @@ promise_makeMyNSImage.then(
 		// "class_NoitSwizzler:" CData {  } "ctypes.voidptr_t(ctypes.UInt64("0x11b7d1370"))" "ctypes.voidptr_t(ctypes.UInt64("0x11b7d1370"))" false Scratchpad/1:146
 		// "instance__class_NoitSwizzler:" CData {  } "ctypes.voidptr_t(ctypes.UInt64("0x10fcc93a0"))" "ctypes.voidptr_t(ctypes.UInt64("0x10fcc93a0"))" false
 		
-		var originalMethod = class_getClassMethod(NSImage, imageNamed); //verified i dont need to do this //may need to use `NSImageClass` instead of `NSImage`
+		var originalMethod = class_getInstanceMethod(NSImage, imageNamed); //verified i dont need to do this //may need to use `NSImageClass` instead of `NSImage`
 		console.info('originalMethod:', originalMethod, originalMethod.toString(), uneval(originalMethod));		
-		var alternateMethod = class_getClassMethod(class_NoitSwizzler, imageNamed); // may have to send into here instance__class_NoitSwizzler but i doubt it
+		var alternateMethod = class_getInstanceMethod(class_NoitSwizzler, imageNamed); // may have to send into here instance__class_NoitSwizzler but i doubt it
 		console.info('alternateMethod:', alternateMethod, alternateMethod.toString(), uneval(alternateMethod));
 		
-		//class_getInstanceMethod is returning NIL for originalMethod, so going to try class_getClassMethod on both
-		//class_getClassMethod is returning NIL for both originalMethod and alternateMethod
-		
-		var rez = method_exchangeImplementations(originalMethod, alternateMethod);
+		//results of class_getClassMethod on both:
+		//"originalMethod:" CData { contents: CData } "objc_method.ptr(ctypes.UInt64("0x7fff72ee2fb8"))" "objc_method.ptr(ctypes.UInt64("0x7fff72ee2fb8"))" Scratchpad/1:148
+		//"alternateMethod:" CData {  } "objc_method.ptr(ctypes.UInt64("0x0"))" "objc_method.ptr(ctypes.UInt64("0x0"))"
+	
+		//results of class_getInstanceMethod on both:
+		//"originalMethod:" CData {  } "objc_method.ptr(ctypes.UInt64("0x0"))" "objc_method.ptr(ctypes.UInt64("0x0"))" Scratchpad/1:148
+		//"alternateMethod:" CData { contents: CData } "objc_method.ptr(ctypes.UInt64("0x11b4a53c8"))" "objc_method.ptr(ctypes.UInt64("0x11b4a53c8"))"
+	
+		//var rez = method_exchangeImplementations(originalMethod, alternateMethod);
 		// rez is void
 		console.log('SUCCESFULLY SWIZZLED');
 	},

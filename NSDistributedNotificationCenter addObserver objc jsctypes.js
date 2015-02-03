@@ -21,7 +21,7 @@ var CLASS = OBJC_CLASS.ptr;
 var SEL = OBJC_SELECTOR.ptr;
 
 // CONSTANTS
-var NIL = ctypes.voidptr_t(ctypes.UInt64('0x0'));
+var NIL = ctypes.cast(ctypes.uint64_t(0x0), ctypes.voidptr_t);
 
 // FUNCTIONS
 /* https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ObjCRuntimeRef/index.html#//apple_ref/c/func/objc_getClass
@@ -137,11 +137,11 @@ var pool = objc_msgSend(objc_msgSend(NSAutoreleasePool, alloc), init);
 */
 
 var NSObject = objc_getClass('NSObject');
-var class_NoitidartsOnScreenSaverStartedDelegateClass = objc_allocateClassPair(NSObject, 'NoitidartsOnScreenSaverStartedDelegateClass', 0); //delegate is what callback is in js
-console.info('class_NoitidartsOnScreenSaverStartedDelegateClass:', class_NoitidartsOnScreenSaverStartedDelegateClass, class_NoitidartsOnScreenSaverStartedDelegateClass.toString(), uneval(class_NoitidartsOnScreenSaverStartedDelegateClass), class_NoitidartsOnScreenSaverStartedDelegateClass.isNull());
-if (class_NoitidartsOnScreenSaverStartedDelegateClass.isNull()) {
-	console.info('class_NoitidartsOnScreenSaverStartedDelegateClass:', class_NoitidartsOnScreenSaverStartedDelegateClass, class_NoitidartsOnScreenSaverStartedDelegateClass.toString(), uneval(class_NoitidartsOnScreenSaverStartedDelegateClass));
-	throw new Error('class_NoitidartsOnScreenSaverStartedDelegateClass is NIL, so objc_allocateClassPair failed');
+var class_NoitOnScrnSvrDelgt = objc_allocateClassPair(NSObject, 'NoitOnScrnSvrDelgt', 0); //delegate is what callback is in js
+console.info('class_NoitOnScrnSvrDelgt:', class_NoitOnScrnSvrDelgt, class_NoitOnScrnSvrDelgt.toString(), uneval(class_NoitOnScrnSvrDelgt), class_NoitOnScrnSvrDelgt.isNull());
+if (class_NoitOnScrnSvrDelgt.isNull()) {
+	console.info('class_NoitOnScrnSvrDelgt:', class_NoitOnScrnSvrDelgt, class_NoitOnScrnSvrDelgt.toString(), uneval(class_NoitOnScrnSvrDelgt));
+	throw new Error('class_NoitOnScrnSvrDelgt is NIL, so objc_allocateClassPair failed');
 }
 //
 var ftype_onScreenSaverStarted = ctypes.FunctionType(ctypes.default_abi, VOID, [ID, SEL, NSNOTIFICATION.ptr]);
@@ -153,16 +153,16 @@ function jsCallback_onScreenSaverStarted(c_arg1__self, c_arg2__sel, objc_arg1__N
 
 var callback_onScreenSaverStarted = ftype_onScreenSaverStarted.ptr(jsCallback_onScreenSaverStarted);
 //
-var rez_class_addMethod = class_addMethod(class_NoitidartsOnScreenSaverStartedDelegateClass, notificationSelector_onScreenSaverStarted, callback_onScreenSaverStarted, 'v@:@'); // because return of callback is void, first argument is c_arg1__self which is `id` and c_arg2__id sel `SEL` and objc_arg1__NSNotificationPtr is `voidptr_t` // so per this page: https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html#//apple_ref/doc/uid/TP40008048-CH100 // and this chat: https://gist.github.com/Noitidart/21b202611c62d74fecd0
+var rez_class_addMethod = class_addMethod(class_NoitOnScrnSvrDelgt, notificationSelector_onScreenSaverStarted, callback_onScreenSaverStarted, 'v@:@'); // because return of callback is void, first argument is c_arg1__self which is `id` and c_arg2__id sel `SEL` and objc_arg1__NSNotificationPtr is `voidptr_t` // so per this page: https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html#//apple_ref/doc/uid/TP40008048-CH100 // and this chat: https://gist.github.com/Noitidart/21b202611c62d74fecd0
 console.info('rez_class_addMethod:', rez_class_addMethod, rez_class_addMethod.toString(), uneval(rez_class_addMethod));
 if (rez_class_addMethod != 1) {
 	throw new Error('rez_class_addMethod is not 1, so class_addMethod failed');
 }
 
-objc_registerClassPair(class_NoitidartsOnScreenSaverStartedDelegateClass);
+objc_registerClassPair(class_NoitOnScrnSvrDelgt);
 
-var instance__class_NoitidartsOnScreenSaverStartedDelegateClass = objc_msgSend(objc_msgSend(class_NoitidartsOnScreenSaverStartedDelegateClass, alloc), init);
-console.info('instance__class_NoitidartsOnScreenSaverStartedDelegateClass:', instance__class_NoitidartsOnScreenSaverStartedDelegateClass, instance__class_NoitidartsOnScreenSaverStartedDelegateClass.toString(), uneval(instance__class_NoitidartsOnScreenSaverStartedDelegateClass), instance__class_NoitidartsOnScreenSaverStartedDelegateClass.isNull());
+var instance__class_NoitOnScrnSvrDelgt = objc_msgSend(objc_msgSend(class_NoitOnScrnSvrDelgt, alloc), init);
+console.info('instance__class_NoitOnScrnSvrDelgt:', instance__class_NoitOnScrnSvrDelgt, instance__class_NoitOnScrnSvrDelgt.toString(), uneval(instance__class_NoitOnScrnSvrDelgt), instance__class_NoitOnScrnSvrDelgt.isNull());
 /*
 objc_msgSend(pool, release); //maybe do this instead on shutdown?
 */
@@ -170,7 +170,7 @@ objc_msgSend(pool, release); //maybe do this instead on shutdown?
 
 // [NSDistCent addObserver:selector:name:object: ***, ***, notificationName_****, NIL]
 var addObserver = sel_registerName('addObserver:selector:name:object:')
-var rez_addObserver = objc_msgSend(NSDistCent, addObserver, instance__class_NoitidartsOnScreenSaverStartedDelegateClass, notificationSelector_onScreenSaverStarted, notificationName_onScreenSaverStarted, NIL); // addObserver returns void so no need for `var rez_addObserver = `
+var rez_addObserver = objc_msgSend(NSDistCent, addObserver, instance__class_NoitOnScrnSvrDelgt, notificationSelector_onScreenSaverStarted, notificationName_onScreenSaverStarted, NIL); // addObserver returns void so no need for `var rez_addObserver = `
 console.info('rez_addObserver:', rez_addObserver, rez_addObserver.toString(), uneval(rez_addObserver), rez_addObserver.isNull());
 // WEIRD: ASK ABOUT THIS: rez_addObserver is being returned as not null, its usually something like `ctypes.voidptr_t(ctypes.UInt64(0x30004))` docs say it should return void
 // verified: if run addObserver twice, it returns the same thing, it really adds two observers, the return value is same in both situations, doing a single removeObserver removes both
@@ -178,21 +178,21 @@ console.info('rez_addObserver:', rez_addObserver, rez_addObserver.toString(), un
 function removeObsAndClose() {
 	// [NSDistCent removeObserver:name:object: notificationName_****, NIL]
 	var removeObserver = sel_registerName('removeObserver:name:object:')
-	var rez_removeObserver = objc_msgSend(NSDistCent, removeObserver, instance__class_NoitidartsOnScreenSaverStartedDelegateClass, notificationName_onScreenSaverStarted, NIL);
+	var rez_removeObserver = objc_msgSend(NSDistCent, removeObserver, instance__class_NoitOnScrnSvrDelgt, notificationName_onScreenSaverStarted, NIL);
 	console.info('rez_removeObserver:', rez_removeObserver, rez_removeObserver.toString(), uneval(rez_removeObserver), rez_removeObserver.isNull());
 	// verified: rez_removeObserver is void, it is returned as `ctypes.voidptr_t(ctypes.UInt64('0x0'))`
 	// verified if i remove twice then rez_removeObserver is not null
 	if (!rez_removeObserver.isNull()) {
 		console.error('WARNING: removeObserver failed as rez_removeObserver was NOT null:', 'rez_removeObserver:', rez_removeObserver, rez_removeObserver.toString());
 	}
-	var rez_objc_disposeClassPair = objc_disposeClassPair(class_NoitidartsOnScreenSaverStartedDelegateClass);
+	var rez_objc_disposeClassPair = objc_disposeClassPair(class_NoitOnScrnSvrDelgt);
 	console.info('rez_objc_disposeClassPair:', rez_objc_disposeClassPair, rez_objc_disposeClassPair.toString(), uneval(rez_objc_disposeClassPair), rez_objc_disposeClassPair.isNull());
 	
 	// [notificationName_**** release]
 	objc_msgSend(notificationName_onScreenSaverStarted, release);
 
-	// [instance__class_NoitidartsOnScreenSaverStartedDelegateClass release]
-	objc_msgSend(instance__class_NoitidartsOnScreenSaverStartedDelegateClass, release);
+	// [instance__class_NoitOnScrnSvrDelgt release]
+	objc_msgSend(instance__class_NoitOnScrnSvrDelgt, release);
 	
 	objc.close();
 }

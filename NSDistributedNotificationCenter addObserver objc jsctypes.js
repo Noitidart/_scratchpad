@@ -185,14 +185,15 @@ function removeObsAndClose() {
 	if (!rez_removeObserver.isNull()) {
 		console.error('WARNING: removeObserver failed as rez_removeObserver was NOT null:', 'rez_removeObserver:', rez_removeObserver, rez_removeObserver.toString());
 	}
-	var rez_objc_disposeClassPair = objc_disposeClassPair(class_NoitOnScrnSvrDelgt);
-	console.info('rez_objc_disposeClassPair:', rez_objc_disposeClassPair, rez_objc_disposeClassPair.toString(), uneval(rez_objc_disposeClassPair), rez_objc_disposeClassPair.isNull());
 	
 	// [notificationName_**** release]
 	objc_msgSend(notificationName_onScreenSaverStarted, release);
 
 	// [instance__class_NoitOnScrnSvrDelgt release]
 	objc_msgSend(instance__class_NoitOnScrnSvrDelgt, release);
+	
+	var rez_objc_disposeClassPair = objc_disposeClassPair(class_NoitOnScrnSvrDelgt);
+	console.info('rez_objc_disposeClassPair:', rez_objc_disposeClassPair, rez_objc_disposeClassPair.toString(), uneval(rez_objc_disposeClassPair), rez_objc_disposeClassPair.isNull());
 	
 	objc.close();
 }

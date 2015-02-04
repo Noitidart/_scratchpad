@@ -116,11 +116,11 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 					var promiseAll_itrSubdirs = Promise.all(promiseArr_itrSubdirs);
 					promiseAll_itrSubdirs.then(
 						function(aVal) {
-							console.log('Fullfilled - promiseArr_itrSubdirs - ', 'meaning finished iterating all subdirs in dir of:', pathToDir, 'aVal:', aVal);
+							console.log('Fullfilled - promiseArr_itrSubdirs - ', 'meaning finished iterating all entries INCLUDING subitering subdirs in dir of:', pathToDir, 'aVal:', aVal);
 							deferred_enumChildEntries.resolve('done iterating all - including subdirs iteration is done - in pathToDir of: ' + pathToDir);
 						},
 						function(aReason) {
-							var rejObj = {name:'promiseAll_itrSubdirs', aReason:aReason, aExtra:'meaning finished iterating all subdirs in dir of pathToDir', pathToDir:pathToDir};
+							var rejObj = {name:'promiseAll_itrSubdirs', aReason:aReason, aExtra:'meaning finished iterating all entries INCLUDING subitering subdirs in dir of pathToDir', pathToDir:pathToDir};
 							console.error('Rejected - promiseArr_itrSubdirs - ', rejObj);
 							deferred_enumChildEntries.reject(rejObj);
 						}
@@ -199,8 +199,6 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 			console.info('smallestDepth:', smallestDepth);
 			console.info('largestDepth:', largestDepth);
 			console.log('stuffToMakeAtDepth', stuffToMakeAtDepth);
-			var deferred_allStuffsMadeForCollectedPaths = new Deferred();
-			var promise_allStuffsMadeForCollectedPaths = deferred_allStuffsMadeForCollectedPaths.promise;
 
 			// start - trigger make promises
 			var curDepth = smallestDepth;
@@ -229,7 +227,7 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 							curDepth++;
 							makeStuffsFor_CurDepth();
 						} else {
-							deferred_allStuffsMadeForCollectedPaths.resolve('all depths made up to and including:' + largestDepth);
+							deferred_duplicateDirAndContents.resolve('all depths made up to and including:' + largestDepth);
 						}
 					},
 					function(aReason) {
@@ -239,7 +237,7 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 							curDepth: curDepth
 						};
 						console.error('Rejected - promiseAll_madeForCurDepth - ', rejObj);
-						deferred_allStuffsMadeForCollectedPaths.reject(rejObj); // do this instead of throw
+						deferred_duplicateDirAndContents.reject(rejObj); // do this instead of throw
 						//throw rejObj; // throw here as its not final // stupid of me, just dont throw so it rejects gracefully
 					}
 				).catch(
@@ -251,29 +249,7 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 			};
 			makeStuffsFor_CurDepth(); //start the making loop
 			// end - trigger make promises
-			return promise_allStuffsMadeForCollectedPaths; //this is the final then, we leave that to the dev who is using this helper function, so i dont return .then, i return the promise, the dev handles the .then, so commented out following block:
-				/*
-				return promise_allStuffsMadeForCollectedPaths.then(
-					function(aVal) {
-						console.log('Fullfilled - promise_allStuffsMadeForCollectedPaths - ', aVal);
-						// this line here is stuipd: `deferred_allStuffsMadeForCollectedPaths.resolve('promise for enumChildEntries completed succesfully');` as doing that resolve would get into this resolver, meaning we're already in its resolver duhh
-					},
-					function(aReason) {
-						var rejObj = {
-							name: 'promise_allStuffsMadeForCollectedPaths',
-							aReason: aReason
-						};
-						console.error('Rejected - promise_allStuffsMadeForCollectedPaths - ', rejObj);
-						deferred_allStuffsMadeForCollectedPaths.reject(rejObj); // do this instead of throw
-						//throw rejObj; // throw here as its not final // stupid of me, just dont throw so it rejects gracefully
-					}
-				).catch(
-					function(aCaught) {
-						console.error('Caught - promise_allStuffsMadeForCollectedPaths - ', aCaught);
-						throw aCaught; //throw here as its not final catch
-					}
-				);
-				*/
+			//return here is useless, we need to deal with `deferred_duplicateDirAndContents` //return promise_allStuffsMadeForCollectedPaths; //this is the final then, we leave that to the dev who is using this helper function, so i dont return .then, i return the promise, the dev handles the .then, so commented out following block:
 		},
 		function(aReason) {
 			var rejObj = {
@@ -300,20 +276,20 @@ var pathToTarget = OS.Path.join(OS.Constants.Path.desktopDir, 'trgt folder');
 //var pathToCreate = OS.Path.join(OS.Constants.Path.desktopDir, 'myff.app'); // does not have to exist, it will be created, IF run enumChildEntries with runDelegateOnRoot true. ELSE this pathToCreate must exist.
 var pathToCreate = OS.Path.join(OS.Constants.Path.desktopDir, 'deep copied dir'); // does not have to exist, it will be created, IF run enumChildEntries with runDelegateOnRoot true. ELSE this pathToCreate must exist.
 
-var promise_duplicateDirAndContents = duplicateDirAndContents(pathToTarget, pathToCreate, 0, false);
-promise_duplicateDirAndContents.then(
+var promise_dupeTrgFol = duplicateDirAndContents(pathToTarget, pathToCreate, 0, false);
+promise_dupeTrgFol.then(
 	function(aVal) {
-		console.log('Fullfilled - promise_duplicateDirAndContents - ', aVal);
+		console.log('Fullfilled - promise_dupeTrgFol - ', aVal);
 		return 'promise for enumChildEntries completed succesfully';
 	},
 	function(aReason) {
-		var rejObj = {name:'promise_duplicateDirAndContents', aReason:aReason};
-		console.error('Rejected - promise_duplicateDirAndContents - ', rejObj);
+		var rejObj = {name:'promise_dupeTrgFol', aReason:aReason};
+		console.error('Rejected - promise_dupeTrgFol - ', rejObj);
 		//throw rejObj; // //dont throw here as its final
 	}
 ).catch(
 	function(aCaught) {
-		console.error('Caught - promise_duplicateDirAndContents - ', aCaught);
+		console.error('Caught - promise_dupeTrgFol - ', aCaught);
 		//throw aCaught; //dont throw here as its final
 	}
 );

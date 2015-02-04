@@ -5,7 +5,7 @@
 var exePath = FileUtils.getFile('XREExeF', []).path;
 var path_iniDir = OS.Constants.Path.userApplicationDataDir;
 
-
+// helper functions
 var vcLs30; //jsBool for if this ff version is < 30
 function getVcLs30() {
 	if (vcLs30 === null || vcLs30 === undefined) {
@@ -21,7 +21,49 @@ function getTxtDecodr() {
 	return txtDecodr;
 }
 
-// helper functions
+function Deferred() {
+	// this function gets the Deferred object depending on what is available, if not available it throws
+	
+	if (Promise && Promise.defer) {
+		//need import of Promise.jsm for example: Cu.import('resource:/gree/modules/Promise.jsm');
+		return Promise.defer();
+	} else if (PromiseUtils && PromiseUtils.defer) {
+		//need import of PromiseUtils.jsm for example: Cu.import('resource:/gree/modules/PromiseUtils.jsm');
+		return PromiseUtils.defer();
+	} else {
+		try {
+			/* A method to resolve the associated Promise with the value passed.
+			 * If the promise is already settled it does nothing.
+			 *
+			 * @param {anything} value : This value is used to resolve the promise
+			 * If the value is a Promise then the associated promise assumes the state
+			 * of Promise passed as value.
+			 */
+			this.resolve = null;
+
+			/* A method to reject the assocaited Promise with the value passed.
+			 * If the promise is already settled it does nothing.
+			 *
+			 * @param {anything} reason: The reason for the rejection of the Promise.
+			 * Generally its an Error object. If however a Promise is passed, then the Promise
+			 * itself will be the reason for rejection no matter the state of the Promise.
+			 */
+			this.reject = null;
+
+			/* A newly created Pomise object.
+			 * Initially in pending state.
+			 */
+			this.promise = new Promise(function(resolve, reject) {
+				this.resolve = resolve;
+				this.reject = reject;
+			}.bind(this));
+			Object.freeze(this);
+		} catch (ex) {
+			throw new Error('Promise/Deferred is not available');
+		}
+	}
+}
+
 function read_encoded(path, options) {
 	// because the options.encoding was introduced only in Fx30, this function enables previous Fx to use it
 	// must pass encoding to options object, same syntax as OS.File.read >= Fx30

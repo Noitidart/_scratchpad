@@ -54,7 +54,6 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 	var deferred_enumChildEntries = new Deferred();
 	var promise_enumChildEntries = deferred_enumChildEntries.promise;
 
-	console.log('running enumChildEntries on: ' + pathToDir);
 	if (depth === undefined || depth === undefined) {
 		// at root pathDir
 		depth = 0;
@@ -73,15 +72,13 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 	} else {
 		depth++;
 	}
-	console.log('now, depth:', depth);
+	
 	if ((max_depth === null || max_depth === undefined) || ( depth <= max_depth)) {
-		console.log('continue to iterate because either max_depth not exceeded, or max_depth set to go infinite', 'max_depth:', max_depth, 'depth:', depth);
 		var iterrator = new OS.File.DirectoryIterator(pathToDir);
 		var subdirs = [];
 		var promise_batch = iterrator.nextBatch();
 		promise_batch.then(
 			function(aVal) {
-				console.info('Fullfilled - promise_batch - ', aVal);
 				for (var i = 0; i < aVal.length; i++) {
 					if (aVal[i].isDir) {
 						subdirs.push(aVal[i]);
@@ -102,7 +99,6 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 					var promiseAll_itrSubdirs = Promise.all(promiseArr_itrSubdirs);
 					promiseAll_itrSubdirs.then(
 						function(aVal) {
-							console.log('Fullfilled - promiseArr_itrSubdirs - ', 'meaning finished iterating all entries INCLUDING subitering subdirs in dir of:', pathToDir, 'aVal:', aVal);
 							deferred_enumChildEntries.resolve('done iterating all - including subdirs iteration is done - in pathToDir of: ' + pathToDir);
 						},
 						function(aReason) {
@@ -112,17 +108,14 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 								aExtra: 'meaning finished iterating all entries INCLUDING subitering subdirs in dir of pathToDir',
 								pathToDir: pathToDir
 							};
-							console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
 							deferred_enumChildEntries.reject(rejObj);
 						}
 					).catch(
 						function(aCaught) {
-							console.error('Caught - promiseAll_itrSubdirs - ', aCaught);
 							throw aCaught; //throw here as its not final catch
 						}
 					);
 				} else {
-					console.log('finished enumerating through all entries in dir, there were no subdirectories in:', pathToDir);
 					deferred_enumChildEntries.resolve('done iterating all - no subdirs - in pathToDir of: ' + pathToDir);
 				}
 			},
@@ -134,17 +127,14 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 				if (aReason.winLastError == 2) {
 					rejObj.probableReason = 'targetPath dir doesnt exist';
 				}
-				console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
 				deferred_enumChildEntries.reject(rejObj);
 			}
 		).catch(
 			function(aCaught) {
-				console.error('Caught - promise_batch - ', aCaught);
-				throw aCaught; //throw here as its not final catch
+				throw aCaught;
 			}
 		);
 	} else {
-		console.log('max depth exceeded', 'max_depth:', max_depth, 'depth:', depth);
 		deferred_enumChildEntries.resolve('max depth exceeded, so will not do it, at pathToDir of: ' + pathToDir);
 	}
 
@@ -167,8 +157,6 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 	var deferred_duplicateDirAndContents = new Deferred();
 	var promise_duplicateDirAndContents = deferred_duplicateDirAndContents.promise;
 
-	var totalEntriesEnummed = 0; //meaning total number of entries ran delegate on, includes root dir if runDelegateOnRoot set to true
-
 	var stuffToMakeAtDepth = [];
 	var smallestDepth = 0;
 	var largestDepth = 0;
@@ -181,7 +169,6 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 		if (depth > largestDepth) {
 			largestDepth = depth;
 		}
-		totalEntriesEnummed++;
 		stuffToMakeAtDepth.push({
 			depth: depth,
 			isDir: entry.isDir,
@@ -192,12 +179,6 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 	var promise_collectAllPathsInSrcDir = enumChildEntries(pathToSrcDir, delegate_handleEntry, max_depth, !targetDirExists);
 	promise_collectAllPathsInSrcDir.then(
 		function(aVal) {
-			console.log('Fullfilled - promise_collectAllPathsInSrcDir - ', aVal);
-			console.info('totalEntriesEnummed:', totalEntriesEnummed);
-			console.info('smallestDepth:', smallestDepth);
-			console.info('largestDepth:', largestDepth);
-			console.log('stuffToMakeAtDepth', stuffToMakeAtDepth);
-
 			// start - promise generator func
 			var curDepth = smallestDepth;
 			var makeStuffsFor_CurDepth = function() {
@@ -205,7 +186,6 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 				for (var i = 0; i < stuffToMakeAtDepth.length; i++) {
 					if (stuffToMakeAtDepth[i].depth == curDepth) {
 						var copyToPath = stuffToMakeAtDepth[i].path.replace(new RegExp(escapeRegExp(pathToTarget), 'i'), pathToDestDir);
-						console.log('copyToPath', copyToPath);
 						promiseAllArr_madeForCurDepth.push(
 							stuffToMakeAtDepth[i].isDir // if (stuffToMakeAtDepth[i].isDir) {
 							?
@@ -220,7 +200,6 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 				var promiseAll_madeForCurDepth = Promise.all(promiseAllArr_madeForCurDepth);
 				promiseAll_madeForCurDepth.then(
 					function(aVal) {
-						console.log('Fullfilled - promiseAll_madeForCurDepth - ', 'curDepth:', curDepth, aVal);
 						if (curDepth < largestDepth) {
 							curDepth++;
 							makeStuffsFor_CurDepth();
@@ -239,7 +218,6 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 					}
 				).catch(
 					function(aCaught) {
-						console.error('Caught - promiseAll_madeForCurDepth - ', aCaught);
 						throw aCaught;
 					}
 				);
@@ -252,12 +230,10 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 				promiseName: 'promise_collectAllPathsInSrcDir',
 				aReason: aReason
 			};
-			console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
 			deferred_duplicateDirAndContents.reject(rejObj);
 		}
 	).catch(
 		function(aCatch) {
-			console.error('Caught - promise_collectAllPathsInSrcDir - ', aCatch);
 			throw aCatch;
 		}
 	);

@@ -76,7 +76,6 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 	console.log('now, depth:', depth);
 	if ((max_depth === null || max_depth === undefined) || ( depth <= max_depth)) {
 		console.log('continue to iterate because either max_depth not exceeded, or max_depth set to go infinite', 'max_depth:', max_depth, 'depth:', depth);
-		//start working here
 		var iterrator = new OS.File.DirectoryIterator(pathToDir);
 		var subdirs = [];
 		var promise_batch = iterrator.nextBatch();
@@ -136,9 +135,7 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 					rejObj.probableReason = 'targetPath dir doesnt exist';
 				}
 				console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
-				//throw rejObj; // dont throw, we are rejecting, not erroring
 				deferred_enumChildEntries.reject(rejObj);
-				// no need for `return promise_enumChildEntries` here as there is no code running after this
 			}
 		).catch(
 			function(aCaught) {
@@ -146,7 +143,6 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 				throw aCaught; //throw here as its not final catch
 			}
 		);
-		//end working here
 	} else {
 		console.log('max depth exceeded', 'max_depth:', max_depth, 'depth:', depth);
 		deferred_enumChildEntries.resolve('max depth exceeded, so will not do it, at pathToDir of: ' + pathToDir);
@@ -196,14 +192,13 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 	var promise_collectAllPathsInSrcDir = enumChildEntries(pathToSrcDir, delegate_handleEntry, max_depth, !targetDirExists);
 	promise_collectAllPathsInSrcDir.then(
 		function(aVal) {
-			// on resolve, aVal is undefined if it went through all possible entries
 			console.log('Fullfilled - promise_collectAllPathsInSrcDir - ', aVal);
 			console.info('totalEntriesEnummed:', totalEntriesEnummed);
 			console.info('smallestDepth:', smallestDepth);
 			console.info('largestDepth:', largestDepth);
 			console.log('stuffToMakeAtDepth', stuffToMakeAtDepth);
 
-			// start - trigger make promises
+			// start - promise generator func
 			var curDepth = smallestDepth;
 			var makeStuffsFor_CurDepth = function() {
 				var promiseAllArr_madeForCurDepth = [];
@@ -240,19 +235,17 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 							curDepth: curDepth
 						};
 						console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
-						deferred_duplicateDirAndContents.reject(rejObj); // do this instead of throw
-						//throw rejObj; // throw here as its not final // stupid of me, just dont throw so it rejects gracefully
+						deferred_duplicateDirAndContents.reject(rejObj);
 					}
 				).catch(
 					function(aCaught) {
 						console.error('Caught - promiseAll_madeForCurDepth - ', aCaught);
-						throw aCaught; //throw here as its not final catch
+						throw aCaught;
 					}
 				);
 			};
-			makeStuffsFor_CurDepth(); //start the making loop
-			// end - trigger make promises
-			//return here is useless, we need to deal with `deferred_duplicateDirAndContents` //return promise_allStuffsMadeForCollectedPaths; //this is the final then, we leave that to the dev who is using this helper function, so i dont return .then, i return the promise, the dev handles the .then, so commented out following block:
+			// end - promise generator func
+			makeStuffsFor_CurDepth();
 		},
 		function(aReason) {
 			var rejObj = {
@@ -260,8 +253,7 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 				aReason: aReason
 			};
 			console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
-			deferred_duplicateDirAndContents.reject(rejObj); // do this instead of throw
-			//throw rejObj; // man i always was throwing on reject, this was stupid of me, this is not PromiseWorker, i should only throw when a real error occurs, otherwise it will go into the catch of the final statement instead of the reject
+			deferred_duplicateDirAndContents.reject(rejObj);
 		}
 	).catch(
 		function(aCatch) {

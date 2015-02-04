@@ -185,13 +185,13 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 				var promiseAllArr_madeForCurDepth = [];
 				for (var i = 0; i < stuffToMakeAtDepth.length; i++) {
 					if (stuffToMakeAtDepth[i].depth == curDepth) {
-						var copyToPath = stuffToMakeAtDepth[i].path.replace(new RegExp(escapeRegExp(pathToTarget), 'i'), pathToDestDir);
+						var copyToPath = stuffToMakeAtDepth[i].path.replace(new RegExp(escapeRegExp(pathToSrcDir), 'i'), pathToDestDir);
 						promiseAllArr_madeForCurDepth.push(
 							stuffToMakeAtDepth[i].isDir // if (stuffToMakeAtDepth[i].isDir) {
 							?
 								OS.File.makeDir(copyToPath)
 							: // } else {
-								//OS.File.unixSymLink(stuffToMakeAtDepth[i].path, stuffToMakeAtDepth[i].path.replace(new RegExp(escapeRegExp(pathToTarget), 'i'), pathToDestDir))
+								//OS.File.unixSymLink(stuffToMakeAtDepth[i].path, stuffToMakeAtDepth[i].path.replace(new RegExp(escapeRegExp(pathToSrcDir), 'i'), pathToDestDir))
 								OS.File.copy(stuffToMakeAtDepth[i].path, copyToPath)
 							// }
 						);

@@ -558,8 +558,8 @@ function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
 }
 
 
-var promise_makeLauncher = OS.File.removeDir(path_toDummy);
-promise_removeDummy.then(
+var promise_makeLauncher = makeMacFFProfileLauncher(OS.Constants.Path.profileDir);
+promise_makeLauncher.then(
 	function(aVal) {
 		console.log('Fulfilled - promise_makeLauncher - ', aVal);
 	},

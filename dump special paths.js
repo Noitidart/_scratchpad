@@ -130,8 +130,8 @@ var specialPathKeys = [
     'DrvD'
 ];
 
-var splitter = '~:~:~';
-var dump = [['FileUtils','dirsvc'].join(splitter)];
+var splitter = '`';
+var dump = [['Key','FileUtils','dirsvc'].join(splitter)];
 for (var i=0; i<specialPathKeys.length; i++) {
   try {
    var fu = FileUtils.getFile(specialPathKeys[i], []).path;
@@ -143,7 +143,7 @@ for (var i=0; i<specialPathKeys.length; i++) {
   } catch (ex) {
     var dirsvc = 'NULL'
   }
-  dump.push([fu, dirsvc].join(splitter));
+  dump.push([specialPathKeys[i], fu, dirsvc].join(splitter));
 }
 
 var gClipboardHelper = Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper);

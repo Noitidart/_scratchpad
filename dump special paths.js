@@ -132,16 +132,16 @@ var specialPathKeys = [
 
 var splitter = '~:~:~';
 var dump = [['FileUtils','dirsvc'].join(splitter)];
-for (var i=0; i<specialPathkeys.length; i++) {
+for (var i=0; i<specialPathKeys.length; i++) {
   try {
-   var fu = FileUtils.getFile(specialPathkeys[i], []).path;
+   var fu = FileUtils.getFile(specialPathKeys[i], []).path;
   } catch (ex) {
     var fu = 'NULL';
   }
   try {
-   var dirsvc = Services.dirsvc.get(specialPathkeys[i], Ci.nsIFile).path;
+   var dirsvc = Services.dirsvc.get(specialPathKeys[i], Ci.nsIFile).path;
   } catch (ex) {
-    var dirsvc = 'NULL;'
+    var dirsvc = 'NULL'
   }
   dump.push([fu, dirsvc].join(splitter));
 }

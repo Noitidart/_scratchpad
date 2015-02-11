@@ -87,8 +87,8 @@ var myArgs = {
 	iconURL: null,						// CFURLRef
 	soundURL: null,						// CFURLRef
 	localizationURL: null,				// CFURLRef
-	alertHeader: myCFStrs.head			// CFStringRef
-	alertMessage: myCFStrs.body			// CFStringRef
+	alertHeader: myCFStrs.head,			// CFStringRef
+	alertMessage: myCFStrs.body,			// CFStringRef
 	defaultButtonTitle: myCFStrs.ok		// CFStringRef		
 };
 var myArgsArr = [];

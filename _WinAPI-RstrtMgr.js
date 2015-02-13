@@ -286,9 +286,10 @@ function main() {
 	}
 
 	var nProcInfoNeeded = ostypes.UINT();
-	var nProcInfo = ostypes.UINT(10);
-	var rgpi = ostypes.RM_PROCESS_INFO.array(10)();
+	var rgpi = ostypes.RM_PROCESS_INFO.array(10)(); //alrady ptr so dont need to pass rgpi.ptr to RmGetList
+	var nProcInfo = ostypes.UINT(rgpi.length);
 	var dwReason = ostypes.DWORD();
+	
 	var rez_RmGetList = _dec('RmGetList')(dwSession, nProcInfoNeeded.address(), nProcInfo.address(), rgpi, dwReason.address());
 	console.info('rez_RmGetList:', rez_RmGetList, rez_RmGetList.toString(), uneval(rez_RmGetList));
 	
@@ -296,6 +297,11 @@ function main() {
 	console.info('nProcInfo:', nProcInfo);
 	console.info('dwReason:', dwReason);
 	console.info('rgpi:', rgpi);
+	
+	if (rez_RmGetList != ostypes.ERROR_SUCCESS) {
+		console.error('RmGetList Failed with error code:', rez_RmGetList);
+		return;
+	}
 	
 	// END SESSION
 	// moved to shutdown

@@ -342,12 +342,18 @@ function main() {
 	console.info('FINAL dwReason:', dwReason, dwReason.toString());
 	console.info('FINAL rgpi:', rgpi, rgpi.toString());
 	
+	for (var i=0; i<rgpi.length; i++) {
+		console.log('PROCESS ' + i + ' DETAILS', 'PID:', rgpi[i].Process.dwProcessId, 'Application Name:', rgpi[i].strAppName.readStringReplaceMalformed());
+	}
+	
 	// END SESSION
 	// moved to shutdown
 }
 
 try {
+	console.time('main');
 	main();
+	console.timeEnd('main');
 } catch(ex) {
 	console.error('main() caught:', ex);
 } finally {

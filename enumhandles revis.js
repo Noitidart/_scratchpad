@@ -26,7 +26,7 @@ var SYSTEM_HANDLE_TABLE_ENTRY_INFO = new ctypes.StructType('SYSTEM_HANDLE_TABLE_
 
 var SYSTEM_HANDLE_INFORMATION = new ctypes.StructType('SYSTEM_HANDLE_INFORMATION', [
     {'NumberOfHandles': ctypes.unsigned_long},
-    {'Handles': SYSTEM_HANDLE_TABLE_ENTRY_INFO.ptr}
+    {'Handles': SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(1)}
 ]);
 
 var NtQuerySystemInformation = lib_ntdll.declare("NtQuerySystemInformation", ctypes.winapi_abi, ctypes.long, // return //NTSTATUS 
@@ -67,7 +67,7 @@ function enumHandles() {
     */
     var news = SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(1)();
     var buffer = new SYSTEM_HANDLE_INFORMATION(); //new bufferType(SYSTEM_HANDLE_INFORMATION.size * 1);
-    buffer.Handles = news;
+    //buffer.Handles = news;
     //var _enumBufSize = new ctypes.unsigned_long(SYSTEM_HANDLE_INFORMATION.size); //size when 1 element == 32. when 2 element == 60, 3 == 88// this is 32 - 4 / 4 == 7 fields. 60-4/4 == 14 fields
     console.log('buffer:', buffer)
     //console.log('_enumBufSize:', _enumBufSize, _enumBufSize.toString())
@@ -76,7 +76,7 @@ function enumHandles() {
     //var numFields = (32 - 4) / 7 / 4;
     
     //while (true) {
-        var status = NtQuerySystemInformation(SystemHandleInformation, buffer.address(), news.constructor.size, ReturnLength.address());
+        var status = NtQuerySystemInformation(SystemHandleInformation, buffer.address(), buffer.constructor.size, ReturnLength.address());
         //if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH) {
         //    buffer = ctypes.char.array(_enumBufSize.value)();
         //} else break;

@@ -227,9 +227,15 @@ function memset(array, val, size) {
 }
 // end - helper functions
 
-function getFirefoxHoldingFile(pathToParentLock) {
+function getFirefoxHoldingFile(jsStr_pathToParentLock) {
   // Get PID holding lock on parent.lock file for >= Vista
   // WinXP has to resort to Enumhandles
+  // jsStr_pathToParentLock is full path including parent.lock, so like: "C:\Users\Vayeate\AppData\Roaming\Mozilla\Firefox\Profiles\aksozfjt.Unnamed Profile 10\parent.lock"
+  // return values
+        // `undefined` indicating error occured in the WinAPI
+        // `null` indicating nothing is holding this file
+        // jsInt which is the PID of the Firefox holding the file
+  
   var dwSession;
   
   var shutdown = function() {
@@ -258,7 +264,7 @@ function getFirefoxHoldingFile(pathToParentLock) {
     var szSessionKey = ostypes.WCHAR.array(ostypes.CCH_RM_SESSION_KEY + 1)(); //this is a buffer
     console.info('INIT szSessionKey:', szSessionKey, szSessionKey.toString(), uneval(szSessionKey));
 
-    memset(szSessionKey, '0', ostypes.CCH_RM_SESSION_KEY ); // remove + 1 as we want null terminated // can do memset(szSessionKey, ostypes.WCHAR('0'), ostypes.CCH_RM_SESSION_KEY + 1); // js-ctypes initializes at 0 filled: ctypes.char16_t.array(33)(["\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00"])"
+    memset(szSessionKey, '0', ostypes.CCH_RM_SESSION_KEY ); // remove + 1 as we want null terminated // can do memset(szSessionKey, ostypes.WCHAR('0'), ostypes.CCH_RM_SESSION_KEY + 1); // js-ctypes initializes at 0 filled: ctypes.char16_t.array(33)(["\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00"])" // i tried without doing memset and it works fine, but ill do it as thats how they did it on the tutorial // http://blogs.msdn.com/b/oldnewthing/archive/2012/02/17/10268840.aspx but i think they set it all to null, i just set it to char of 0
     console.info('PRE szSessionKey:', szSessionKey, szSessionKey.toString(), uneval(szSessionKey));
 
     var rez_RmStartSession = _dec('RmStartSession')(dwSession.address(), 0, szSessionKey);
@@ -272,7 +278,7 @@ function getFirefoxHoldingFile(pathToParentLock) {
     console.info('dwSession:', dwSession, dwSession.toString(), uneval(dwSession));
 
     // REGISTER RESOURCES
-    var jsStr_pszFilepath1 = OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock'); //path to file name
+    var jsStr_pszFilepath1 = jsStr_pathToParentLock; //path to file name
     var pszFilepath1 = ostypes.WCHAR.array()(jsStr_pszFilepath1); //creates null terminated c string, null terminated string is required for RmRegisterResources
     console.info('pszFilepath1:', pszFilepath1, pszFilepath1.toString(), uneval(pszFilepath1));
 
@@ -288,7 +294,7 @@ function getFirefoxHoldingFile(pathToParentLock) {
       return;
     }
 
-    var predictedProcInfoCnt = 10;
+    var predictedProcInfoCnt = 1; // we expect only a single process to hold it, and that should be the firefox process
     var nProcInfoNeeded = ostypes.UINT(predictedProcInfoCnt); // 0 to fetch
     var rgpi = ostypes.RM_PROCESS_INFO.array(nProcInfoNeeded.value)();
     var nProcInfo = ostypes.UINT(rgpi.length); // this here is us telling how many array elements to fill, we initially provide null as rgpi so it has to be 0, otherwise it will probably crash asit will try to fill this number into null. after RmGetlist, it gets set to how many were actually filled
@@ -305,21 +311,20 @@ function getFirefoxHoldingFile(pathToParentLock) {
     } else if (rez_RmGetList_Fetch != ostypes.ERROR_SUCCESS) {
       // i should be weary though, say 10 processes were using the file on RmGetList_Query, but on this run none of those are any longer using it, then nProcInfoNeeded will be less than what it was before
       console.error('RmGetList failed, rez_RmGetList_Fetch:', rez_RmGetList_Fetch);
-      return;
-    }
-
-    if (rez_RmGetList_Fetch != ostypes.ERROR_SUCCESS) {
-      if (rez_RmGetList_Fetch == ostypes.ERROR_MORE_DATA) {
-        console.warn('RmGetList found that since last RmGetList there is now new/more processes available, so you can opt to run again');
-      } else {
-        console.error('RmGetList Failed with error code:', rez_RmGetList_Fetch);
-        return;
-      }
+      return undefined;
     }
 
     if (nProcInfoNeeded.value == 0) {
       console.log('No processes holding this file');
-      return;
+      return null;
+    }
+    
+    if (nProcInfoNeeded.value > predictedProcInfoCnt) {
+      console.warn('More processes are available then predicted, can opt to resize and rerun RmGetList. Will return the one in first element.');
+    }
+    
+    if (nProcInfoNeeded.value == 1) {
+      console.log('good, got 1 process on it, as expected');
     }
 
     console.info('FINAL nProcInfoNeeded:', nProcInfoNeeded, nProcInfoNeeded.toString());
@@ -327,33 +332,28 @@ function getFirefoxHoldingFile(pathToParentLock) {
     console.info('FINAL dwReason:', dwReason, dwReason.toString());
     console.info('FINAL rgpi:', rgpi, rgpi.toString());
 
-    if (nProcInfoNeeded.value > predictedProcInfoCnt) {
-      console.warn('More processes are available then predicted, can opt to resize and rerun RmGetList');
-    } else if (nProcInfoNeeded.value < predictedProcInfoCnt) {
-      if (nProcInfoNeeded.value == 0) {
-        console.log('Less processes found then expected. No processes at all holding this file');
-        return;
-      } else {
-       console.log('Less processes found then expected, but more then 0');
-      }
-    } else {
-      console.log('Predicted count was how many processes were found, good prediction');
-    }
-
-    for (var i=0; i<nProcInfo.value; i++) {
-      var jsInt_pid = rgpi[i].Process.dwProcessId;
-      var jsStr_appName = rgpi[i].strAppName.readStringReplaceMalformed();
-      console.log('PROCESS ' + i + ' DETAILS', 'PID:', jsInt_pid, 'Application Name:', jsStr_appName);
-    }
-
+    var jsInt_pid = rgpi[0].Process.dwProcessId;
+    var jsStr_appName = rgpi[0].strAppName.readStringReplaceMalformed();
+    console.log('PROCESS 0 DETAILS', 'PID:', jsInt_pid, 'Application Name:', jsStr_appName);
+      
+    return jsInt_pid;
+    
     // END SESSION
     // moved to shutdown
   }
   
   try {
     console.time('main');
-    main();
+    var rez_main = main();
+    if (rez_main === undefined) {
+      console.error('an error occured, could not get pid');
+    } else if (rez_main === null) {
+      console.error('no processes holding lock on file');
+    } else {
+      // is the pid
+    }
     console.timeEnd('main');
+    return rez_main;
   } catch(ex) {
     console.error('main() caught:', ex);
   } finally {
@@ -361,3 +361,6 @@ function getFirefoxHoldingFile(pathToParentLock) {
   }
   
 }
+
+var pid = getFirefoxHoldingFile(OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock'));
+console.log('pid:', pid);

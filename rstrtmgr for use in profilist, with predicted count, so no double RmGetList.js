@@ -227,134 +227,137 @@ function memset(array, val, size) {
 }
 // end - helper functions
 
-function shutdown() {
-	
-	// END SESSION
-	if (dwSession) {
-		var rez_RmEndSession = _dec('RmEndSession')(dwSession);
-		console.info('rez_RmEndSession:', rez_RmEndSession, rez_RmEndSession.toString(), uneval(rez_RmEndSession));
-		if (rez_RmEndSession != ostypes.ERROR_SUCCESS) {
-			console.error('RmEndSession Failed with error code:', rez_RmEndSession);
-			return;
-		}
-	}
-	
-	for (var l in lib) {
-		lib[l].close();
-	}
-}
+function getFirefoxHoldingFile(pathToParentLock) {
+  // Get PID holding lock on parent.lock file for >= Vista
+  // WinXP has to resort to Enumhandles
+  var dwSession;
+  
+  var shutdown = function() {
 
-var dwSession;
-function main() {
-	//do code here
-	// START SESSION
-	dwSession = new ostypes.DWORD();
-	
-	/* Three methods to accomplish szSessionKey
-	 * 1) var szSessionKey = new ctypes.ArrayType(ostypes.WCHAR, CCH_RM_SESSION_KEY + 1)();
-	 * 2) var szSessionKeyType = ctypes.ArrayType(ostypes.WCHAR); //buffer type bufType
-	 *    var szSessionKey = new szSessionKeyType(CCH_RM_SESSION_KEY + 1); //buffer
-	 * 3) var szSessionKey = ostypes.WCHAR.array(CCH_RM_SESSION_KEY + 1)(); //this is a buffer //im using this way right now
-	 */
-	var szSessionKey = ostypes.WCHAR.array(ostypes.CCH_RM_SESSION_KEY + 1)(); //this is a buffer
-	console.info('INIT szSessionKey:', szSessionKey, szSessionKey.toString(), uneval(szSessionKey));
-	
-	memset(szSessionKey, '0', ostypes.CCH_RM_SESSION_KEY ); // remove + 1 as we want null terminated // can do memset(szSessionKey, ostypes.WCHAR('0'), ostypes.CCH_RM_SESSION_KEY + 1); // js-ctypes initializes at 0 filled: ctypes.char16_t.array(33)(["\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00"])"
-	console.info('PRE szSessionKey:', szSessionKey, szSessionKey.toString(), uneval(szSessionKey));
-	
-	var rez_RmStartSession = _dec('RmStartSession')(dwSession.address(), 0, szSessionKey);
-	console.info('rez_RmStartSession:', rez_RmStartSession, rez_RmStartSession.toString(), uneval(rez_RmStartSession));
-	console.info('POST szSessionKey:', szSessionKey, szSessionKey.toString(), uneval(szSessionKey));
-	
-	if (rez_RmStartSession != ostypes.ERROR_SUCCESS) {
-		console.error('RmEndSession Failed with error code:', rez_RmStartSession);
-		return;
-	}
-	console.info('dwSession:', dwSession, dwSession.toString(), uneval(dwSession));
-	
-	// REGISTER RESOURCES
-	var jsStr_pszFilepath1 = OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock'); //path to file name
-	var pszFilepath1 = ostypes.WCHAR.array()(jsStr_pszFilepath1); //creates null terminated c string, null terminated string is required for RmRegisterResources
-	console.info('pszFilepath1:', pszFilepath1, pszFilepath1.toString(), uneval(pszFilepath1));
-	
-	var jsArr = [pszFilepath1];
-	var pszFilepathsArr = ostypes.PCWSTR.array(/*no need, but can have it*//*jsArr.length*/)(jsArr); // when 2 it is: [ctypes.char16_t.ptr(ctypes.UInt64("0x0")), ctypes.char16_t.ptr(ctypes.UInt64("0x0"))]
-	console.info('pszFilepathsArr:', pszFilepathsArr, pszFilepathsArr.toString(), uneval(pszFilepathsArr));
-	
-	var rez_RmRegisterResources = _dec('RmRegisterResources')(dwSession, jsArr.length, pszFilepathsArr, 0, null, 0, null);
-	console.info('rez_RmRegisterResources:', rez_RmRegisterResources, rez_RmRegisterResources.toString(), uneval(rez_RmRegisterResources));
-	
-	if (rez_RmRegisterResources != ostypes.ERROR_SUCCESS) {
-		console.error('RmRegisterResources Failed with error code:', rez_RmRegisterResources);
-		return;
-	}
+    // END SESSION
+    if (dwSession !== undefined) {
+      var rez_RmEndSession = _dec('RmEndSession')(dwSession);
+      console.info('rez_RmEndSession:', rez_RmEndSession, rez_RmEndSession.toString(), uneval(rez_RmEndSession));
+      if (rez_RmEndSession != ostypes.ERROR_SUCCESS) {
+        console.error('RmEndSession Failed with error code:', rez_RmEndSession);
+      } else {
+        console.log('Succesfully closed session.');
+      }
+    }
 
-	var nProcInfoNeeded = ostypes.UINT(0); // 0 to fetch
-	var rgpi = null;
-	var nProcInfo = ostypes.UINT(0); // this here is us telling how many array elements to fill, we initially provide null as rgpi so it has to be 0, otherwise it will probably crash asit will try to fill this number into null. after RmGetlist, it gets set to how many were actually filled
-	var dwReason = ostypes.DWORD(0);
-	
-	console.info('INIT nProcInfoNeeded:', nProcInfoNeeded, nProcInfoNeeded.toString());
-	console.info('INIT nProcInfo:', nProcInfo, nProcInfo.toString());
-	
-	var rez_RmGetList_Query = _dec('RmGetList')(dwSession, nProcInfoNeeded.address(), nProcInfo.address(), rgpi, dwReason.address());
-	console.info('rez_RmGetList_Query:', rez_RmGetList_Query, rez_RmGetList_Query.toString(), uneval(rez_RmGetList_Query));	
-	if (rez_RmGetList_Query == ostypes.ERROR_SUCCESS) {
-		console.log('RmGetList succeeded but there are no processes on this so return, rez_RmGetList_Query:', rez_RmGetList_Query);
-		return;
-	} else if (rez_RmGetList_Query != ostypes.ERROR_MORE_DATA) {
-		console.error('RmGetList failed, rez_RmGetList_Query:', rez_RmGetList_Query);
-		return;		
-	}
-	
-	console.info('POST nProcInfoNeeded:', nProcInfoNeeded, nProcInfoNeeded.toString());
-	console.info('POST nProcInfo:', nProcInfo, nProcInfo.toString());
-	console.info('POST dwReason:', dwReason, dwReason.toString());
-	
-	rgpi = ostypes.RM_PROCESS_INFO.array(nProcInfoNeeded.value)(); //alrady ptr so dont need to pass rgpi.ptr to RmGetList
-	nProcInfo = ostypes.UINT(rgpi.length);
-	
-	console.info('RE-INIT nProcInfo:', nProcInfo, nProcInfo.toString());
-	
-	var rez_RmGetList_Fetch = _dec('RmGetList')(dwSession, nProcInfoNeeded.address(), nProcInfo.address(), rgpi, dwReason.address());
-	console.info('rez_RmGetList_Fetch:', rez_RmGetList_Fetch, rez_RmGetList_Fetch.toString(), uneval(rez_RmGetList_Fetch));	
-	
-	if (rez_RmGetList_Fetch == ostypes.ERROR_MORE_DATA) {
-		console.warn('RmGetList succeeded but found more/new processes using this file so you can opt to run RmGetList again with increased rgpi length and nProcInfo, rez_RmGetList_Fetch:', rez_RmGetList_Fetch);
-	} else if (rez_RmGetList_Fetch != ostypes.ERROR_SUCCESS) {
-		// i should be weary though, say 10 processes were using the file on RmGetList_Query, but on this run none of those are any longer using it, then nProcInfoNeeded will be less than what it was before
-		console.error('RmGetList failed, rez_RmGetList_Fetch:', rez_RmGetList_Fetch);
-		return;
-	}
-	
-	if (rez_RmGetList_Fetch != ostypes.ERROR_SUCCESS) {
-		if (rez_RmGetList_Fetch == ostypes.ERROR_MORE_DATA) {
-			console.warn('RmGetList found that since last RmGetList there is now new/more processes available, so you can opt to run again');
-		} else {
-			console.error('RmGetList Failed with error code:', rez_RmGetList_Fetch);
-			return;
-		}
-	}
-	
-	console.info('FINAL nProcInfoNeeded:', nProcInfoNeeded, nProcInfoNeeded.toString());
-	console.info('FINAL nProcInfo:', nProcInfo, nProcInfo.toString());
-	console.info('FINAL dwReason:', dwReason, dwReason.toString());
-	console.info('FINAL rgpi:', rgpi, rgpi.toString());
-	
-	for (var i=0; i<rgpi.length; i++) {
-		console.log('PROCESS ' + i + ' DETAILS', 'PID:', rgpi[i].Process.dwProcessId, 'Application Name:', rgpi[i].strAppName.readStringReplaceMalformed());
-	}
-	
-	// END SESSION
-	// moved to shutdown
-}
+    for (var l in lib) {
+      lib[l].close();
+    }
+  };
+  
+  var main = function() {
+    //do code here
+    // START SESSION
+    dwSession = new ostypes.DWORD();
 
-try {
-	console.time('main');
-	main();
-	console.timeEnd('main');
-} catch(ex) {
-	console.error('main() caught:', ex);
-} finally {
-	shutdown();
+    var szSessionKey = ostypes.WCHAR.array(ostypes.CCH_RM_SESSION_KEY + 1)(); //this is a buffer
+    console.info('INIT szSessionKey:', szSessionKey, szSessionKey.toString(), uneval(szSessionKey));
+
+    memset(szSessionKey, '0', ostypes.CCH_RM_SESSION_KEY ); // remove + 1 as we want null terminated // can do memset(szSessionKey, ostypes.WCHAR('0'), ostypes.CCH_RM_SESSION_KEY + 1); // js-ctypes initializes at 0 filled: ctypes.char16_t.array(33)(["\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00", "\x00"])"
+    console.info('PRE szSessionKey:', szSessionKey, szSessionKey.toString(), uneval(szSessionKey));
+
+    var rez_RmStartSession = _dec('RmStartSession')(dwSession.address(), 0, szSessionKey);
+    console.info('rez_RmStartSession:', rez_RmStartSession, rez_RmStartSession.toString(), uneval(rez_RmStartSession));
+    console.info('POST szSessionKey:', szSessionKey, szSessionKey.toString(), uneval(szSessionKey));
+
+    if (rez_RmStartSession != ostypes.ERROR_SUCCESS) {
+      console.error('RmEndSession Failed with error code:', rez_RmStartSession);
+      return;
+    }
+    console.info('dwSession:', dwSession, dwSession.toString(), uneval(dwSession));
+
+    // REGISTER RESOURCES
+    var jsStr_pszFilepath1 = OS.Path.join(OS.Constants.Path.profileDir, 'parent.lock'); //path to file name
+    var pszFilepath1 = ostypes.WCHAR.array()(jsStr_pszFilepath1); //creates null terminated c string, null terminated string is required for RmRegisterResources
+    console.info('pszFilepath1:', pszFilepath1, pszFilepath1.toString(), uneval(pszFilepath1));
+
+    var jsArr = [pszFilepath1];
+    var pszFilepathsArr = ostypes.PCWSTR.array(/*no need, but can have it*//*jsArr.length*/)(jsArr); // when 2 it is: [ctypes.char16_t.ptr(ctypes.UInt64("0x0")), ctypes.char16_t.ptr(ctypes.UInt64("0x0"))]
+    console.info('pszFilepathsArr:', pszFilepathsArr, pszFilepathsArr.toString(), uneval(pszFilepathsArr));
+
+    var rez_RmRegisterResources = _dec('RmRegisterResources')(dwSession, jsArr.length, pszFilepathsArr, 0, null, 0, null);
+    console.info('rez_RmRegisterResources:', rez_RmRegisterResources, rez_RmRegisterResources.toString(), uneval(rez_RmRegisterResources));
+
+    if (rez_RmRegisterResources != ostypes.ERROR_SUCCESS) {
+      console.error('RmRegisterResources Failed with error code:', rez_RmRegisterResources);
+      return;
+    }
+
+    var predictedProcInfoCnt = 10;
+    var nProcInfoNeeded = ostypes.UINT(predictedProcInfoCnt); // 0 to fetch
+    var rgpi = ostypes.RM_PROCESS_INFO.array(nProcInfoNeeded.value)();
+    var nProcInfo = ostypes.UINT(rgpi.length); // this here is us telling how many array elements to fill, we initially provide null as rgpi so it has to be 0, otherwise it will probably crash asit will try to fill this number into null. after RmGetlist, it gets set to how many were actually filled
+    var dwReason = ostypes.DWORD(0);
+
+    console.info('INIT nProcInfoNeeded:', nProcInfoNeeded, nProcInfoNeeded.toString());
+    console.info('INIT nProcInfo:', nProcInfo, nProcInfo.toString());
+
+    var rez_RmGetList_Fetch = _dec('RmGetList')(dwSession, nProcInfoNeeded.address(), nProcInfo.address(), rgpi, dwReason.address());
+    console.info('rez_RmGetList_Fetch:', rez_RmGetList_Fetch, rez_RmGetList_Fetch.toString(), uneval(rez_RmGetList_Fetch));	
+
+    if (rez_RmGetList_Fetch == ostypes.ERROR_MORE_DATA) {
+      console.warn('RmGetList succeeded but found more/new processes using this file so you can opt to run RmGetList again with increased rgpi length and nProcInfo, rez_RmGetList_Fetch:', rez_RmGetList_Fetch);
+    } else if (rez_RmGetList_Fetch != ostypes.ERROR_SUCCESS) {
+      // i should be weary though, say 10 processes were using the file on RmGetList_Query, but on this run none of those are any longer using it, then nProcInfoNeeded will be less than what it was before
+      console.error('RmGetList failed, rez_RmGetList_Fetch:', rez_RmGetList_Fetch);
+      return;
+    }
+
+    if (rez_RmGetList_Fetch != ostypes.ERROR_SUCCESS) {
+      if (rez_RmGetList_Fetch == ostypes.ERROR_MORE_DATA) {
+        console.warn('RmGetList found that since last RmGetList there is now new/more processes available, so you can opt to run again');
+      } else {
+        console.error('RmGetList Failed with error code:', rez_RmGetList_Fetch);
+        return;
+      }
+    }
+
+    if (nProcInfoNeeded.value == 0) {
+      console.log('No processes holding this file');
+      return;
+    }
+
+    console.info('FINAL nProcInfoNeeded:', nProcInfoNeeded, nProcInfoNeeded.toString());
+    console.info('FINAL nProcInfo:', nProcInfo, nProcInfo.toString());
+    console.info('FINAL dwReason:', dwReason, dwReason.toString());
+    console.info('FINAL rgpi:', rgpi, rgpi.toString());
+
+    if (nProcInfoNeeded.value > predictedProcInfoCnt) {
+      console.warn('More processes are available then predicted, can opt to resize and rerun RmGetList');
+    } else if (nProcInfoNeeded.value < predictedProcInfoCnt) {
+      if (nProcInfoNeeded.value == 0) {
+        console.log('Less processes found then expected. No processes at all holding this file');
+        return;
+      } else {
+       console.log('Less processes found then expected, but more then 0');
+      }
+    } else {
+      console.log('Predicted count was how many processes were found, good prediction');
+    }
+
+    for (var i=0; i<nProcInfo.value; i++) {
+      var jsInt_pid = rgpi[i].Process.dwProcessId;
+      var jsStr_appName = rgpi[i].strAppName.readStringReplaceMalformed();
+      console.log('PROCESS ' + i + ' DETAILS', 'PID:', jsInt_pid, 'Application Name:', jsStr_appName);
+    }
+
+    // END SESSION
+    // moved to shutdown
+  }
+  
+  try {
+    console.time('main');
+    main();
+    console.timeEnd('main');
+  } catch(ex) {
+    console.error('main() caught:', ex);
+  } finally {
+    shutdown();
+  }
+  
 }

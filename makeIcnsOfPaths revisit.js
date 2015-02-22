@@ -207,7 +207,7 @@ function immediateChildPaths(path_dir) {
 	// returns promise
 	// path_dir is string to path of dir
 	// resolves to hold array of all paths that are immediate children of path_dir
-	//var deferred_immediateChildPaths = new Deferred();
+	var deferred_immediateChildPaths = new Deferred();
 	
 	var paths_children = [];
 	var callback_collectChildPaths = function(entry) {
@@ -216,13 +216,31 @@ function immediateChildPaths(path_dir) {
 	
 	var itr_pathDir = new OS.File.DirectoryIterator(path_dir);
 	var promise_collectChildPaths = itr_pathDir.forEach(callback_collectChildPaths);
-	return promise_collectChildPaths;
+	promise_collectChildPaths.then(
+		function(aVal) {
+			console.log('Fullfilled - promise_collectChildPaths - ', aVal);
+			// start - do stuff here - promise_collectChildPaths
+			deferred_immediateChildPaths.resolve(paths_children);
+			// end - do stuff here - promise_collectChildPaths
+		},
+		function(aReason) {
+			var refObj = {name:'promise_collectChildPaths', aReason:aReason};
+			console.warn('Rejected - promise_collectChildPaths - ', refObj);
+			deferred_immediateChildPaths.reject(refObj);
+		}
+	).catch(
+		function(aCaught) {
+			var refObj = {name:'promise_collectChildPaths', aCaught:aCaught};
+			console.error('Caught - promise_collectChildPaths - ', refObj);
+			deferred_immediateChildPaths.reject(refObj);
+		}
+	);
 	
-	//return deferred_immediateChildPaths.promise;
+	return deferred_immediateChildPaths.promise;
 }
 // end - common helper functions
 
-function makeIcnsOfPaths(paths_base, path_targetWithoutExt, paths_badge, doc) {
+function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, doc) {
 	// path_targetWithoutExt is path to save it to without the extension. so like `C:\blahFolder\myImage`
 	// doc is document element to use for canvas // typically use Services.appShell.hiddenDOMWindow.document for doc
 	// paths_base is array of paths, ideally should have 7, but if not it will take the nearest and resize: 16, 32, 64, 128, 256, 512, and 1024px sqaure images
@@ -274,19 +292,44 @@ function makeIcnsOfPaths(paths_base, path_targetWithoutExt, paths_badge, doc) {
 	// end - delete dir
 	
 	// start - savePngToDisk
-	
+	var savePngToDisk = function(blob, ref_deferred, path_thisPng) {		
+        var reader = Cc['@mozilla.org/files/filereader;1'].createInstance(Ci.nsIDOMFileReader); //new FileReader();
+        reader.onloadend = function() {
+            // reader.result contains the ArrayBuffer.
+			var promise_makePng = tryOsFile_ifDirsNoExistMakeThenRetry('writeAtomic', [path_thisPng, new Uint8Array(reader.result), {tmpPath:path_thisPng + '.tmp', encoding:'utf-8'}], OS.Constants.Path.userApplicationDataDir);
+			promise_makePng.then(
+				function(aVal) {
+					console.log('Fullfilled - promise_makePng - ', aVal);
+					// start - do stuff here - promise_makePng
+					ref_deferred.resolve('Saved png at path: "' + path_thisPng + '"');
+					// end - do stuff here - promise_makePng
+				},
+				function(aReason) {
+					var refObj = {name:'promise_makePng', aReason:aReason};
+					console.warn('Rejected - promise_makePng - ', refObj);
+					ref_deferred.reject(refObj);
+				}
+			).catch(
+				function(aCaught) {
+					var refObj = {name:'promise_makePng', aCaught:aCaught};
+					console.error('Caught - promise_makePng - ', refObj);
+					ref_deferred.reject(refObj);
+				}
+			);
+        };
+        reader.readAsArrayBuffer(blob);
+	};
 	// end - savePngToDisk
 	
 	// start - setup convToIcns
 	var convToIcns = function() {
 		// do convt to icns and on success delete dir
-		deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + path_targetWithoutExt + '.icns"');
-		delTDir();
+		deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"');
+		//delTDir();
 	};
 	// end - setup convToIcns
 	
 	// start - setup makeRequiredSizes
-	var imgs_final = {};
 	var makeRequiredSizes = function() {
 		// draws the base with nearest sized avail, and overlays with badge with nearest sized avail, and makes it a png
 		var promiseAllArr_makeRequiredSizes = [];
@@ -305,77 +348,101 @@ function makeIcnsOfPaths(paths_base, path_targetWithoutExt, paths_badge, doc) {
 		var ctx = canvas.getContext('2d');
 		
 		var getImg_of_exactOrNearest_Bigger_then_Smaller = function(targetSize, objOfImgs) {
-			//objOfImgs should have key of the size of the image. the size of the img should be square. and each item should be an object of {Image:Image()}
-			var nearestDiff_Smaller = 999999;
-			var nearestDiff_Bigger = 999999;
-			var sizeOfNearestSmaller = 0; //key of image that is exact size or nearest and greater (if nothing greater, then its the nearest thats lesser) // size of the image to take is also the key, as thats how i stored them in imgs_base and imgs_badge
-			var sizeOfNearestBigger = 0;
-			var keyOfExact = null;
-			var keyOfNearestSmaller = null;
-			var keyOfNearestBigger = null;
+			//objOfImgs should have key of the size of the image. the size of the img should be square. and each item should be an object of {Image:Image()}			
+			var nearestDiff;
+			var nearestKey;
 			for (var k in objOfImgs) {
-				if (k == targetSize) {
-					keyOfExact = k;
+				var cDiff = k - targetSize;
+				if (cDiff === 0) {
+					nearestKey = k;
+					nearestDiff = 0;
 					break;
-				}
-				if (k < targetSize) {
-					if (Math.abs(targetSize - k) < nearestDiff_Smaller) {
-						nearestDiff_Smaller = Math.abs(targetSize - k);
-						sizeOfNearestSmaller = k;
-						keyOfNearestSmaller = k;
+				} else if (nearestKey === undefined) {
+					nearestKey = k;
+					nearestDiff = cDiff;					
+				} else if (cDiff < 0) {
+					// k.Image is smaller then targetSize
+					if (nearestDiff > 0) {
+						// already have a key of something bigger than targetSize so dont take this to holder
+					} else {
+						// then nearestDiff in holder is something smaller then targetSize
+						// take to holder if this is closer to 0 then nearestDiff
+						if (Math.abs(cDiff - targetSize) < Math.abs(nearestDiff - targetSize)) {
+							nearestDiff = cDiff;
+							nearestKey = k;
+						}
 					}
 				} else {
-					// its greater obviously, as if it was == i took it and break'ed
-					if (Math.abs(targetSize - k) < nearestDiff_Bigger) {
-						nearestDiff_Bigger = Math.abs(targetSize - k);
-						sizeOfNearestBigger = k;
-						keyOfNearestBigger = k;
+					// cDiff is > 0
+					// bigger then targetSize takes priority so always take it, if its closer then nearestDiff in holder
+					if (Math.abs(cDiff - targetSize) < Math.abs(nearestDiff - targetSize)) {
+						nearestDiff = cDiff;
+						nearestKey = k;
 					}					
 				}
 			}
 			
-			if (keyOfExact !== null) {
-				return objOfImgs[keyOfExact].Image;
-			} else if (keyOfNearestBigger !== null) {
-				return objOfImgs[keyOfNearestBigger].Image;
-			} else {
-				// use smaller as bigger and exact is not available. and smaller has to be available, as theres gotta be at least one image
-				return objOfImgs[keyOfNearestSmaller].Image;
-			}
+			console.log('the nearest found is of size: ', nearestKey, 'returning img:', objOfImgs[nearestKey].Image);
+			
+			return objOfImgs[nearestKey].Image;
 		};
 		
 		for (var i=0; i<reqdBaseSizes.length; i++) {
-			var size = reqdBaseSizes[i];
+			let size = reqdBaseSizes[i];
 			canvas.width = size;
 			canvas.height = size;
 			ctx.clearRect(0, 0, size, size);
 			
 			// draw nearest sized base img
-			var nearestImg = getImg_of_exactOrNearest_Bigger_then_Smaller(size, imgs_base);
+			let nearestImg = getImg_of_exactOrNearest_Bigger_then_Smaller(size, imgs_base);
+			console.info('nearestImg:', nearestImg);
 			if (nearestImg.naturalHeight == size) {
 				// its exact
+				console.log('base is exact at ', nearestImg.naturalHeight , 'so no need to scale, as size it is:', size);
 				ctx.drawImage(nearestImg, 0, 0);
 			} else {
 				// need to scale it
+				console.log('scalling base from size of ', nearestImg.naturalHeight , 'to', size);
 				ctx.drawImage(nearestImg, 0, 0, size, size);
 			}
 			
 			// overlay nearest sized badge
-			var badgeSize = reqdBadgeSize_for_BaseSize[size];
-			nearestImg = getImg_of_exactOrNearest_Bigger_then_Smaller(badgeSize, imgs_badge);
-			if (nearestImg.naturalHeight == badgeSize) {
+			let badgeSize = reqdBadgeSize_for_BaseSize[size];
+			console.log('badgeSize needed for this size is:', badgeSize, 'size is:', size);
+			let nearestImg2 = getImg_of_exactOrNearest_Bigger_then_Smaller(badgeSize, imgs_badge);
+			console.info('nearestImg2:', nearestImg2);
+			if (nearestImg2.naturalHeight == badgeSize) {
 				// its exact
-				ctx.drawImage(nearestImg, size-nearestImg.naturalWidth, size-nearestImg.naturalHeight);
+				console.log('badge is exact at ', nearestImg2.naturalHeight, 'so no need to scale, as badgeSize it is:', badgeSize);
+				ctx.drawImage(nearestImg2, size-badgeSize, size-badgeSize);
 			} else {
 				// need to scale it
-				ctx.drawImage(nearestImg, size-nearestImg.naturalWidth, size-nearestImg.naturalHeight, badgeSize, badgeSize);
+				console.log('scalling badge from size of ', nearestImg2.naturalHeight, 'to', badgeSize);
+				ctx.drawImage(nearestImg2, size-badgeSize, size-badgeSize, badgeSize, badgeSize);
 			}
 			
-			//(canvas.toBlobHD || canvas.toBlob).call(canvas, savePngToDisk, 'image/png');
-			var path_thisPng = path_targetWithoutExt + '.png';
-			let promise_makePng = ('writeAtomic', [path_thisPng, writeStrJoined, {tmpPath:path_thisPng + '.tmp', encoding:'utf-8'}], OS.Constants.Path.userApplicationDataDir);
+			let deferred_saveThisImage = new Deferred();
+			// start - added this cuz im guesssssing cuz i was getting that forget catch error crap
+			deferred_saveThisImage.promise.then(
+				function(aVal) {
+					//console.log('Fullfilled - deferred_saveThisImage - ', aVal);
+					// start - do stuff here - deferred_saveThisImage
+					// end - do stuff here - deferred_saveThisImage
+				},
+				function(aReason) {
+					var refObj = {name:'deferred_saveThisImage', aReason:aReason};
+					console.warn('Rejected - deferred_saveThisImage - ', refObj);
+				}
+			).catch(
+				function(aCaught) {
+					var refObj = {name:'deferred_saveThisImage', aCaught:aCaught};
+					console.error('Caught - deferred_saveThisImage - ', refObj);
+				}
+			);
+			// end - added this cuz im guesssssing cuz i was getting that forget catch error crap
+			(canvas.toBlobHD || canvas.toBlob).call(canvas, function(b) { savePngToDisk(b, deferred_saveThisImage, OS.Path.join(path_dirIconSet, saveas_name + '_' + size + '.png')); }, 'image/png');
 			
-			promiseAllArr_makeRequiredSizes.push(promise_makePng);
+			promiseAllArr_makeRequiredSizes.push(deferred_saveThisImage.promise);
 		}
 		
 		var promiseAll_makeRequiredSizes = Promise.all(promiseAllArr_makeRequiredSizes);
@@ -403,67 +470,82 @@ function makeIcnsOfPaths(paths_base, path_targetWithoutExt, paths_badge, doc) {
 	// start - make dir and load all imgs
 	var promiseAllArr_makeDirAndLoadImgs = [];
 	
-	var path_dirIconSet = OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons');
+	var path_dirIconSet = OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons', saveas_name + ' iconset');
 	var promise_makeIconSetDir = makeDir_Bug934283(path_dirIconSet, {from:OS.Constants.Path.userApplicationDataDir, unixMode:FileUtils.PERMS_DIRECTORY, ignoreExisting:true});
 	promiseAllArr_makeDirAndLoadImgs.push(promise_makeIconSetDir);
 	
 	var imgs_base = {};
 	var imgs_badge = {};
 	
-	// load paths_base
-	for (var i=0; i<paths_base.length; i++) {
-		let iHoisted = i;
-		let deferred_imgLoad = new Deferred();
-		promiseAllArr_makeDirAndLoadImgs.push(deferred_imgLoad.promise);
+	var handleImgLoad = function(theImg, pathsArr, iInArr, imgsObj, ref_def) {
+		console.info('handleImgLoad - theImg:', theImg);
 		
-		let img = new doc.defaultView.Image();
-		img.onload = function() {
-			console.log('Success on load of paths_base[' + iHoisted + ']: "' + paths_base[iHoisted] + '"');
-			if (img.naturalHeight != img.naturalWidth) {
-				console.warn('Unsquare image on paths_base[' + iHoisted + ']: "' + paths_base[iHoisted] + '"');
-				deferred_imgLoad.reject('Unsquare image on paths_base[' + iHoisted + ']: "' + paths_base[iHoisted] + '"');
-			} else {
-				imgs_base[img.naturalHeight] = {Image:img};
-				deferred_imgLoad.resolve('Success on load of paths_base[' + iHoisted + ']: "' + paths_base[iHoisted] + '"');
-			}
-		};
-		img.onabort = function() {
-			console.warn('Abortion on load of paths_base[' + iHoisted + ']: "' + paths_base[iHoisted] + '"');
-			defer_loadPathToImg.reject('Abortion on load of paths_base[' + iHoisted + ']: "' + paths_base[iHoisted] + '"');
-		};
-		img.onerror = function() {
-			console.warn('Error on load of paths_base[' + iHoisted + ']: "' + paths_base[iHoisted] + '"');
-			defer_loadPathToImg.reject('Error on load of paths_base[' + iHoisted + ']: "' + paths_base[iHoisted] + '"');
-		};
-		img.src = paths_base[iHoisted];
-	}
+		console.log('Success on load of pathsArr[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
+		if (theImg.naturalHeight != theImg.naturalWidth) {
+			console.warn('Unsquare image on pathsArr[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
+			ref_def.reject('Unsquare image on pathsArr[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
+		} else {
+			imgsObj[theImg.naturalHeight] = {Image:theImg};
+			ref_def.resolve('Success on load of pathsArr[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
+		}
+	};
 	
-	// load paths_badge
+	var handleImgAbort = function(pathsArr, iInArr, ref_def) {
+		console.warn('Abortion on load of paths_base[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
+		ref_def.reject('Abortion on load of paths_base[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
+	};
+	
+	var handleImgError = function(pathsArr, iInArr, ref_def) {
+		console.warn('Error on load of paths_base[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
+		ref_def.reject('Error on load of paths_base[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
+	};
+	
+	// load paths_base and paths_badge
+	var paths_concatenated = [];
+	for (var i=0; i<paths_base.length; i++) {
+		paths_concatenated.push({
+			pathArr: paths_base,
+			imgObj: imgs_base,
+			iInPathArr: i
+		});
+	}
 	for (var i=0; i<paths_badge.length; i++) {
-		let iHoisted = i;
+		paths_concatenated.push({
+			pathArr: paths_badge,
+			imgObj: imgs_badge,
+			iInPathArr: i
+		});
+	}
+	console.info('paths_concatenated:', paths_concatenated);
+	
+	for (var i=0; i<paths_concatenated.length; i++) {
+		//let iHoisted = i;
 		let deferred_imgLoad = new Deferred();
+		// start - added this cuz im guesssssing cuz i was getting that forget catch error crap
+		deferred_imgLoad.promise.then(
+			function(aVal) {
+				//console.log('Fullfilled - deferred_imgLoad - ', aVal);
+				// start - do stuff here - deferred_imgLoad
+				// end - do stuff here - deferred_imgLoad
+			},
+			function(aReason) {
+				var refObj = {name:'deferred_imgLoad', aReason:aReason};
+				console.warn('Rejected - deferred_imgLoad - ', refObj);
+			}
+		).catch(
+			function(aCaught) {
+				var refObj = {name:'deferred_imgLoad', aCaught:aCaught};
+				console.error('Caught - deferred_imgLoad - ', refObj);
+			}
+		);
+		// end - added this cuz im guesssssing cuz i was getting that forget catch error crap
 		promiseAllArr_makeDirAndLoadImgs.push(deferred_imgLoad.promise);
 		
 		let img = new doc.defaultView.Image();
-		img.onload = function() {
-			console.log('Success on load of paths_badge[' + iHoisted + ']: "' + paths_badge[iHoisted] + '"');
-			if (img.naturalHeight != img.naturalWidth) {
-				console.warn('Unsquare image on paths_badge[' + iHoisted + ']: "' + paths_badge[iHoisted] + '"');
-				deferred_imgLoad.reject('Unsquare image on paths_badge[' + iHoisted + ']: "' + paths_badge[iHoisted] + '"');
-			} else {
-				imgs_badge[img.naturalHeight] = {Image:img};
-				deferred_imgLoad.resolve('Success on load of paths_badge[' + iHoisted + ']: "' + paths_badge[iHoisted] + '"');
-			}
-		};
-		img.onabort = function() {
-			console.warn('Abortion on load of paths_badge[' + iHoisted + ']: "' + paths_badge[iHoisted] + '"');
-			defer_loadPathToImg.reject('Abortion on load of paths_badge[' + iHoisted + ']: "' + paths_badge[iHoisted] + '"');
-		};
-		img.onerror = function() {
-			console.warn('Error on load of paths_badge[' + iHoisted + ']: "' + paths_badge[iHoisted] + '"');
-			defer_loadPathToImg.reject('Error on load of paths_badge[' + iHoisted + ']: "' + paths_badge[iHoisted] + '"');
-		};
-		img.src = paths_badge[iHoisted];
+		img.onload = handleImgLoad.bind(null, img, paths_concatenated[i].pathArr, paths_concatenated[i].iInPathArr, paths_concatenated[i].imgObj, deferred_imgLoad);
+		img.onabort = handleImgAbort.bind(null, paths_concatenated[i].pathArr, paths_concatenated[i].iInPathArr, deferred_imgLoad);
+		img.onerror = handleImgError.bind(null, paths_concatenated[i].pathArr, paths_concatenated[i].iInPathArr, deferred_imgLoad);
+		img.src = OS.Path.toFileURI(paths_concatenated[i].pathArr[paths_concatenated[i].iInPathArr]);
 	}
 	
 	var promiseAll_makeDirAndLoadImgs = Promise.all(promiseAllArr_makeDirAndLoadImgs);
@@ -471,6 +553,10 @@ function makeIcnsOfPaths(paths_base, path_targetWithoutExt, paths_badge, doc) {
 		function(aVal) {
 			console.log('Fullfilled - promiseAll_makeDirAndLoadImgs - ', aVal);
 			// do stuff here
+			console.info('imgs_base:', imgs_base);
+			console.info('imgs_badge:', imgs_badge);
+			makeRequiredSizes();
+			// end do stuff here
 		},
 		function(aReason) {
 			var refObj = {name:'promiseAll_makeDirAndLoadImgs', aReason:aReason};
@@ -493,10 +579,10 @@ function makeIcnsOfPaths(paths_base, path_targetWithoutExt, paths_badge, doc) {
 function doit() {
 	var promiseAllArr_collectPaths = [];
 	
-	var promise_basePaths = immediateChildPaths();
+	var promise_basePaths = immediateChildPaths('C:\\Users\\Vayeate\\Documents\\GitHub\\Profilist\\ff-channel-base-iconsets\\beta');
 	promiseAllArr_collectPaths.push(promise_basePaths);
 	
-	var promise_badgePaths = immediateChildPaths();
+	var promise_badgePaths = immediateChildPaths('C:\\Users\\Vayeate\\Desktop\\badge_iconsets\\badge1234');
 	promiseAllArr_collectPaths.push(promise_badgePaths);
 	
 	var promiseAll_collectPaths = Promise.all(promiseAllArr_collectPaths);
@@ -505,8 +591,7 @@ function doit() {
 		function(aVal) {
 			console.log('Fullfilled - promiseAll_collectPaths - ', aVal);
 			// do stuff here - promiseAll_collectPaths
-			/* debug collect paths
-			var promise_makeIcns = makeIcnsOfPaths(aVal[0], OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons', 'myGenIcn'), aVal[1], Services.appShell.hiddenDOMWindow.document);
+			var promise_makeIcns = makeIcnsOfPaths(aVal[0], OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons'), 'myGenIcns', aVal[1], Services.appShell.hiddenDOMWindow.document);
 			promise_makeIcns.then(
 				function(aVal) {
 					console.log('Fullfilled - promise_makeIcns - ', aVal);
@@ -526,7 +611,6 @@ function doit() {
 					Services.prompt.alert(null, 'icns failed', 'icns generation errored see browser console');
 				}
 			);
-			*/
 			// end do stuff here - promiseAll_collectPaths
 		},
 		function(aReason) {
@@ -542,3 +626,5 @@ function doit() {
 		}
 	);
 }
+
+doit();

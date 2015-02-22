@@ -45,10 +45,12 @@ function makeDir_Bug934283(path, options) {
 	// for example: path should be: `OS.Path.join('C:', 'thisDirExistsForSure', 'may exist', 'may exist2')`, and `from` should be `OS.Path.join('C:', 'thisDirExistsForSure')`
 
 	if (!('from' in options)) {
+		console.error('you have no need to use this, as this is meant to allow creation from a folder that you know for sure exists');
 		throw new Error('you have no need to use this, as this is meant to allow creation from a folder that you know for sure exists');
 	}
 
 	if (path.toLowerCase().indexOf(options.from.toLowerCase()) == -1) {
+		console.error('The `from` string was not found in `path` string');
 		throw new Error('The `from` string was not found in `path` string');
 	}
 
@@ -254,20 +256,20 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	if (!paths_base.length) {
 		console.warn('paths_base error: required to have at least one path element');
 		deferred_makeIcnsOfPaths.reject('paths_base error: required to have at least one path element');
-		return; // to prevent deeper exec into func
+		return deferred_makeIcnsOfPaths.promise; // to prevent deeper exec into func
 	}
 	if (!paths_badge.length) {
 		console.warn('paths_badge error: required to have at least one path element');
 		deferred_makeIcnsOfPaths.reject('paths_badge error: required to have at least one path element');
-		return; // to prevent deeper exec into func
+		return deferred_makeIcnsOfPaths.promise; // to prevent deeper exec into func
 	}
 	
-	//algo:
-		// load all paths_base and paths_badge and arrange into object // in parallel with makeIconSetDir [promiseAllArr_makeDirAndLoadImgs]
-		// then draw to canvas the nearest size, if there is one smaller and one bigger, take the bigger one as scalling big to small is much better for quality [promise_makeRequiredSizes]
-		//then iconutil
-		//then ensure exists
-		//then delete iconset dir
+	//algo:		
+		// load all image paths, base and badge, and make iconset dir at same time
+		// draw nearest sized to canvas, and overlay badge on it also at nearest needed size
+		// save drawing to disk as png
+		// iconutil
+		// delete iconset dir
 	
 	// start - delete dir
 	var delTDir = function() {
@@ -343,10 +345,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			256: 128,
 			512: 256,
 			1024: 512
-		};
-		var canvas = doc.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
-		var ctx = canvas.getContext('2d');
-		
+		};		
 		var getImg_of_exactOrNearest_Bigger_then_Smaller = function(targetSize, objOfImgs) {
 			//objOfImgs should have key of the size of the image. the size of the img should be square. and each item should be an object of {Image:Image()}			
 			var nearestDiff;
@@ -388,6 +387,10 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 		};
 		
 		for (var i=0; i<reqdBaseSizes.length; i++) {
+			
+			let canvas = doc.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
+			let ctx = canvas.getContext('2d');
+			
 			let size = reqdBaseSizes[i];
 			canvas.width = size;
 			canvas.height = size;
@@ -422,24 +425,6 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			}
 			
 			let deferred_saveThisImage = new Deferred();
-			// start - added this cuz im guesssssing cuz i was getting that forget catch error crap
-			deferred_saveThisImage.promise.then(
-				function(aVal) {
-					//console.log('Fullfilled - deferred_saveThisImage - ', aVal);
-					// start - do stuff here - deferred_saveThisImage
-					// end - do stuff here - deferred_saveThisImage
-				},
-				function(aReason) {
-					var refObj = {name:'deferred_saveThisImage', aReason:aReason};
-					console.warn('Rejected - deferred_saveThisImage - ', refObj);
-				}
-			).catch(
-				function(aCaught) {
-					var refObj = {name:'deferred_saveThisImage', aCaught:aCaught};
-					console.error('Caught - deferred_saveThisImage - ', refObj);
-				}
-			);
-			// end - added this cuz im guesssssing cuz i was getting that forget catch error crap
 			(canvas.toBlobHD || canvas.toBlob).call(canvas, function(b) { savePngToDisk(b, deferred_saveThisImage, OS.Path.join(path_dirIconSet, saveas_name + '_' + size + '.png')); }, 'image/png');
 			
 			promiseAllArr_makeRequiredSizes.push(deferred_saveThisImage.promise);
@@ -519,33 +504,15 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	console.info('paths_concatenated:', paths_concatenated);
 	
 	for (var i=0; i<paths_concatenated.length; i++) {
-		//let iHoisted = i;
+		let iHoisted = i;
 		let deferred_imgLoad = new Deferred();
-		// start - added this cuz im guesssssing cuz i was getting that forget catch error crap
-		deferred_imgLoad.promise.then(
-			function(aVal) {
-				//console.log('Fullfilled - deferred_imgLoad - ', aVal);
-				// start - do stuff here - deferred_imgLoad
-				// end - do stuff here - deferred_imgLoad
-			},
-			function(aReason) {
-				var refObj = {name:'deferred_imgLoad', aReason:aReason};
-				console.warn('Rejected - deferred_imgLoad - ', refObj);
-			}
-		).catch(
-			function(aCaught) {
-				var refObj = {name:'deferred_imgLoad', aCaught:aCaught};
-				console.error('Caught - deferred_imgLoad - ', refObj);
-			}
-		);
-		// end - added this cuz im guesssssing cuz i was getting that forget catch error crap
 		promiseAllArr_makeDirAndLoadImgs.push(deferred_imgLoad.promise);
 		
 		let img = new doc.defaultView.Image();
-		img.onload = handleImgLoad.bind(null, img, paths_concatenated[i].pathArr, paths_concatenated[i].iInPathArr, paths_concatenated[i].imgObj, deferred_imgLoad);
-		img.onabort = handleImgAbort.bind(null, paths_concatenated[i].pathArr, paths_concatenated[i].iInPathArr, deferred_imgLoad);
-		img.onerror = handleImgError.bind(null, paths_concatenated[i].pathArr, paths_concatenated[i].iInPathArr, deferred_imgLoad);
-		img.src = OS.Path.toFileURI(paths_concatenated[i].pathArr[paths_concatenated[i].iInPathArr]);
+		img.onload = function() { handleImgLoad(img, paths_concatenated[iHoisted].pathArr, paths_concatenated[iHoisted].iInPathArr, paths_concatenated[iHoisted].imgObj, deferred_imgLoad); }
+		img.onabort = function() { handleImgAbort(paths_concatenated[iHoisted].pathArr, paths_concatenated[iHoisted].iInPathArr, deferred_imgLoad); }
+		img.onerror = function() { handleImgError(paths_concatenated[iHoisted].pathArr, paths_concatenated[iHoisted].iInPathArr, deferred_imgLoad); }
+		img.src = OS.Path.toFileURI(paths_concatenated[iHoisted].pathArr[paths_concatenated[iHoisted].iInPathArr]);
 	}
 	
 	var promiseAll_makeDirAndLoadImgs = Promise.all(promiseAllArr_makeDirAndLoadImgs);
@@ -556,6 +523,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			console.info('imgs_base:', imgs_base);
 			console.info('imgs_badge:', imgs_badge);
 			makeRequiredSizes();
+			//deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"'); // debug trying to find the "A promise chain failed to handle a rejection. Did you forget to '.catch', or did you forget to 'return'?"
 			// end do stuff here
 		},
 		function(aReason) {
@@ -579,7 +547,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 function doit() {
 	var promiseAllArr_collectPaths = [];
 	
-	var promise_basePaths = immediateChildPaths('C:\\Users\\Vayeate\\Documents\\GitHub\\Profilist\\ff-channel-base-iconsets\\beta');
+	var promise_basePaths = immediateChildPaths('C:\\Users\\Vayeate\\Documents\\GitHub\\Profilist\\ff-channel-base-iconsets\\nightly');
 	promiseAllArr_collectPaths.push(promise_basePaths);
 	
 	var promise_badgePaths = immediateChildPaths('C:\\Users\\Vayeate\\Desktop\\badge_iconsets\\badge1234');

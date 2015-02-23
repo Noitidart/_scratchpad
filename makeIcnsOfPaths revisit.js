@@ -461,47 +461,67 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 		promiseAllArr_makeDirAndLoadImgs.push(promise_makeIconSetDir);
 		
 		var handleImgLoad = function() {
-			var theImg = this;
-			var k = theImg.src;
-			console.log('handleImgLoad - k:', k);
-			deferreds_loadImgs[k].resolve('loaded');
-			/*
-			console.log('Success on load of pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-			if (theImg.naturalHeight != theImg.naturalWidth) {
-				console.warn('Unsquare image on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-				deferreds_loadImgs[k].reject('Unsquare image on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-			} else if (theImg.naturalHeight in paths_concatenated[k].imgsObj) {
-				console.warn('Multiple images with same size on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-				deferreds_loadImgs[k].reject('Multiple images with same size on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');				
-			} else {
-				paths_concatenated[k].imgsObj[theImg.naturalHeight] = {Image:theImg};
-				deferreds_loadImgs[k].resolve('Success on load of pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			try {
+				var theImg = this;
+				var k = theImg.src;
+				
+				//console.log('handleImgLoad - k:', k);
+				//deferreds_loadImgs[k].resolve('loaded');
+				
+				console.log('Success on load of pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+				if (theImg.naturalHeight != theImg.naturalWidth) {
+					console.warn('Unsquare image on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+					deferreds_loadImgs[k].reject('Unsquare image on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+				} else if (theImg.naturalHeight in paths_concatenated[k].imgsObj) {
+					console.warn('Multiple images with same size on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+					deferreds_loadImgs[k].reject('Multiple images with same size on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');				
+				} else {
+					paths_concatenated[k].imgsObj[theImg.naturalHeight] = {Image:theImg};
+					deferreds_loadImgs[k].resolve('Success on load of pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+				}
+			} catch (ex) {
+				var rejObj = {
+					name: 'handleImgLoad',
+					ex: ex
+				};
+				deferreds_loadImgs[k].reject(rejObj);
 			}
-			*/
 		};
 		
 		var handleImgAbort = function() {
-			var theImg = this;
-			var k = theImg.src;
-			
-			console.error('handleImgAbort - k:', k);
-			deferreds_loadImgs[k].reject('aborted');
-			/*
-			console.warn('Abortion on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-			deferreds_loadImgs[k].reject('Abortion on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-			*/
+			try {
+				var theImg = this;
+				var k = theImg.src;
+				
+				//console.error('handleImgAbort - k:', k);
+				//deferreds_loadImgs[k].reject('aborted');
+				console.warn('Abortion on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+				deferreds_loadImgs[k].reject('Abortion on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			} catch (ex) {
+				var rejObj = {
+					name: 'handleImgAbort',
+					ex: ex
+				};
+				deferreds_loadImgs[k].reject(rejObj);
+			}
 		};
 		
 		var handleImgError = function() {
-			var theImg = this;
-			var k = theImg.src;
+			try {
+				var theImg = this;
+				var k = theImg.src;
 			
-			console.error('handleImgError - k:', k);
-			deferreds_loadImgs[k].reject('errored');
-			/*
-			console.warn('Error on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-			deferreds_loadImgs[k].reject('Error on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-			*/
+				//console.error('handleImgError - k:', k);
+				//deferreds_loadImgs[k].reject('errored');
+				console.warn('Error on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+				deferreds_loadImgs[k].reject('Error on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			} catch (ex) {
+				var rejObj = {
+					name: 'handleImgError',
+					ex: ex
+				};
+				deferreds_loadImgs[k].reject(rejObj);
+			}
 		};
 		
 		// load paths_base and paths_badge
@@ -527,24 +547,6 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 		for (var k in paths_concatenated) {			
 			deferreds_loadImgs[k] = new Deferred();
 			promiseAllArr_makeDirAndLoadImgs.push(deferreds_loadImgs[k].promise);
-			/// guessssing
-			deferreds_loadImgs[k].promise.then(
-				function(aVal) {
-					console.log('Fullfilled - deferreds_loadImgs[k].promise - ', aVal);
-					// start - do stuff here - deferreds_loadImgs[k].promise
-					// end - do stuff here - deferreds_loadImgs[k].promise
-				},
-				function(aReason) {
-					var refObj = {name:'deferreds_loadImgs[k].promise', aReason:aReason};
-					console.error('Rejected - deferreds_loadImgs[k].promise - ', refObj);
-				}
-			).catch(
-				function(aCaught) {
-					var refObj = {name:'deferreds_loadImgs[k].promise', aCaught:aCaught};
-					console.error('Caught - deferreds_loadImgs[k].promise - ', refObj);
-				}
-			);
-			/// end guessssing
 			
 			var img = new doc.defaultView.Image();
 			img.onload = handleImgLoad; //function(ii) { try { handleImgLoad(img, paths_concatenated[ii].pathArr, paths_concatenated[ii].iInPathArr, paths_concatenated[ii].imgObj, deferred_imgLoad); } catch (ex) { console.error('ex caught:', ex); deferred_imgLoad.reject(ex); } }.bind(null, i);

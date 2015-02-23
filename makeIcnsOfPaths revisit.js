@@ -251,17 +251,19 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	// returns promise, aSuccessVal will be the icoBuffer
 	// pathToSaveIt is optional, it is a string path like `OS.Path.join(OS.Constants.Path.desktopDir, 'my.ico')` which tells where to save the ico file
 
+	var deferred_makeIcnsOfPaths_MAIN = new Deferred();
+	
 	var deferred_makeIcnsOfPaths = new Deferred();
 	
 	if (!paths_base.length) {
 		console.warn('paths_base error: required to have at least one path element');
-		deferred_makeIcnsOfPaths.reject('paths_base error: required to have at least one path element');
-		return deferred_makeIcnsOfPaths.promise; // to prevent deeper exec into func
+		deferred_makeIcnsOfPaths_MAIN.reject('paths_base error: required to have at least one path element');
+		return deferred_makeIcnsOfPaths_MAIN.promise; // to prevent deeper exec into func
 	}
 	if (!paths_badge.length) {
 		console.warn('paths_badge error: required to have at least one path element');
-		deferred_makeIcnsOfPaths.reject('paths_badge error: required to have at least one path element');
-		return deferred_makeIcnsOfPaths.promise; // to prevent deeper exec into func
+		deferred_makeIcnsOfPaths_MAIN.reject('paths_badge error: required to have at least one path element');
+		return deferred_makeIcnsOfPaths_MAIN.promise; // to prevent deeper exec into func
 	}
 	
 	//algo:		
@@ -293,38 +295,108 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	};
 	// end - delete dir
 	
+	// start - setup runIconutil
+	var runIconutil = function() {		
+		var iconutil = Cc['@mozilla.org/file/local;1'].createInstance(Ci.nsILocalFile);
+		iconutil.initWithPath('/usr/bin/iconutil');
+		
+		var proc = Cc['@mozilla.org/process/util;1'].createInstance(Ci.nsIProcess);
+		proc.init(iconutil);
+		
+		var procFin = {
+			observe: function(aSubject, aTopic, aData) {
+				//console.log('incoming procFinOSA', 'aSubject:', aSubject, 'aTopic:', aTopic, 'aData', aData);
+				//console.log('incoming procFinOSA unevaled', 'aSubject:', uneval(aSubject), 'aTopic:', uneval(aTopic), 'aData', uneval(aData));
+				//console.log('aSubject.exitValue:', aSubject.exitValue);
+				if (aSubject.exitValue === 0) {
+					console.log('Succesfully ran iconutil as exitValue was 0');
+					deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"');
+				} else {
+					// i have only seen it error with exitValue of 1
+					console.warn('FAILED to create ICNS, exitValue was something other than 0, it was:', aSubject.exitValue);
+					deferred_makeIcnsOfPaths.reject('Fail during running iconutil as exitValue was not 0, it was: ' + aSubject.exitValue);
+				}
+			}
+		};
+
+		var args = ['-c', 'icns', path_dirIconSet];
+		proc.runAsync(args, args.length, procFin);
+	};
+	// end - setup runIconutil
+	
 	// start - setup convToIcns
 	var convToIcns = function() {
 		// do convt to icns and on success delete dir
-		deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"');
+		
+		var userAgent = Cc['@mozilla.org/network/protocol;1?name=http'].getService(Ci.nsIHttpProtocolHandler).userAgent;
+		console.log('userAgent:', userAgent);
+		var version_osx = userAgent.match(/Mac OS X 10\.([\d]+)/);
+		console.log('version_osx matched:', version_osx);
+		
+		if (!version_osx) {
+			deferred_makeIcnsOfPaths.reject('Could not identify Mac OS X version.');
+			return;
+		}
+		
+		version_osx = parseFloat(version_osx[1]);
+		console.log('version_osx parseFloated:', version_osx);
+		if (version_osx >= 0 && version_osx < 6) {
+			//will never happen, as my min support of profilist is for FF29 which is min of osx10.6
+			deferred_makeIcnsOfPaths.reject('OS X < 10.6 is not supported, your version is: ' + version_osx);
+		} else if (version_osx >= 6 && version_osx < 7) {
+			deferred_makeIcnsOfPaths.reject('Mac OS X 10.6 support coming soon. I need to figure out how to use MacMemory functions then follow the outline here: https://github.com/philikon/osxtypes/issues/3');
+		} else if (version_osx >= 7) {
+			// ok use iconutil
+			runIconutil();
+		} else {
+			deferred_makeIcnsOfPaths.reject('Some unknown value of version_osx was found:' + version_osx);
+		}
+		
+		//deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"');
 		//delTDir();
 	};
 	// end - setup convToIcns
 	
 	// start - savePngToDisk
 	var savePngToDisk = function(size, refDeferred, blob) {
+		var sizeToName = {
+			'16': ['icon_16x16'],
+			'32': ['icon_16x16@2x', 'icon_32x32'],
+			'64': ['icon_32x32@2x'],
+			'128': ['icon_128x128'],
+			'256': ['icon_128x128@2x', 'icon_256x256'],
+			'512': ['icon_256x256@2x', 'icon_512x512'],
+			'1024': ['icon_512x512@2x']
+		};
 		console.info('savePngToDisk, this:', this.toString(), 'blob:', blob, 'size:', size, 'refDeferred:', refDeferred);
         var reader = Cc['@mozilla.org/files/filereader;1'].createInstance(Ci.nsIDOMFileReader); //new FileReader();
         reader.onloadend = function() {
             // reader.result contains the ArrayBuffer.
-			var savePth = OS.Path.join(path_dirIconSet, saveas_name + '_' + size + '.png');
-			var promise_makePng = tryOsFile_ifDirsNoExistMakeThenRetry('writeAtomic', [savePth, new Uint8Array(reader.result), {tmpPath:savePth+'.tmp', encoding:'utf-8'}], OS.Constants.Path.userApplicationDataDir);
-			promise_makePng.then(
+			var promiseAllArr_writePngs = [];
+			
+			var arrview = new Uint8Array(reader.result);
+			
+			for (var i=0; i<sizeToName[size].length; i++) {
+				var savePth = OS.Path.join(path_dirIconSet, sizeToName[size][i] + '.png');
+				promiseAllArr_writePngs.push(tryOsFile_ifDirsNoExistMakeThenRetry('writeAtomic', [savePth, arrview, {tmpPath:savePth+'.tmp', encoding:'utf-8'}], OS.Constants.Path.userApplicationDataDir));
+			}
+			var promiseAll_writePngs = Promise.all(promiseAllArr_writePngs);
+			promiseAll_writePngs.then(
 				function(aVal) {
-					console.log('Fullfilled - promise_makePng - ', aVal);
-					// start - do stuff here - promise_makePng
+					console.log('Fullfilled - promiseAllArr_writePngs.promise - ', aVal);
+					// start - do stuff here - promiseAllArr_writePngs.promise
 					refDeferred.resolve('Saved PNG at path: "' + savePth + '"');
-					// end - do stuff here - promise_makePng
+					// end - do stuff here - promiseAllArr_writePngs.promise
 				},
 				function(aReason) {
-					var refObj = {name:'promise_makePng', aReason:aReason};
-					console.warn('Rejected - promise_makePng - ', refObj);
+					var refObj = {name:'promiseAllArr_writePngs.promise', aReason:aReason};
+					console.warn('Rejected - promiseAllArr_writePngs.promise - ', refObj);
 					refDeferred.reject(refObj);
 				}
 			).catch(
 				function(aCaught) {
-					var refObj = {name:'promise_makePng', aCaught:aCaught};
-					console.error('Caught - promise_makePng - ', refObj);
+					var refObj = {name:'promiseAllArr_writePngs.promise', aCaught:aCaught};
+					console.error('Caught - promiseAllArr_writePngs.promise - ', refObj);
 					refDeferred.reject(refObj);
 				}
 			);
@@ -352,7 +424,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			256: 128,
 			512: 256,
 			1024: 512
-		};		
+		};
 		var getImg_of_exactOrNearest_Bigger_then_Smaller = function(targetSize, objOfImgs) {
 			//objOfImgs should have key of the size of the image. the size of the img should be square. and each item should be an object of {Image:Image()}			
 			var nearestDiff;
@@ -556,12 +628,37 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	// vars used by multiple the funcs defined in this function
 	var imgs_base = {};
 	var imgs_badge = {};
-	var path_dirIconSet = OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons', saveas_name + ' iconset');
+	var path_dirIconSet = OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons', saveas_name + '.iconset');
 	// end - func globals
 	
 	loadPathsAndMakeDir();
 	//deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"'); // debug trying to find the "A promise chain failed to handle a rejection. Did you forget to '.catch', or did you forget to 'return'?"
-	return deferred_makeIcnsOfPaths.promise;
+	//return deferred_makeIcnsOfPaths.promise;
+	
+	deferred_makeIcnsOfPaths.promise.then(
+		function(aVal) {
+			console.log('Fullfilled - deferred_makeIcnsOfPaths.promise - ', aVal);
+			// start - do stuff here - deferred_makeIcnsOfPaths.promise
+			deferred_makeIcnsOfPaths_MAIN.resolve(aVal);
+			delTDir();
+			// end - do stuff here - deferred_makeIcnsOfPaths.promise
+		},
+		function(aReason) {
+			delTDir();
+			var refObj = {name:'deferred_makeIcnsOfPaths.promise', aReason:aReason};
+			console.warn('Rejected - deferred_makeIcnsOfPaths.promise - ', refObj);
+			deferred_makeIcnsOfPaths_MAIN.reject(refObj);
+		}
+	).catch(
+		function(aCaught) {
+			delTDir();
+			var refObj = {name:'deferred_makeIcnsOfPaths.promise', aCaught:aCaught};
+			console.error('Caught - deferred_makeIcnsOfPaths.promise - ', refObj);
+			deferred_makeIcnsOfPaths_MAIN.reject(refObj);
+		}
+	);
+	
+	return deferred_makeIcnsOfPaths_MAIN.promise;
 	
 }
 

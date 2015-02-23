@@ -302,7 +302,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	// end - setup convToIcns
 	
 	// start - savePngToDisk
-	var savePngToDisk = function(blob, size, refDeferred) {
+	var savePngToDisk = function(size, refDeferred, blob) {
 		console.info('savePngToDisk, this:', this.toString(), 'blob:', blob, 'size:', size, 'refDeferred:', refDeferred);
         var reader = Cc['@mozilla.org/files/filereader;1'].createInstance(Ci.nsIDOMFileReader); //new FileReader();
         reader.onloadend = function() {
@@ -435,7 +435,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			var deferred_savePng = new Deferred();
 			promiseAllArr_saveAllPngs.push(deferred_savePng.promise);
 			
-			(canvas.toBlobHD || canvas.toBlob).call(canvas, function(ss, dd, b) { savePngToDisk(b, ss, dd) }.bind(null, size, deferred_savePng), 'image/png');
+			(canvas.toBlobHD || canvas.toBlob).call(canvas, savePngToDisk.bind(null, size, deferred_savePng), 'image/png');
 		}
 		
 		var promiseAll_saveAllPngs = Promise.all(promiseAllArr_saveAllPngs);

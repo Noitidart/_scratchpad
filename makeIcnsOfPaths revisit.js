@@ -302,71 +302,48 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	// end - setup convToIcns
 	
 	// start - savePngToDisk
-	var savePngsToDisk = function() {
-		var promiseAllArr_savePngsToDisk = [];
-		
-		collection_blobs.sort(function(a, b){return b.size-a.size;}); //sort descending
-		reqdBaseSizes.sort(function(a, b){return b-a;}); //sort descending
-		
-		
-		for (var i=0; i<collection_blobs.length; i++) {
-			var pathToSaveIt = OS.Path.join(path_dirIconSet, saveas_name + '_' + reqdBaseSizes[i] + '.png');
-			var promise_makePng = tryOsFile_ifDirsNoExistMakeThenRetry('writeAtomic', [pathToSaveIt, collection_blobs[i].arrview, {tmpPath:pathToSaveIt + '.tmp', encoding:'utf-8'}], OS.Constants.Path.userApplicationDataDir);
-			promiseAllArr_savePngsToDisk.push(promise_makePng);
-		}
-		
-		var promiseAll_savePngsToDisk = Promise.all(promiseAllArr_savePngsToDisk);
-		promiseAll_savePngsToDisk.then(
-			function(aVal) {
-				console.log('Fullfilled - promiseAll_savePngsToDisk - ', aVal);
-				// start - do stuff here - promiseAll_savePngsToDisk
-				deferred_makeRequiredSizes.resolve('all pngs saved to disk');
-				// end - do stuff here - promiseAll_savePngsToDisk
-			},
-			function(aReason) {
-				var refObj = {name:'promiseAll_savePngsToDisk', aReason:aReason};
-				console.warn('Rejected - promiseAll_savePngsToDisk - ', refObj);
-				deferred_makeRequiredSizes.reject(refObj);
-			}
-		).catch(
-			function(aCaught) {
-				var refObj = {name:'promiseAll_savePngsToDisk', aCaught:aCaught};
-				console.error('Caught - promiseAll_savePngsToDisk - ', refObj);
-				deferred_makeRequiredSizes.reject(refObj);
-			}
-		);
-	};
-	// end - savePngToDisk
-	
-	// start - callbackBlob
-	var callbackBlob = function(blob) {
-		console.info('savePngToDisk, this:', this.toString(), 'blob:', blob);
+	var savePngToDisk = function(blob, size, refDeferred) {
+		console.info('savePngToDisk, this:', this.toString(), 'blob:', blob, 'size:', size, 'refDeferred:', refDeferred);
         var reader = Cc['@mozilla.org/files/filereader;1'].createInstance(Ci.nsIDOMFileReader); //new FileReader();
         reader.onloadend = function() {
             // reader.result contains the ArrayBuffer.
-			collection_blobs.push({
-				arrview: new Uint8Array(reader.result),
-				size: blob.size
-			});
-			if (collection_blobs.length == reqdBaseSizes.length) {
-				savePngsToDisk();
-			}
+			var savePth = OS.Path.join(path_dirIconSet, saveas_name + '_' + size + '.png');
+			var promise_makePng = tryOsFile_ifDirsNoExistMakeThenRetry('writeAtomic', [savePth, new Uint8Array(reader.result), {tmpPath:savePth+'.tmp', encoding:'utf-8'}], OS.Constants.Path.userApplicationDataDir);
+			promise_makePng.then(
+				function(aVal) {
+					console.log('Fullfilled - promise_makePng - ', aVal);
+					// start - do stuff here - promise_makePng
+					refDeferred.resolve('Saved PNG at path: "' + savePth + '"');
+					// end - do stuff here - promise_makePng
+				},
+				function(aReason) {
+					var refObj = {name:'promise_makePng', aReason:aReason};
+					console.warn('Rejected - promise_makePng - ', refObj);
+					refDeferred.reject(refObj);
+				}
+			).catch(
+				function(aCaught) {
+					var refObj = {name:'promise_makePng', aCaught:aCaught};
+					console.error('Caught - promise_makePng - ', refObj);
+					refDeferred.reject(refObj);
+				}
+			);
         };
 		reader.onabort = function() {
-			deferred_makeRequiredSizes.reject('Abortion on nsIDOMFileReader, failed reading blob of size: "' + blob.size + '"');
+			refDeferred.reject('Abortion on nsIDOMFileReader, failed reading blob of size: "' + blob.size + '"');
 		};
 		reader.onerror = function() {
-			deferred_makeRequiredSizes.reject('Error on nsIDOMFileReader, failed reading blob of size: "' + blob.size + '"');
+			refDeferred.reject('Error on nsIDOMFileReader, failed reading blob of size: "' + blob.size + '"');
 		};
         reader.readAsArrayBuffer(blob);
 	};
-	// end - callbackBlob
+	// end - savePngToDisk
 	
 	// start - setup makeRequiredSizes
 	var makeRequiredSizes = function() {
 		// draws the base with nearest sized avail, and overlays with badge with nearest sized avail, and makes it a png
 		//var promiseAllArr_makeRequiredSizes = [];
-		
+		var reqdBaseSizes = [16, 32, 64, 128, 256, 512, 1024];
 		var reqdBadgeSize_for_BaseSize = {
 			16: 10,
 			32: 16,
@@ -415,7 +392,8 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			
 			return objOfImgs[nearestKey].Image;
 		};
-		
+
+		var promiseAllArr_saveAllPngs = [];
 		for (var i=0; i<reqdBaseSizes.length; i++) {
 			
 			var canvas = doc.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
@@ -454,135 +432,99 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 				ctx.drawImage(nearestImg2, size-badgeSize, size-badgeSize, badgeSize, badgeSize);
 			}
 			
-			(canvas.toBlobHD || canvas.toBlob).call(canvas, callbackBlob, 'image/png');
+			var deferred_savePng = new Deferred();
+			promiseAllArr_saveAllPngs.push(deferred_savePng.promise);
+			
+			(canvas.toBlobHD || canvas.toBlob).call(canvas, function(ss, dd, b) { savePngToDisk(b, ss, dd) }.bind(null, size, deferred_savePng), 'image/png');
 		}
-		deferred_makeRequiredSizes.promise.then(
+		
+		var promiseAll_saveAllPngs = Promise.all(promiseAllArr_saveAllPngs);
+		promiseAll_saveAllPngs.then(
 			function(aVal) {
-				console.log('Fullfilled - deferred_makeRequiredSizes - ', aVal);
-				// start - do stuff here - deferred_makeRequiredSizes
+				console.log('Fullfilled - promiseAll_saveAllPngs - ', aVal);
+				// start - do stuff here - promiseAll_saveAllPngs
 				convToIcns();
-				// end - do stuff here - deferred_makeRequiredSizes
+				// end - do stuff here - promiseAll_saveAllPngs
 			},
 			function(aReason) {
-				var refObj = {name:'deferred_makeRequiredSizes', aReason:aReason};
-				console.warn('Rejected - deferred_makeRequiredSizes - ', refObj);
+				var refObj = {name:'promiseAll_saveAllPngs', aReason:aReason};
+				console.warn('Rejected - promiseAll_saveAllPngs - ', refObj);
 				deferred_makeIcnsOfPaths.reject(refObj);
 			}
 		).catch(
 			function(aCaught) {
-				var refObj = {name:'deferred_makeRequiredSizes', aCaught:aCaught};
-				console.error('Caught - deferred_makeRequiredSizes - ', refObj);
+				var refObj = {name:'promiseAll_saveAllPngs', aCaught:aCaught};
+				console.error('Caught - promiseAll_saveAllPngs - ', refObj);
 				deferred_makeIcnsOfPaths.reject(refObj);
 			}
 		);
 	};
 	// end - setup makeRequiredSizes
 	
-	// start - make dir and load all imgs
+	// start - make dir and load and verify all imgs
 	var loadPathsAndMakeDir = function() {
 		var promiseAllArr_makeDirAndLoadImgs = [];
 		
 		var promise_makeIconSetDir = makeDir_Bug934283(path_dirIconSet, {from:OS.Constants.Path.userApplicationDataDir, unixMode:FileUtils.PERMS_DIRECTORY, ignoreExisting:true});
 		promiseAllArr_makeDirAndLoadImgs.push(promise_makeIconSetDir);
 		
-		var handleImgLoad = function() {
-			try {
-				var theImg = this;
-				var k = theImg.src;
-				
-				//console.log('handleImgLoad - k:', k);
-				//deferreds_loadImgs[k].resolve('loaded');
-				
-				console.log('Success on load of pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-				if (theImg.naturalHeight != theImg.naturalWidth) {
-					console.warn('Unsquare image on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-					deferreds_loadImgs[k].reject('Unsquare image on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-				} else if (theImg.naturalHeight in paths_concatenated[k].imgsObj) {
-					console.warn('Multiple images with same size on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-					deferreds_loadImgs[k].reject('Multiple images with same size on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');				
-				} else {
-					paths_concatenated[k].imgsObj[theImg.naturalHeight] = {Image:theImg};
-					deferreds_loadImgs[k].resolve('Success on load of pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-				}
-			} catch (ex) {
-				var rejObj = {
-					name: 'handleImgLoad',
-					ex: ex
-				};
-				deferreds_loadImgs[k].reject(rejObj);
+		var handleImgLoad = function(refDeferred, imgsObj) {
+			var theImg = this;
+			console.log('Success on load of path: "' + theImg.src + '"');
+			if (theImg.naturalHeight != theImg.naturalWidth) {
+				console.warn('Unsquare image on path: "' + theImg.src + '"');
+				refDeferred.reject('Unsquare image on paths: "' + theImg.src + '"');
+			} else if (theImg.naturalHeight in imgsObj) {
+				console.warn('Multiple images with same size on path: "' + theImg.src + '"');
+				refDeferred.reject('Multiple images with same size on path: "' + theImg.src + '"');
+			} else {
+				imgsObj[theImg.naturalHeight] = {Image:theImg};
+				refDeferred.resolve('Success on load of path: "' + theImg.src + '"');
 			}
 		};
 		
-		var handleImgAbort = function() {
-			try {
-				var theImg = this;
-				var k = theImg.src;
-				
-				//console.error('handleImgAbort - k:', k);
-				//deferreds_loadImgs[k].reject('aborted');
-				console.warn('Abortion on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-				deferreds_loadImgs[k].reject('Abortion on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-			} catch (ex) {
-				var rejObj = {
-					name: 'handleImgAbort',
-					ex: ex
-				};
-				deferreds_loadImgs[k].reject(rejObj);
-			}
+		var handleImgAbort = function(refDeferred) {
+			var theImg = this;
+			console.warn('Abortion on load of path: "' + theImg.src + '"');
+			refDeferred.reject('Abortion on load of path: "' + theImg.src + '"');
 		};
 		
-		var handleImgError = function() {
-			try {
-				var theImg = this;
-				var k = theImg.src;
-			
-				//console.error('handleImgError - k:', k);
-				//deferreds_loadImgs[k].reject('errored');
-				console.warn('Error on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-				deferreds_loadImgs[k].reject('Error on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
-			} catch (ex) {
-				var rejObj = {
-					name: 'handleImgError',
-					ex: ex
-				};
-				deferreds_loadImgs[k].reject(rejObj);
-			}
+		var handleImgError = function(refDeferred) {
+			var theImg = this;
+			console.warn('Error on load of path: "' + theImg.src + '"');
+			refDeferred.reject('Error on load of path: "' + theImg.src + '"');
 		};
 		
 		// load paths_base and paths_badge
-		var paths_concatenated = {};
+		var paths_concatenated = [];
 		for (var i=0; i<paths_base.length; i++) {
-			var imgIdentif = OS.Path.toFileURI(paths_base[i]) + '#' + Math.random(); //also file path
-			paths_concatenated[imgIdentif] = {
-				pathArr: paths_base,
+			paths_concatenated.push({
 				imgsObj: imgs_base,
-				iInPathArr: i
-			};
+				path: paths_base[i]
+			});
 		}
 		for (var i=0; i<paths_badge.length; i++) {
-			var imgIdentif = OS.Path.toFileURI(paths_badge[i]) + '#' + Math.random(); //also file path
-			paths_concatenated[imgIdentif] = {
-				pathArr: paths_badge,
+			paths_concatenated.push({
 				imgsObj: imgs_badge,
-				iInPathArr: i
-			};
+				path: paths_badge[i]
+			});
 		}
-		console.info('paths_concatenated:', paths_concatenated);
-		var deferreds_loadImgs = {};
-		for (var k in paths_concatenated) {			
-			deferreds_loadImgs[k] = new Deferred();
-			promiseAllArr_makeDirAndLoadImgs.push(deferreds_loadImgs[k].promise);
+		console.info('paths_concatenated:', paths_concatenated.toString());
+		for (var i=0; i<paths_concatenated.length; i++) {
+			var deferred_loadImg = new Deferred();
+			promiseAllArr_makeDirAndLoadImgs.push(deferred_loadImg.promise);
 			
 			var img = new doc.defaultView.Image();
-			img.onload = handleImgLoad;
-			img.onabort = handleImgAbort;
-			img.onerror = handleImgError;
+			img.onload = handleImgLoad.bind(img, deferred_loadImg, paths_concatenated[i].imgsObj);
+			img.onabort = handleImgAbort.bind(img, deferred_loadImg);
+			img.onerror = handleImgError.bind(img, deferred_loadImg);
 			
-			img.src = k;
+			console.info('img.src:', OS.Path.toFileURI(paths_concatenated[i].path));
+			img.src = OS.Path.toFileURI(paths_concatenated[i].path);
 		}
 		
-		console.info('paths_concatenated:', paths_concatenated);
-		console.info('deferreds_loadImgs:', deferreds_loadImgs);
+		//console.info('paths_concatenated:', paths_concatenated);
+		//console.info('deferreds_loadImgs:', deferreds_loadImgs);
 		
 		var promiseAll_makeDirAndLoadImgs = Promise.all(promiseAllArr_makeDirAndLoadImgs);
 		promiseAll_makeDirAndLoadImgs.then(
@@ -615,10 +557,6 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	var imgs_base = {};
 	var imgs_badge = {};
 	var path_dirIconSet = OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons', saveas_name + ' iconset');
-	//var blobDetails = {};
-	var collection_blobs = [];
-	var deferred_makeRequiredSizes = new Deferred();
-	var reqdBaseSizes = [16, 32, 64, 128, 256, 512, 1024];
 	// end - func globals
 	
 	loadPathsAndMakeDir();

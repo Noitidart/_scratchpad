@@ -110,7 +110,7 @@ function tryOsFile_ifDirsNoExistMakeThenRetry(nameOfOsFileFunc, argsOfOsFileFunc
 	if (['writeAtomic', 'copy'].indexOf(nameOfOsFileFunc) == -1) {
 		deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject('nameOfOsFileFunc of "' + nameOfOsFileFunc + '" is not supported');
 		// not supported because i need to know the source path so i can get the toDir for makeDir on it
-		return; //just to exit further execution
+		return deferred_tryOsFile_ifDirsNoExistMakeThenRetry.promise; //just to exit further execution
 	}
 	
 	// setup retry
@@ -453,93 +453,144 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	// end - setup makeRequiredSizes
 	
 	// start - make dir and load all imgs
-	var promiseAllArr_makeDirAndLoadImgs = [];
-	
-	var path_dirIconSet = OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons', saveas_name + ' iconset');
-	var promise_makeIconSetDir = makeDir_Bug934283(path_dirIconSet, {from:OS.Constants.Path.userApplicationDataDir, unixMode:FileUtils.PERMS_DIRECTORY, ignoreExisting:true});
-	promiseAllArr_makeDirAndLoadImgs.push(promise_makeIconSetDir);
-	
-	var imgs_base = {};
-	var imgs_badge = {};
-	
-	var handleImgLoad = function(theImg, pathsArr, iInArr, imgsObj, ref_def) {
-		console.info('handleImgLoad - theImg:', theImg);
+	var loadPathsAndMakeDir = function() {
+		var promiseAllArr_makeDirAndLoadImgs = [];
 		
-		console.log('Success on load of pathsArr[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
-		if (theImg.naturalHeight != theImg.naturalWidth) {
-			console.warn('Unsquare image on pathsArr[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
-			ref_def.reject('Unsquare image on pathsArr[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
-		} else {
-			imgsObj[theImg.naturalHeight] = {Image:theImg};
-			ref_def.resolve('Success on load of pathsArr[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
-		}
-	};
-	
-	var handleImgAbort = function(pathsArr, iInArr, ref_def) {
-		console.warn('Abortion on load of paths_base[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
-		ref_def.reject('Abortion on load of paths_base[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
-	};
-	
-	var handleImgError = function(pathsArr, iInArr, ref_def) {
-		console.warn('Error on load of paths_base[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
-		ref_def.reject('Error on load of paths_base[' + iInArr + ']: "' + pathsArr[iInArr] + '"');
-	};
-	
-	// load paths_base and paths_badge
-	var paths_concatenated = [];
-	for (var i=0; i<paths_base.length; i++) {
-		paths_concatenated.push({
-			pathArr: paths_base,
-			imgObj: imgs_base,
-			iInPathArr: i
-		});
-	}
-	for (var i=0; i<paths_badge.length; i++) {
-		paths_concatenated.push({
-			pathArr: paths_badge,
-			imgObj: imgs_badge,
-			iInPathArr: i
-		});
-	}
-	console.info('paths_concatenated:', paths_concatenated);
-	
-	for (var i=0; i<paths_concatenated.length; i++) {
-		let iHoisted = i;
-		let deferred_imgLoad = new Deferred();
-		promiseAllArr_makeDirAndLoadImgs.push(deferred_imgLoad.promise);
+		var path_dirIconSet = OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons', saveas_name + ' iconset');
+		var promise_makeIconSetDir = makeDir_Bug934283(path_dirIconSet, {from:OS.Constants.Path.userApplicationDataDir, unixMode:FileUtils.PERMS_DIRECTORY, ignoreExisting:true});
+		promiseAllArr_makeDirAndLoadImgs.push(promise_makeIconSetDir);
 		
-		let img = new doc.defaultView.Image();
-		img.onload = function() { handleImgLoad(img, paths_concatenated[iHoisted].pathArr, paths_concatenated[iHoisted].iInPathArr, paths_concatenated[iHoisted].imgObj, deferred_imgLoad); }
-		img.onabort = function() { handleImgAbort(paths_concatenated[iHoisted].pathArr, paths_concatenated[iHoisted].iInPathArr, deferred_imgLoad); }
-		img.onerror = function() { handleImgError(paths_concatenated[iHoisted].pathArr, paths_concatenated[iHoisted].iInPathArr, deferred_imgLoad); }
-		img.src = OS.Path.toFileURI(paths_concatenated[iHoisted].pathArr[paths_concatenated[iHoisted].iInPathArr]);
-	}
-	
-	var promiseAll_makeDirAndLoadImgs = Promise.all(promiseAllArr_makeDirAndLoadImgs);
-	promiseAll_makeDirAndLoadImgs.then(
-		function(aVal) {
-			console.log('Fullfilled - promiseAll_makeDirAndLoadImgs - ', aVal);
-			// do stuff here
-			console.info('imgs_base:', imgs_base);
-			console.info('imgs_badge:', imgs_badge);
-			makeRequiredSizes();
-			//deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"'); // debug trying to find the "A promise chain failed to handle a rejection. Did you forget to '.catch', or did you forget to 'return'?"
-			// end do stuff here
-		},
-		function(aReason) {
-			var refObj = {name:'promiseAll_makeDirAndLoadImgs', aReason:aReason};
-			console.warn('Rejected - promiseAll_makeDirAndLoadImgs - ', refObj);
-			deferred_makeIcnsOfPaths.reject(refObj);
+		var handleImgLoad = function() {
+			var theImg = this;
+			var k = theImg.src;
+			console.log('handleImgLoad - k:', k);
+			deferreds_loadImgs[k].resolve('loaded');
+			/*
+			console.log('Success on load of pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			if (theImg.naturalHeight != theImg.naturalWidth) {
+				console.warn('Unsquare image on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+				deferreds_loadImgs[k].reject('Unsquare image on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			} else if (theImg.naturalHeight in paths_concatenated[k].imgsObj) {
+				console.warn('Multiple images with same size on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+				deferreds_loadImgs[k].reject('Multiple images with same size on pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');				
+			} else {
+				paths_concatenated[k].imgsObj[theImg.naturalHeight] = {Image:theImg};
+				deferreds_loadImgs[k].resolve('Success on load of pathsArr[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			}
+			*/
+		};
+		
+		var handleImgAbort = function() {
+			var theImg = this;
+			var k = theImg.src;
+			
+			console.error('handleImgAbort - k:', k);
+			deferreds_loadImgs[k].reject('aborted');
+			/*
+			console.warn('Abortion on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			deferreds_loadImgs[k].reject('Abortion on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			*/
+		};
+		
+		var handleImgError = function() {
+			var theImg = this;
+			var k = theImg.src;
+			
+			console.error('handleImgError - k:', k);
+			deferreds_loadImgs[k].reject('errored');
+			/*
+			console.warn('Error on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			deferreds_loadImgs[k].reject('Error on load of paths_base[' + paths_concatenated[k].iInPathArr + ']: "' + paths_concatenated[k].pathArr[paths_concatenated[k].iInPathArr] + '"');
+			*/
+		};
+		
+		// load paths_base and paths_badge
+		var paths_concatenated = {};
+		for (var i=0; i<paths_base.length; i++) {
+			var imgIdentif = OS.Path.toFileURI(paths_base[i]) + '#' + Math.random(); //also file path
+			paths_concatenated[imgIdentif] = {
+				pathArr: paths_base,
+				imgsObj: imgs_base,
+				iInPathArr: i
+			};
 		}
-	).catch(
-		function(aCaught) {
-			var refObj = {name:'promiseAll_makeDirAndLoadImgs', aCaught:aCaught};
-			console.error('Caught - promiseAll_makeDirAndLoadImgs - ', refObj);
-			deferred_makeIcnsOfPaths.reject(refObj);
+		for (var i=0; i<paths_badge.length; i++) {
+			var imgIdentif = OS.Path.toFileURI(paths_badge[i]) + '#' + Math.random(); //also file path
+			paths_concatenated[imgIdentif] = {
+				pathArr: paths_badge,
+				imgsObj: imgs_badge,
+				iInPathArr: i
+			};
 		}
-	);
+		console.info('paths_concatenated:', paths_concatenated);
+		var deferreds_loadImgs = {};
+		for (var k in paths_concatenated) {			
+			deferreds_loadImgs[k] = new Deferred();
+			promiseAllArr_makeDirAndLoadImgs.push(deferreds_loadImgs[k].promise);
+			/// guessssing
+			deferreds_loadImgs[k].promise.then(
+				function(aVal) {
+					console.log('Fullfilled - deferreds_loadImgs[k].promise - ', aVal);
+					// start - do stuff here - deferreds_loadImgs[k].promise
+					// end - do stuff here - deferreds_loadImgs[k].promise
+				},
+				function(aReason) {
+					var refObj = {name:'deferreds_loadImgs[k].promise', aReason:aReason};
+					console.error('Rejected - deferreds_loadImgs[k].promise - ', refObj);
+				}
+			).catch(
+				function(aCaught) {
+					var refObj = {name:'deferreds_loadImgs[k].promise', aCaught:aCaught};
+					console.error('Caught - deferreds_loadImgs[k].promise - ', refObj);
+				}
+			);
+			/// end guessssing
+			
+			var img = new doc.defaultView.Image();
+			img.onload = handleImgLoad; //function(ii) { try { handleImgLoad(img, paths_concatenated[ii].pathArr, paths_concatenated[ii].iInPathArr, paths_concatenated[ii].imgObj, deferred_imgLoad); } catch (ex) { console.error('ex caught:', ex); deferred_imgLoad.reject(ex); } }.bind(null, i);
+			img.onabort = handleImgAbort; //function(ii) { try { handleImgAbort(paths_concatenated[ii].pathArr, paths_concatenated[ii].iInPathArr, deferred_imgLoad); } catch (ex) { console.error('ex caught:', ex); deferred_imgLoad.reject(ex); } }.bind(null, i);
+			img.onerror = handleImgError; //function(ii) { try { handleImgError(paths_concatenated[ii].pathArr, paths_concatenated[ii].iInPathArr, deferred_imgLoad); } catch (ex) { console.error('ex caught:', ex); deferred_imgLoad.reject(ex); } }.bind(null, i);
+			img.src = k;
+				
+		}
+		
+		console.info('paths_concatenated:', paths_concatenated);
+		console.info('deferreds_loadImgs:', deferreds_loadImgs);
+		
+		var promiseAll_makeDirAndLoadImgs = Promise.all(promiseAllArr_makeDirAndLoadImgs);
+		promiseAll_makeDirAndLoadImgs.then(
+			function(aVal) {
+				console.log('Fullfilled - promiseAll_makeDirAndLoadImgs - ', aVal);
+				// do stuff here
+				console.info('imgs_base:', imgs_base);
+				console.info('imgs_badge:', imgs_badge);
+				//makeRequiredSizes();
+				deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"'); // debug trying to find the "A promise chain failed to handle a rejection. Did you forget to '.catch', or did you forget to 'return'?"
+				// end do stuff here
+			},
+			function(aReason) {
+				var refObj = {name:'promiseAll_makeDirAndLoadImgs', aReason:aReason};
+				console.warn('Rejected - promiseAll_makeDirAndLoadImgs - ', refObj);
+				deferred_makeIcnsOfPaths.reject(refObj);
+			}
+		).catch(
+			function(aCaught) {
+				var refObj = {name:'promiseAll_makeDirAndLoadImgs', aCaught:aCaught};
+				console.error('Caught - promiseAll_makeDirAndLoadImgs - ', refObj);
+				deferred_makeIcnsOfPaths.reject(refObj);
+			}
+		);
+	};
 	// end - make dir and load all imgs
 	
+	// start - func globals
+	// vars used by all the funcs defined in this function
+	var imgs_base = {};
+	var imgs_badge = {};
+	// end - func globals
+	
+	loadPathsAndMakeDir();
+	//deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"'); // debug trying to find the "A promise chain failed to handle a rejection. Did you forget to '.catch', or did you forget to 'return'?"
 	return deferred_makeIcnsOfPaths.promise;
 	
 }

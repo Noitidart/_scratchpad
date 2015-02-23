@@ -340,7 +340,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	
 	// start - callbackBlob
 	var callbackBlob = function(blob) {
-		console.info('savePngToDisk, this:', this, 'blob:', blob);
+		console.info('savePngToDisk, this:', this.toString(), 'blob:', blob);
         var reader = Cc['@mozilla.org/files/filereader;1'].createInstance(Ci.nsIDOMFileReader); //new FileReader();
         reader.onloadend = function() {
             // reader.result contains the ArrayBuffer.
@@ -411,7 +411,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 				}
 			}
 			
-			console.log('the nearest found is of size: ', nearestKey, 'returning img:', objOfImgs[nearestKey].Image);
+			console.log('the nearest found is of size: ', nearestKey, 'returning img:', objOfImgs[nearestKey].Image.toString());
 			
 			return objOfImgs[nearestKey].Image;
 		};
@@ -428,7 +428,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			
 			// draw nearest sized base img
 			var nearestImg = getImg_of_exactOrNearest_Bigger_then_Smaller(size, imgs_base);
-			console.info('nearestImg:', nearestImg);
+			console.info('nearestImg:', nearestImg.toString());
 			if (nearestImg.naturalHeight == size) {
 				// its exact
 				console.log('base is exact at ', nearestImg.naturalHeight , 'so no need to scale, as size it is:', size);
@@ -443,7 +443,7 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			var badgeSize = reqdBadgeSize_for_BaseSize[size];
 			console.log('badgeSize needed for this size is:', badgeSize, 'size is:', size);
 			var nearestImg2 = getImg_of_exactOrNearest_Bigger_then_Smaller(badgeSize, imgs_badge);
-			console.info('nearestImg2:', nearestImg2);
+			console.info('nearestImg2:', nearestImg2.toString());
 			if (nearestImg2.naturalHeight == badgeSize) {
 				// its exact
 				console.log('badge is exact at ', nearestImg2.naturalHeight, 'so no need to scale, as badgeSize it is:', badgeSize);
@@ -589,8 +589,8 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			function(aVal) {
 				console.log('Fullfilled - promiseAll_makeDirAndLoadImgs - ', aVal);
 				// do stuff here
-				console.info('imgs_base:', imgs_base);
-				console.info('imgs_badge:', imgs_badge);
+				console.info('imgs_base:', imgs_base.toString());
+				console.info('imgs_badge:', imgs_badge.toString());
 				makeRequiredSizes();
 				//deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"'); // debug trying to find the "A promise chain failed to handle a rejection. Did you forget to '.catch', or did you forget to 'return'?"
 				// end do stuff here
@@ -630,10 +630,10 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 function doit() {
 	var promiseAllArr_collectPaths = [];
 	
-	var promise_basePaths = immediateChildPaths('C:\\Users\\Vayeate\\Documents\\GitHub\\Profilist\\ff-channel-base-iconsets\\nightly');
+	var promise_basePaths = immediateChildPaths(OS.Path.join(OS.Constants.Path.desktopDir, 'ff-channel-base-iconsets', 'nightly'));
 	promiseAllArr_collectPaths.push(promise_basePaths);
 	
-	var promise_badgePaths = immediateChildPaths('C:\\Users\\Vayeate\\Desktop\\badge_iconsets\\badge1234');
+	var promise_badgePaths = immediateChildPaths(OS.Path.join(OS.Constants.Path.desktopDir, 'badge_iconsets', 'badge1234'));
 	promiseAllArr_collectPaths.push(promise_badgePaths);
 	
 	var promiseAll_collectPaths = Promise.all(promiseAllArr_collectPaths);

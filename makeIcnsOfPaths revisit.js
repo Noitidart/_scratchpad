@@ -88,9 +88,9 @@ function makeDir_Bug934283(path, options) {
 			}
 		).catch(
 			function(aCaught) {
-				var refObj = {name:'promise_makeDir', aCaught:aCaught};
-				console.error('Caught - promise_makeDir - ', refObj);
-				deferred_makeDir_Bug934283.reject(refObj); // throw aCaught;
+				var rejObj = {name:'promise_makeDir', aCaught:aCaught};
+				console.error('Caught - promise_makeDir - ', rejObj);
+				deferred_makeDir_Bug934283.reject(rejObj); // throw aCaught;
 			}
 		);
 	};
@@ -122,15 +122,15 @@ function tryOsFile_ifDirsNoExistMakeThenRetry(nameOfOsFileFunc, argsOfOsFileFunc
 				deferred_tryOsFile_ifDirsNoExistMakeThenRetry.resolve('retryAttempt succeeded');
 			},
 			function(aReason) {
-				var refObj = {name:'promise_retryAttempt', aReason:aReason};
-				console.warn('Rejected - promise_retryAttempt - ', refObj);
-				deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(refObj); //throw refObj;
+				var rejObj = {name:'promise_retryAttempt', aReason:aReason};
+				console.warn('Rejected - promise_retryAttempt - ', rejObj);
+				deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(rejObj); //throw rejObj;
 			}
 		).catch(
 			function(aCaught) {
-				var refObj = {name:'promise_retryAttempt', aCaught:aCaught};
-				console.error('Caught - promise_retryAttempt - ', refObj);
-				deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(refObj); // throw aCaught;
+				var rejObj = {name:'promise_retryAttempt', aCaught:aCaught};
+				console.error('Caught - promise_retryAttempt - ', rejObj);
+				deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(rejObj); // throw aCaught;
 			}
 		);
 	};
@@ -158,21 +158,21 @@ function tryOsFile_ifDirsNoExistMakeThenRetry(nameOfOsFileFunc, argsOfOsFileFunc
 				retryIt();
 			},
 			function(aReason) {
-				var refObj = {name:'promise_makeDirsRecurse', aReason:aReason};
-				console.warn('Rejected - promise_makeDirsRecurse - ', refObj);
+				var rejObj = {name:'promise_makeDirsRecurse', aReason:aReason};
+				console.warn('Rejected - promise_makeDirsRecurse - ', rejObj);
 				if (aReason.becauseNoSuchFile) {
 					console.log('make dirs then do retryAttempt');
 					makeDirs();
 				} else {
 					// did not get becauseNoSuchFile, which means the dirs exist (from my testing), so reject with this error
-					deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(refObj); //throw refObj;
+					deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(rejObj); //throw rejObj;
 				}
 			}
 		).catch(
 			function(aCaught) {
-				var refObj = {name:'promise_makeDirsRecurse', aCaught:aCaught};
-				console.error('Caught - promise_makeDirsRecurse - ', refObj);
-				deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(refObj); // throw aCaught;
+				var rejObj = {name:'promise_makeDirsRecurse', aCaught:aCaught};
+				console.error('Caught - promise_makeDirsRecurse - ', rejObj);
+				deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(rejObj); // throw aCaught;
 			}
 		);
 	};
@@ -185,20 +185,20 @@ function tryOsFile_ifDirsNoExistMakeThenRetry(nameOfOsFileFunc, argsOfOsFileFunc
 			deferred_tryOsFile_ifDirsNoExistMakeThenRetry.resolve('initialAttempt succeeded');
 		},
 		function(aReason) {
-			var refObj = {name:'promise_initialAttempt', aReason:aReason};
-			console.warn('Rejected - promise_initialAttempt - ', refObj);
+			var rejObj = {name:'promise_initialAttempt', aReason:aReason};
+			console.warn('Rejected - promise_initialAttempt - ', rejObj);
 			if (aReason.becauseNoSuchFile) {
 				console.log('make dirs then do secondAttempt');
 				makeDirs();
 			} else {
-				deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(refObj); //throw refObj;
+				deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(rejObj); //throw rejObj;
 			}
 		}
 	).catch(
 		function(aCaught) {
-			var refObj = {name:'promise_initialAttempt', aCaught:aCaught};
-			console.error('Caught - promise_initialAttempt - ', refObj);
-			deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(refObj); // throw aCaught;
+			var rejObj = {name:'promise_initialAttempt', aCaught:aCaught};
+			console.error('Caught - promise_initialAttempt - ', rejObj);
+			deferred_tryOsFile_ifDirsNoExistMakeThenRetry.reject(rejObj); // throw aCaught;
 		}
 	);
 	
@@ -226,15 +226,15 @@ function immediateChildPaths(path_dir) {
 			// end - do stuff here - promise_collectChildPaths
 		},
 		function(aReason) {
-			var refObj = {name:'promise_collectChildPaths', aReason:aReason};
-			console.warn('Rejected - promise_collectChildPaths - ', refObj);
-			deferred_immediateChildPaths.reject(refObj);
+			var rejObj = {name:'promise_collectChildPaths', aReason:aReason};
+			console.warn('Rejected - promise_collectChildPaths - ', rejObj);
+			deferred_immediateChildPaths.reject(rejObj);
 		}
 	).catch(
 		function(aCaught) {
-			var refObj = {name:'promise_collectChildPaths', aCaught:aCaught};
-			console.error('Caught - promise_collectChildPaths - ', refObj);
-			deferred_immediateChildPaths.reject(refObj);
+			var rejObj = {name:'promise_collectChildPaths', aCaught:aCaught};
+			console.error('Caught - promise_collectChildPaths - ', rejObj);
+			deferred_immediateChildPaths.reject(rejObj);
 		}
 	);
 	
@@ -279,49 +279,19 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 				console.log('Fullfilled - promise_delIt - ', aVal);
 			},
 			function(aReason) {
-				var refObj = {name:'promise_delIt', aReason:aReason};
-				console.warn('Rejected - promise_delIt - ', refObj);
-				deferred_makeIcnsOfPaths.reject(refObj);
+				var rejObj = {name:'promise_delIt', aReason:aReason};
+				console.warn('Rejected - promise_delIt - ', rejObj);
+				deferred_makeIcnsOfPaths.reject(rejObj);
 			}
 		).catch(
 			function(aCaught) {
-				var refObj = {name:'promise_delIt', aCaught:aCaught};
-				console.error('Caught - promise_delIt - ', refObj);
-				deferred_makeIcnsOfPaths.reject(refObj);
+				var rejObj = {name:'promise_delIt', aCaught:aCaught};
+				console.error('Caught - promise_delIt - ', rejObj);
+				deferred_makeIcnsOfPaths.reject(rejObj);
 			}
 		);
 	};
 	// end - delete dir
-	
-	// start - savePngToDisk
-	var savePngToDisk = function(blob, ref_deferred, path_thisPng) {		
-        var reader = Cc['@mozilla.org/files/filereader;1'].createInstance(Ci.nsIDOMFileReader); //new FileReader();
-        reader.onloadend = function() {
-            // reader.result contains the ArrayBuffer.
-			var promise_makePng = tryOsFile_ifDirsNoExistMakeThenRetry('writeAtomic', [path_thisPng, new Uint8Array(reader.result), {tmpPath:path_thisPng + '.tmp', encoding:'utf-8'}], OS.Constants.Path.userApplicationDataDir);
-			promise_makePng.then(
-				function(aVal) {
-					console.log('Fullfilled - promise_makePng - ', aVal);
-					// start - do stuff here - promise_makePng
-					ref_deferred.resolve('Saved png at path: "' + path_thisPng + '"');
-					// end - do stuff here - promise_makePng
-				},
-				function(aReason) {
-					var refObj = {name:'promise_makePng', aReason:aReason};
-					console.warn('Rejected - promise_makePng - ', refObj);
-					ref_deferred.reject(refObj);
-				}
-			).catch(
-				function(aCaught) {
-					var refObj = {name:'promise_makePng', aCaught:aCaught};
-					console.error('Caught - promise_makePng - ', refObj);
-					ref_deferred.reject(refObj);
-				}
-			);
-        };
-        reader.readAsArrayBuffer(blob);
-	};
-	// end - savePngToDisk
 	
 	// start - setup convToIcns
 	var convToIcns = function() {
@@ -331,14 +301,74 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	};
 	// end - setup convToIcns
 	
+	// start - savePngToDisk
+	var savePngsToDisk = function() {
+		var promiseAllArr_savePngsToDisk = [];
+		
+		collection_blobs.sort(function(a, b){return b.size-a.size;}); //sort descending
+		reqdBaseSizes.sort(function(a, b){return b-a;}); //sort descending
+		
+		
+		for (var i=0; i<collection_blobs.length; i++) {
+			var pathToSaveIt = OS.Path.join(path_dirIconSet, saveas_name + '_' + reqdBaseSizes[i] + '.png');
+			var promise_makePng = tryOsFile_ifDirsNoExistMakeThenRetry('writeAtomic', [pathToSaveIt, collection_blobs[i].arrview, {tmpPath:pathToSaveIt + '.tmp', encoding:'utf-8'}], OS.Constants.Path.userApplicationDataDir);
+			promiseAllArr_savePngsToDisk.push(promise_makePng);
+		}
+		
+		var promiseAll_savePngsToDisk = Promise.all(promiseAllArr_savePngsToDisk);
+		promiseAll_savePngsToDisk.then(
+			function(aVal) {
+				console.log('Fullfilled - promiseAll_savePngsToDisk - ', aVal);
+				// start - do stuff here - promiseAll_savePngsToDisk
+				deferred_makeRequiredSizes.resolve('all pngs saved to disk');
+				// end - do stuff here - promiseAll_savePngsToDisk
+			},
+			function(aReason) {
+				var refObj = {name:'promiseAll_savePngsToDisk', aReason:aReason};
+				console.warn('Rejected - promiseAll_savePngsToDisk - ', refObj);
+				deferred_makeRequiredSizes.reject(refObj);
+			}
+		).catch(
+			function(aCaught) {
+				var refObj = {name:'promiseAll_savePngsToDisk', aCaught:aCaught};
+				console.error('Caught - promiseAll_savePngsToDisk - ', refObj);
+				deferred_makeRequiredSizes.reject(refObj);
+			}
+		);
+	};
+	// end - savePngToDisk
+	
+	// start - callbackBlob
+	var callbackBlob = function(blob) {
+		console.info('savePngToDisk, this:', this, 'blob:', blob);
+        var reader = Cc['@mozilla.org/files/filereader;1'].createInstance(Ci.nsIDOMFileReader); //new FileReader();
+        reader.onloadend = function() {
+            // reader.result contains the ArrayBuffer.
+			collection_blobs.push({
+				arrview: new Uint8Array(reader.result),
+				size: blob.size
+			});
+			if (collection_blobs.length == reqdBaseSizes.length) {
+				savePngsToDisk();
+			}
+        };
+		reader.onabort = function() {
+			deferred_makeRequiredSizes.reject('Abortion on nsIDOMFileReader, failed reading blob of size: "' + blob.size + '"');
+		};
+		reader.onerror = function() {
+			deferred_makeRequiredSizes.reject('Error on nsIDOMFileReader, failed reading blob of size: "' + blob.size + '"');
+		};
+        reader.readAsArrayBuffer(blob);
+	};
+	// end - callbackBlob
+	
 	// start - setup makeRequiredSizes
 	var makeRequiredSizes = function() {
 		// draws the base with nearest sized avail, and overlays with badge with nearest sized avail, and makes it a png
-		var promiseAllArr_makeRequiredSizes = [];
+		//var promiseAllArr_makeRequiredSizes = [];
 		
-		var reqdBaseSizes = [16, 32, 64, 128, 256, 512, 1024];
 		var reqdBadgeSize_for_BaseSize = {
-			16: 8,
+			16: 10,
 			32: 16,
 			64: 32,
 			128: 64,
@@ -388,16 +418,16 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 		
 		for (var i=0; i<reqdBaseSizes.length; i++) {
 			
-			let canvas = doc.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
-			let ctx = canvas.getContext('2d');
+			var canvas = doc.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
+			var ctx = canvas.getContext('2d');
 			
-			let size = reqdBaseSizes[i];
+			var size = reqdBaseSizes[i];
 			canvas.width = size;
 			canvas.height = size;
 			ctx.clearRect(0, 0, size, size);
 			
 			// draw nearest sized base img
-			let nearestImg = getImg_of_exactOrNearest_Bigger_then_Smaller(size, imgs_base);
+			var nearestImg = getImg_of_exactOrNearest_Bigger_then_Smaller(size, imgs_base);
 			console.info('nearestImg:', nearestImg);
 			if (nearestImg.naturalHeight == size) {
 				// its exact
@@ -410,9 +440,9 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			}
 			
 			// overlay nearest sized badge
-			let badgeSize = reqdBadgeSize_for_BaseSize[size];
+			var badgeSize = reqdBadgeSize_for_BaseSize[size];
 			console.log('badgeSize needed for this size is:', badgeSize, 'size is:', size);
-			let nearestImg2 = getImg_of_exactOrNearest_Bigger_then_Smaller(badgeSize, imgs_badge);
+			var nearestImg2 = getImg_of_exactOrNearest_Bigger_then_Smaller(badgeSize, imgs_badge);
 			console.info('nearestImg2:', nearestImg2);
 			if (nearestImg2.naturalHeight == badgeSize) {
 				// its exact
@@ -424,28 +454,24 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 				ctx.drawImage(nearestImg2, size-badgeSize, size-badgeSize, badgeSize, badgeSize);
 			}
 			
-			let deferred_saveThisImage = new Deferred();
-			(canvas.toBlobHD || canvas.toBlob).call(canvas, function(b) { savePngToDisk(b, deferred_saveThisImage, OS.Path.join(path_dirIconSet, saveas_name + '_' + size + '.png')); }, 'image/png');
-			
-			promiseAllArr_makeRequiredSizes.push(deferred_saveThisImage.promise);
+			(canvas.toBlobHD || canvas.toBlob).call(canvas, callbackBlob, 'image/png');
 		}
-		
-		var promiseAll_makeRequiredSizes = Promise.all(promiseAllArr_makeRequiredSizes);
-		promiseAll_makeRequiredSizes.then(
+		deferred_makeRequiredSizes.promise.then(
 			function(aVal) {
-				console.log('Fullfilled - promiseAll_makeRequiredSizes - ', aVal);
-				// do stuff here
+				console.log('Fullfilled - deferred_makeRequiredSizes - ', aVal);
+				// start - do stuff here - deferred_makeRequiredSizes
 				convToIcns();
+				// end - do stuff here - deferred_makeRequiredSizes
 			},
 			function(aReason) {
-				var refObj = {name:'promiseAll_makeRequiredSizes', aReason:aReason};
-				console.warn('Rejected - promiseAll_makeRequiredSizes - ', refObj);
+				var refObj = {name:'deferred_makeRequiredSizes', aReason:aReason};
+				console.warn('Rejected - deferred_makeRequiredSizes - ', refObj);
 				deferred_makeIcnsOfPaths.reject(refObj);
 			}
 		).catch(
 			function(aCaught) {
-				var refObj = {name:'promiseAll_makeRequiredSizes', aCaught:aCaught};
-				console.error('Caught - promiseAll_makeRequiredSizes - ', refObj);
+				var refObj = {name:'deferred_makeRequiredSizes', aCaught:aCaught};
+				console.error('Caught - deferred_makeRequiredSizes - ', refObj);
 				deferred_makeIcnsOfPaths.reject(refObj);
 			}
 		);
@@ -456,7 +482,6 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 	var loadPathsAndMakeDir = function() {
 		var promiseAllArr_makeDirAndLoadImgs = [];
 		
-		var path_dirIconSet = OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons', saveas_name + ' iconset');
 		var promise_makeIconSetDir = makeDir_Bug934283(path_dirIconSet, {from:OS.Constants.Path.userApplicationDataDir, unixMode:FileUtils.PERMS_DIRECTORY, ignoreExisting:true});
 		promiseAllArr_makeDirAndLoadImgs.push(promise_makeIconSetDir);
 		
@@ -549,11 +574,11 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 			promiseAllArr_makeDirAndLoadImgs.push(deferreds_loadImgs[k].promise);
 			
 			var img = new doc.defaultView.Image();
-			img.onload = handleImgLoad; //function(ii) { try { handleImgLoad(img, paths_concatenated[ii].pathArr, paths_concatenated[ii].iInPathArr, paths_concatenated[ii].imgObj, deferred_imgLoad); } catch (ex) { console.error('ex caught:', ex); deferred_imgLoad.reject(ex); } }.bind(null, i);
-			img.onabort = handleImgAbort; //function(ii) { try { handleImgAbort(paths_concatenated[ii].pathArr, paths_concatenated[ii].iInPathArr, deferred_imgLoad); } catch (ex) { console.error('ex caught:', ex); deferred_imgLoad.reject(ex); } }.bind(null, i);
-			img.onerror = handleImgError; //function(ii) { try { handleImgError(paths_concatenated[ii].pathArr, paths_concatenated[ii].iInPathArr, deferred_imgLoad); } catch (ex) { console.error('ex caught:', ex); deferred_imgLoad.reject(ex); } }.bind(null, i);
+			img.onload = handleImgLoad;
+			img.onabort = handleImgAbort;
+			img.onerror = handleImgError;
+			
 			img.src = k;
-				
 		}
 		
 		console.info('paths_concatenated:', paths_concatenated);
@@ -566,29 +591,34 @@ function makeIcnsOfPaths(paths_base, path_targetDir, saveas_name, paths_badge, d
 				// do stuff here
 				console.info('imgs_base:', imgs_base);
 				console.info('imgs_badge:', imgs_badge);
-				//makeRequiredSizes();
-				deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"'); // debug trying to find the "A promise chain failed to handle a rejection. Did you forget to '.catch', or did you forget to 'return'?"
+				makeRequiredSizes();
+				//deferred_makeIcnsOfPaths.resolve('ICNS succesfully made at path: "' + OS.Path.join(path_targetDir, saveas_name + '.icns') + '"'); // debug trying to find the "A promise chain failed to handle a rejection. Did you forget to '.catch', or did you forget to 'return'?"
 				// end do stuff here
 			},
 			function(aReason) {
-				var refObj = {name:'promiseAll_makeDirAndLoadImgs', aReason:aReason};
-				console.warn('Rejected - promiseAll_makeDirAndLoadImgs - ', refObj);
-				deferred_makeIcnsOfPaths.reject(refObj);
+				var rejObj = {name:'promiseAll_makeDirAndLoadImgs', aReason:aReason};
+				console.warn('Rejected - promiseAll_makeDirAndLoadImgs - ', rejObj);
+				deferred_makeIcnsOfPaths.reject(rejObj);
 			}
 		).catch(
 			function(aCaught) {
-				var refObj = {name:'promiseAll_makeDirAndLoadImgs', aCaught:aCaught};
-				console.error('Caught - promiseAll_makeDirAndLoadImgs - ', refObj);
-				deferred_makeIcnsOfPaths.reject(refObj);
+				var rejObj = {name:'promiseAll_makeDirAndLoadImgs', aCaught:aCaught};
+				console.error('Caught - promiseAll_makeDirAndLoadImgs - ', rejObj);
+				deferred_makeIcnsOfPaths.reject(rejObj);
 			}
 		);
 	};
 	// end - make dir and load all imgs
 	
 	// start - func globals
-	// vars used by all the funcs defined in this function
+	// vars used by multiple the funcs defined in this function
 	var imgs_base = {};
 	var imgs_badge = {};
+	var path_dirIconSet = OS.Path.join(OS.Constants.Path.userApplicationDataDir, 'profilist_data', 'launcher_icons', saveas_name + ' iconset');
+	//var blobDetails = {};
+	var collection_blobs = [];
+	var deferred_makeRequiredSizes = new Deferred();
+	var reqdBaseSizes = [16, 32, 64, 128, 256, 512, 1024];
 	// end - func globals
 	
 	loadPathsAndMakeDir();
@@ -621,28 +651,28 @@ function doit() {
 					// end - do stuff here - promise_makeIcns
 				},
 				function(aReason) {
-					var refObj = {name:'promise_makeIcns', aReason:aReason};
-					console.error('Rejected - promise_makeIcns - ', refObj);
+					var rejObj = {name:'promise_makeIcns', aReason:aReason};
+					console.error('Rejected - promise_makeIcns - ', rejObj);
 					Services.prompt.alert(null, 'icns failed', 'icns generation failed see browser console');
 				}
 			).catch(
 				function(aCaught) {
-					var refObj = {name:'promise_makeIcns', aCaught:aCaught};
-					console.error('Caught - promise_makeIcns - ', refObj);
+					var rejObj = {name:'promise_makeIcns', aCaught:aCaught};
+					console.error('Caught - promise_makeIcns - ', rejObj);
 					Services.prompt.alert(null, 'icns failed', 'icns generation errored see browser console');
 				}
 			);
 			// end do stuff here - promiseAll_collectPaths
 		},
 		function(aReason) {
-			var refObj = {name:'promiseAll_collectPaths', aReason:aReason};
-			console.error('Rejected - promiseAll_collectPaths - ', refObj);
+			var rejObj = {name:'promiseAll_collectPaths', aReason:aReason};
+			console.error('Rejected - promiseAll_collectPaths - ', rejObj);
 			Services.prompt.alert(null, 'failed', 'failed to collect paths see browser console');
 		}
 	).catch(
 		function(aCaught) {
-			var refObj = {name:'promiseAll_collectPaths', aCaught:aCaught};
-			console.error('Caught - promiseAll_collectPaths - ', refObj);
+			var rejObj = {name:'promiseAll_collectPaths', aCaught:aCaught};
+			console.error('Caught - promiseAll_collectPaths - ', rejObj);
 			Services.prompt.alert(null, 'errored', 'errored to collect paths see browser console');
 		}
 	);

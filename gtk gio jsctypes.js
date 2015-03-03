@@ -6,26 +6,19 @@ var gio = ctypes.open('libgio-2.0.so.0');
 var TYPES = {
 	gchar: ctypes.char,
 	gint: ctypes.int,
-	GAppInfo: ctypes.voidptr_t, //ctypes.StructType('GAppInfo'),
-	GAppLaunchContext: ctypes.voidptr_t, //ctypes.StructType('GAppLaunchContext'),
-	GDesktopAppInfo: ctypes.voidptr_t, //ctypes.StructType('GDesktopAppInfo'),
-	//GError: ctypes.voidptr_t, //ctypes.StructType('GError'),
-	
+	GAppInfo: ctypes.StructType('GAppInfo'),
+	GAppLaunchContext: ctypes.StructType('GAppLaunchContext'),
+	GDesktopAppInfo: ctypes.StructType('GDesktopAppInfo'),
     GError: new ctypes.StructType('GError', [
 		{'domain': ctypes.int32_t},
 		{'code': ctypes.int32_t},
 		{'message': ctypes.char.ptr}
     ]),
-	
-	//GList: ctypes.voidptr_t, //ctypes.StructType('GList')
-	
     GList: new ctypes.StructType('GList', [
 		{'data': ctypes.voidptr_t},
 		{'next': ctypes.voidptr_t},
 		{'prev': ctypes.voidptr_t}
     ])
-	
-	
 };
 
 // ADVANCED TYPES
@@ -43,8 +36,8 @@ var CONSTS = {
  * );
  */
 var new_from_filename = gio.declare('g_desktop_app_info_new_from_filename', ctypes.default_abi,
-	TYPES.GDesktopAppInfo,	// return
-	TYPES.gchar.ptr			// *filename
+	TYPES.GDesktopAppInfo.ptr,	// return
+	TYPES.gchar.ptr				// *filename
 );
 
 /* https://developer.gnome.org/gio/unstable/GAppInfo.html#g-app-info-launch-uris
@@ -56,11 +49,11 @@ var new_from_filename = gio.declare('g_desktop_app_info_new_from_filename', ctyp
  * );
  */
 var launch_uris = gio.declare('g_app_info_launch_uris', ctypes.default_abi,
-	TYPES.gboolean,				// return
-	TYPES.GAppInfo.ptr,			// *appinfo
-	TYPES.GList.ptr,			// *uris
-	TYPES.GAppLaunchContext,	// *launch_context
-	TYPES.GError.ptr.ptr		// **error
+	TYPES.gboolean,					// return
+	TYPES.GAppInfo.ptr,				// *appinfo
+	TYPES.GList.ptr,				// *uris
+	TYPES.GAppLaunchContext.ptr,	// *launch_context
+	TYPES.GError.ptr.ptr			// **error
 );
 
 // start - helper functions
@@ -83,9 +76,9 @@ function main() {
 	}
 	
 	var uris = new TYPES.GList();
-	var launch_context = ctypes.cast(ctypes.uint64_t(0x0), TYPES.GAppLaunchContext);
+	var launch_context = new TYPES.GAppLaunchContext.ptr();
 	var error = new TYPES.GError.ptr();
-	var rez_launch_uris = launch_uris(launcher.address(), uris.address(), launch_context.address(), error.address());
+	var rez_launch_uris = launch_uris(launcher, uris.address(), launch_context.address(), error.address());
 	console.info('rez_launch_uris:', rez_launch_uris, rez_launch_uris.toString(), uneval(rez_launch_uris));
 	console.info('error:', error, error.toString(), uneval(error));
 }

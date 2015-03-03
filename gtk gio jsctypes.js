@@ -9,21 +9,22 @@ var TYPES = {
 	GAppInfo: ctypes.StructType('GAppInfo'),
 	GAppLaunchContext: ctypes.StructType('GAppLaunchContext'),
 	GDesktopAppInfo: ctypes.StructType('GDesktopAppInfo'),
-    GError: new ctypes.StructType('GError', [
-		{'domain': ctypes.int32_t},
-		{'code': ctypes.int32_t},
-		{'message': ctypes.char.ptr}
-    ]),
     GList: new ctypes.StructType('GList', [
 		{'data': ctypes.voidptr_t},
 		{'next': ctypes.voidptr_t},
 		{'prev': ctypes.voidptr_t}
-    ])
+    ]),
+	GQuark: ctypes.uint32_t
 };
 
 // ADVANCED TYPES
 TYPES.gboolean = TYPES.gint;
-
+TYPES.GError = new ctypes.StructType('GError', [
+	{'domain': TYPES.GQuark},
+	{'code': ctypes.int},
+	{'message': ctypes.char.ptr}
+]);
+	
 // CONSTANTS
 var CONSTS = {
 	None: 0
@@ -75,10 +76,12 @@ function main() {
 		throw new Error('No file exists at path: "' + jsStr_pathToDesktopFile + '"');
 	}
 	
+	launcher = ctypes.cast(launcher, TYPES.GAppInfo.ptr);
 	var uris = new TYPES.GList();
 	var launch_context = new TYPES.GAppLaunchContext.ptr();
 	var error = new TYPES.GError.ptr();
-	var rez_launch_uris = launch_uris(launcher, uris.address(), launch_context.address(), error.address());
+	//var rez_launch_uris = launch_uris(launcher.address(), uris.address(), launch_context.address(), error.address());
+	var rez_launch_uris = launch_uris(launcher, null, null, null);
 	console.info('rez_launch_uris:', rez_launch_uris, rez_launch_uris.toString(), uneval(rez_launch_uris));
 	console.info('error:', error, error.toString(), uneval(error));
 }

@@ -253,6 +253,12 @@ function xidFromXULWin(aXULWin) {
 	return aXID;
 }
 
+function processArgsArr(refArr) {
+	for (var ia=0; ia<refArr.length; ia++) {
+		refArr[ia] = refArr[ia][1];
+	}
+}
+
 /* end helper functions */
 
 // my globals:
@@ -340,8 +346,7 @@ function main() {
 			['*data',			myXData],
 			['nelements',		myXData.length]
 		];
-		//var XChangeProp_argsApplyArr = XChangeProp_argsArr.map(function(m){return m[1]});
-		for (var ia=0; ia<XChangeProp_argsArr.length; ia++) { XChangeProp_argsArr[ia] = XChangeProp_argsArr[ia][1] }
+		processArgsArr(XChangeProp_argsArr);
 		var rez_XChangeProp = _dec('XChangeProperty').apply(null, XChangeProp_argsArr);
 		console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
 		
@@ -364,7 +369,7 @@ function main() {
 			['*bytes_after_return',		null],
 			['**prop_return',			null]
 		];
-		var XGetWinProp_argsApplyArr = XGetWinProp_argsArr.map(function(m){return m[1]});
+		processArgsArr(XGetWinProp_argsArr);
 		var rez_XGetWinProp = _dec('XGetWindowProperty').apply(null, XGetWinProp_argsApplyArr);
 		console.info('rez_XGetWinProp:', rez_XGetWinProp, rez_XGetWinProp.toString(), uneval(rez_XGetWinProp));
 		*/

@@ -129,6 +129,39 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DISPLAY.ptr	// *display
 		);
 	},
+	XGetWindowProperty: function() {
+		/* http://www.xfree86.org/4.4.0/XChangeProperty.3.html
+		 * int XChangeProperty(
+		 *   Display *display,
+		 *   Window w,
+		 *   Atom property,
+		 *   long long_offset,
+		 *   long long_length,
+		 *   Bool delete,
+		 *   Atom req_type,
+		 *   Atom *actual_type_return,
+		 *   int *actual_format_return,
+		 *   unsigned long *nitems_return,
+		 *   unsigned long *bytes_after_return,
+		 *   unsigned char **prop_return,
+		 * );
+		 */
+		return _lib('x11').declare('XGetWindowProperty', ctypes.default_abi,
+			ostypes.INT,					// return
+			ostypes.DISPLAY.ptr,			// *display
+			ostypes.WINDOW,					// w
+			ostypes.ATOM,					// property
+			ostypes.LONG,					// long_offset
+			ostypes.LONG,					// long_length
+			ostypes.BOOL,					// delete
+			ostypes.ATOM,					// req_type
+			ostypes.ATOM.ptr,				// *actual_type_return
+			ostypes.INT.ptr,				// *actual_format_return
+			ostypes.UNSIGNED_LONG.ptr,		// *nitems_return
+			ostypes.UNSIGNED_LONG.ptr,		// *bytes_after_return
+			ostypes.UNSIGNED_CHAR.ptr.ptr	// **prop_return
+		);
+	},
 	XInternAtom: function() {
 		/* http://www.xfree86.org/4.4.0/XInternAtom.3.html
 		 * Atom XInternAtom(
@@ -296,8 +329,45 @@ function main() {
 		var myXData = ctypes.cast(myXDataLONG.address(), ostypes.UNSIGNED_CHAR.array(myXDataLONG.length).ptr).contents;
 		//myXData = ctypes.cast(myXDataLONG, ostypes.UNSIGNED_CHAR.ptr);
 		console.info('myXData:', myXData);
-		var rez_XChangeProp = _dec('XChangeProperty')(GetXDisplay(), xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')), GetAtom('_NET_WM_ICON'), ostypes.XA_CARDINAL, 32, ostypes.PROPMODEREPLACE, myXData, myXData.length);
+		
+		var XChangeProp_argsArr = [
+			['*display',		GetXDisplay()],
+			['w',				xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser'))],
+			['property',		GetAtom('_NET_WM_ICON')],
+			['type',			ostypes.XA_CARDINAL],
+			['format',			32],
+			['mode',			ostypes.PROPMODEREPLACE],
+			['*data',			myXData],
+			['nelements',		myXData.length]
+		];
+		var XChangeProp_argsApplyArr = XChangeProp_argsArr.map(function(m){return m[1]});
+		var rez_XChangeProp = _dec('XChangeProperty').apply(null, XChangeProp_argsApplyArr);
 		console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
+		
+		//https://github.com/benizi/config-bin/blob/4f606bde322af570429bbb17b3bd7023093cee27/set-icon.py#L69
+		// many window managers need a hint that the icon has changed
+		// bits 2, 3, and 5 of the WM_HINTS flags int are, respectively:
+		// IconPixmapHint, IconWindowHint, and IconMaskHint
+		
+		/*
+		var XGetWinProp_argsArr = [
+			['*display',				GetXDisplay()],
+			['w',						xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser'))],
+			['property',				null],
+			['long_offset',				null],
+			['long_length',				null],
+			['delete',					null],
+			['req_type',				null],
+			['*actual_type_return',		null],
+			['*actual_format_return',	null],
+			['*nitems_return',			null],
+			['*bytes_after_return',		null],
+			['**prop_return',			null]
+		];
+		var XGetWinProp_argsApplyArr = XGetWinProp_argsArr.map(function(m){return m[1]});
+		var rez_XGetWinProp = _dec('XGetWindowProperty').apply(null, XGetWinProp_argsApplyArr);
+		console.info('rez_XGetWinProp:', rez_XGetWinProp, rez_XGetWinProp.toString(), uneval(rez_XGetWinProp));
+		*/
 	};
 	img.src = OS.Path.toFileURI(OS.Path.join(OS.Constants.Path.desktopDir, 'profilist-ff-channel-logos', 'release64.png'));
 }

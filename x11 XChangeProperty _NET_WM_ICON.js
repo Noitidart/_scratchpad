@@ -340,15 +340,15 @@ function main() {
 			['*data',			myXData],
 			['nelements',		myXData.length]
 		];
-		var XChangeProp_argsApplyArr = XChangeProp_argsArr.map(function(m){return m[1]});
-		var rez_XChangeProp = _dec('XChangeProperty').apply(null, XChangeProp_argsApplyArr);
+		//var XChangeProp_argsApplyArr = XChangeProp_argsArr.map(function(m){return m[1]});
+		for (var ia=0; ia<XChangeProp_argsArr.length; ia++) { XChangeProp_argsArr[ia] = XChangeProp_argsArr[ia][1] }
+		var rez_XChangeProp = _dec('XChangeProperty').apply(null, XChangeProp_argsArr);
 		console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
 		
 		//https://github.com/benizi/config-bin/blob/4f606bde322af570429bbb17b3bd7023093cee27/set-icon.py#L69
 		// many window managers need a hint that the icon has changed
 		// bits 2, 3, and 5 of the WM_HINTS flags int are, respectively:
 		// IconPixmapHint, IconWindowHint, and IconMaskHint
-		
 		/*
 		var XGetWinProp_argsArr = [
 			['*display',				GetXDisplay()],

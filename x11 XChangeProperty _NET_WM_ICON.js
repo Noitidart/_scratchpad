@@ -1,4 +1,4 @@
-Cu.import('resource://gre/modules/ctypes.jsm')
+Cu.import('resource://gre/modules/ctypes.jsm');
 
 var nixtypesInit = function() {
 	// BASIC TYPES (ones that arent equal to something predefined by me)
@@ -197,7 +197,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.LONG,					// long_offset
 			ostypes.LONG,					// long_length
 			ostypes.BOOL,					// delete
-			ostypes.ATOM,					// req_type		// note on note: actually if ANYPROPERTYTYPE and NONE are jsInt then thse can be atoms. note to self: always put a jsInt here because in comparison checks after running `_dec('XGetWindowProperty')` I do `xgwpArg[argNameIndex['req_type']] != xgwpArg[argNameIndex['*actual_type_return']]` to test for mismatch, and i also test to make sure its not ostypes.ANYPROPERTYTYPE. and on return they are `UInt64{}` (even though declared to be `ostypes.ATOM.ptr` in `preDec`) but `new ostypes.ATOM(5)` is `CData{ UInt64{} }`. so doing a simple == for comparison requires one or the other be a jsInt  
+			ostypes.ATOM,					// req_type		// note on note: actually if ANYPROPERTYTYPE and NONE are jsInt then thse can be atoms. note to self: always put a jsInt here because in comparison checks after running `_dec('XGetWindowProperty')` I do `xgwpArg.req_type != xgwpArg.$actual_type_return` to test for mismatch, and i also test to make sure its not ostypes.ANYPROPERTYTYPE. and on return they are `UInt64{}` (even though declared to be `ostypes.ATOM.ptr` in `preDec`) but `new ostypes.ATOM(5)` is `CData{ UInt64{} }`. so doing a simple == for comparison requires one or the other be a jsInt  
 			ostypes.ATOM.ptr,				// *actual_type_return
 			ostypes.INT.ptr,				// *actual_format_return
 			ostypes.UNSIGNED_LONG.ptr,		// *nitems_return
@@ -321,16 +321,6 @@ function xidFromXULWin(aXULWin) {
 	console.info('aXID:', aXID, aXID.toString(), uneval(aXID));
 	return aXID;
 }
-
-function processArgsArr(refArr) {
-	var argNameIndex = {}
-	for (var ia=0; ia<refArr.length; ia++) {
-		argNameIndex[refArr[ia][0]] = ia;
-		refArr[ia] = refArr[ia][1];
-	}
-	return argNameIndex;
-}
-
 /* end helper functions */
 
 // my globals:
@@ -399,27 +389,25 @@ function main() {
 		pixelsAs32Bits[0] = canvas.width;
 		pixelsAs32Bits[1] = canvas.height;
 
-		console.log(pixelsAs32Bits);
+		//console.log(pixelsAs32Bits);
 		var jsarr = Array.prototype.slice.call(pixelsAs32Bits);
-		console.log('jsarr:', jsarr);
+		//console.log('jsarr:', jsarr);
 			
 		var myXDataLONG = ostypes.LONG.array()(jsarr);
 		var myXData = ctypes.cast(myXDataLONG.address(), ostypes.UNSIGNED_CHAR.array(myXDataLONG.length).ptr).contents;
-		//myXData = ctypes.cast(myXDataLONG, ostypes.UNSIGNED_CHAR.ptr);
-		console.info('myXData:', myXData);
+		//console.info('myXData:', myXData);
 		
-		var XChangeProp_argsArr = [
-			['*display',		GetXDisplay()],
-			['w',				xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser'))],
-			['property',		GetAtom('_NET_WM_ICON')],
-			['type',			ostypes.XA_CARDINAL],
-			['format',			32],
-			['mode',			ostypes.PROPMODEREPLACE],
-			['*data',			myXData],
-			['nelements',		myXData.length]
-		];
-		var argNameIndex = processArgsArr(XChangeProp_argsArr);
-		var rez_XChangeProp = _dec('XChangeProperty').apply(null, XChangeProp_argsArr);
+		var xgpArg = {
+			$display:	/*INT*/					GetXDisplay(),
+			w:			/*DISPLAY.ptr*/			xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')),
+			property:	/*WINDOW*/				GetAtom('_NET_WM_ICON'),
+			type:		/*ATOM*/				ostypes.XA_CARDINAL,
+			format:		/*INT*/					32,
+			mode:		/*INT*/					ostypes.PROPMODEREPLACE,
+			$data:		/*UNSIGNED_CHAR.ptr*/	myXData,
+			nelements:	/*INT*/					myXData.length
+		};
+		var rez_XChangeProp = _dec('XChangeProperty')(xgpArg.$display, xgpArg.w, xgpArg.property, xgpArg.type, xgpArg.format, xgpArg.mode, xgpArg.$data, xgpArg.nelements);
 		console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
 		/*
 		var rez_XMapWin = _dec('XMapWindow')(GetXDisplay(), XChangeProp_argsArr[1]);
@@ -437,64 +425,63 @@ function main() {
 		// many window managers need a hint that the icon has changed
 		// bits 2, 3, and 5 of the WM_HINTS flags int are, respectively:
 		// IconPixmapHint, IconWindowHint, and IconMaskHint
-		var xgwpArg = [
-			['*display',				GetXDisplay()],
-			['w',						xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser'))],
-			['property',				GetAtom('_NET_WM_ICON')],
-			['long_offset',				ostypes.LONG(0)],
-			['long_length',				ostypes.LONG(0)],
-			['delete',					0],
-			['req_type',				ostypes.ANYPROPERTYTYPE],
-			['*actual_type_return',		new ostypes.ATOM().address()],
-			['*actual_format_return',	new ostypes.INT(123).address()], // i can set this to whatever i want, im very sure, as it gets set to 0, if prop DNE and it gets set to right format if it exists (in both existance situations [(req_type != AnyPropertyType && req_type != actual_type_return) || (req_type == AnyPropertyType || req_type == actual_type_return)]
-			['*nitems_return',			new ostypes.UNSIGNED_LONG().address()],
-			['*bytes_after_return',		new ostypes.UNSIGNED_LONG().address()],
-			['**prop_return',			new ostypes.UNSIGNED_CHAR.ptr().address()]
-		];
-		var argNameIndex = processArgsArr(xgwpArg);
-		console.info('argNameIndex:', argNameIndex, uneval(argNameIndex));
-		var rez_XGetWinProp = _dec('XGetWindowProperty').apply(null, xgwpArg);
+		var xgwpArg = {
+			$display:				/*DISPLAY.ptr*/				GetXDisplay(),
+			w:						/*WINDOW*/					xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')),
+			property:				/*ATOM*/					GetAtom('_NET_WM_ICON'),
+			long_offset:			/*LONG*/					ostypes.LONG(0),
+			long_length:			/*LONG*/					ostypes.LONG(0),
+			delete:					/*BOOL*/					0,
+			req_type:				/*ATOM - jsInt*/			ostypes.ANYPROPERTYTYPE,
+			$actual_type_return:	/*ATOM.ptr*/				ostypes.ATOM().address(),
+			$actual_format_return:	/*INT.ptr*/					new ostypes.INT(123).address(), // i can set this to whatever i want, im very sure, as it gets set to 0, if prop DNE and it gets set to right format if it exists (in both existance situations [(req_type != AnyPropertyType && req_type != actual_type_return) || (req_type == AnyPropertyType || req_type == actual_type_return]
+			$nitems_return:			/*UNSIGNED_LONG.ptr*/		new ostypes.UNSIGNED_LONG().address(),
+			$bytes_after_return:	/*UNSIGNED_LONG.ptr*/		new ostypes.UNSIGNED_LONG().address(),
+			$$prop_return:			/*UNSIGNED_CHAR.ptr.ptr*/	new ostypes.UNSIGNED_CHAR.ptr().address()
+		};
+		var rez_XGetWinProp = _dec('XGetWindowProperty')(xgwpArg.$display, xgwpArg.w, xgwpArg.property, xgwpArg.long_offset, xgwpArg.long_length, xgwpArg.delete, xgwpArg.req_type, xgwpArg.$actual_type_return, xgwpArg.$actual_format_return, xgwpArg.$nitems_return, xgwpArg.$bytes_after_return, xgwpArg.$$prop_return);
 		console.info('rez_XGetWinProp:', rez_XGetWinProp, rez_XGetWinProp.toString(), uneval(rez_XGetWinProp));
+		//console.info('xgwpArg:', xgwpArg, uneval(xgwpArg));
+		//console.info('xgwpArg:', xgwpArg.$$prop_return, uneval(xgwpArg.$$prop_return));
+		//console.info('xgwpArg:', xgwpArg.$$prop_return.contents, uneval(xgwpArg.$$prop_return.contents));
 		
-		if(xgwpArg[argNameIndex['req_type']] == ostypes.NONE /* must be jsInt */ && xgwpArg[argNameIndex['*actual_format_return']].contents == 0 && xgwpArg[argNameIndex['*bytes_after_return']].contents.value.toString() == 0) {
+		if(xgwpArg.req_type == ostypes.NONE /* must be jsInt */ && xgwpArg.$actual_format_return.contents == 0 && xgwpArg.$bytes_after_return.contents.value.toString() == 0) {
 			// nitems_return argument will be empty
 			console.log('The specified property does not exist for the specified window. The delete argument was ignored. The nitems_return argument will be empty.');
-			if (xgwpArg[argNameIndex['*nitems_return']].isNull() == false) {
-				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg[argNameIndex['*nitems_return']], xgwpArg[argNameIndex['*nitems_return']].toString(), uneval(xgwpArg[argNameIndex['*nitems_return']]));
+			if (xgwpArg.$nitems_return.isNull() == false) {
+				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg.$nitems_return, xgwpArg.$nitems_return.toString(), uneval(xgwpArg.$nitems_return));
 			}
-		} else if (xgwpArg[argNameIndex['req_type']] != ostypes.ANYPROPERTYTYPE /*ANYPROPERTYTYPE should be jsInt*/ && xgwpArg[argNameIndex['req_type']] /*req_type should be jsInt*/ != xgwpArg[argNameIndex['*actual_type_return']].contents) {
+		} else if (xgwpArg.req_type != ostypes.ANYPROPERTYTYPE /*ANYPROPERTYTYPE should be jsInt*/ && xgwpArg.req_type /*req_type should be jsInt*/ != xgwpArg.$actual_type_return.contents) {
 			// nitems_return argument will be empty
 			console.log('Specified property exists but its type does not match the specified type. The delete argument was ignored. The nitems_return argument will be empty.');
-			var theRetunedPropertyTypeActuallyIs = xgwpArg[argNameIndex['*actual_type_return']].contents.value.toString();
+			var theRetunedPropertyTypeActuallyIs = xgwpArg.$actual_type_return.contents.value.toString();
 			// if the passed in *actual_format_return didn't match, it is changed to be what the format is, if it matched, then it stays the same
-			var theReturnedFormat = xgwpArg[argNameIndex['*actual_format_return']].contents;
-			var theReturnedPropLengthInBytes = xgwpArg[argNameIndex['*bytes_after_return']]; //its in bytes even if theFormat is 16 or 32 (im guessing if format is 8 then its byte)
-			if (xgwpArg[argNameIndex['*nitems_return']].isNull() == false) {
-				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg[argNameIndex['*nitems_return']], xgwpArg[argNameIndex['*nitems_return']].toString(), uneval(xgwpArg[argNameIndex['*nitems_return']]));
+			var theReturnedFormat = xgwpArg.$actual_format_return.contents;
+			var theReturnedPropLengthInBytes = xgwpArg.$bytes_after_return; //its in bytes even if theFormat is 16 or 32 (im guessing if format is 8 then its byte)
+			if (xgwpArg.$nitems_return.isNull() == false) {
+				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg.$nitems_return, xgwpArg.$nitems_return.toString(), uneval(xgwpArg.$nitems_return));
 			}
-		} else if (xgwpArg[argNameIndex['req_type']] == ostypes.ANYPROPERTYTYPE /*ANYPROPERTYTYPE should be jsInt*/ || xgwpArg[argNameIndex['req_type']] /*req_type should be jsInt*/ == xgwpArg[argNameIndex['*actual_type_return']]) {
+		} else if (xgwpArg.req_type == ostypes.ANYPROPERTYTYPE /*ANYPROPERTYTYPE should be jsInt*/ || xgwpArg.req_type /*req_type should be jsInt*/ == xgwpArg.$actual_type_return) {
 			// i think nitems_return CAN be empty here, so a check of if nitems_return is empty or not cannot qualify for these two existance situations
 			console.log('The specified property exists and either you assigned AnyPropertyType to the req_type argument or the specified type matched the actual property type of the returned data.');
-			console.info('xgwpArg:', xgwpArg, xgwpArg.toString(), uneval(xgwpArg));
-
-			if (xgwpArg[argNameIndex['req_type']] == ostypes.ANYPROPERTYTYPE) {
-				// `xgwpArg[argNameIndex['*actual_type_return']]` was set to what the type of the returned property really is
+			if (xgwpArg.req_type == ostypes.ANYPROPERTYTYPE) {
+				// `xgwpArg.$actual_type_return` was set to what the type of the returned property really is
 			}
-			var theRetunedPropertyTypeActuallyIs = xgwpArg[argNameIndex['*actual_type_return']].contents.toString(); // if AnyPropertyType was not used then this is just the same as req_type (but it will not be jsInt, like i expect myself to be setting `req_type` to
-			var theReturnedFormat = xgwpArg[argNameIndex['*actual_format_return']].contents; // set to the format of the returned property (so there is a chnance this can change) (so this makes me think maybe the arg when being passed in can be passed as anything? unless x11 does some internal checks to see if its 8, 16, or 32
-			// bytes_after_return should be MIN between ("actual length of the stored property in bytes (even if format is 16 or 32)" - "4*xgwpArg[argNameIndex['long_offset']]" || "4*xgwpArg[argNameIndex['long_length']]") IF THIS VALUE TURNS OUT BE NEGATIVE, THEN ostypes.BADVALUE IS RETURNED BY `_dec('XGetWindowProperty')`
-			if (xgwpArg[argNameIndex['*actual_format_return']].contents == 8) {
-				// then xgwpArg[argNameIndex['**prop_return']] is represented as a char array
-			} else if (xgwpArg[argNameIndex['*actual_format_return']].contents == 16) {
-				// then xgwpArg[argNameIndex['**prop_return']] is represented as a short array and should be cast to `xgwpArg[argNameIndex['*actual_type_return']]`'s jsctypes equivalent type to obtain the elements
-			} else if (xgwpArg[argNameIndex['*actual_format_return']].contents == 32) {
-				// then xgwpArg[argNameIndex['**prop_return']] is represented as a long array and should be cast to `xgwpArg[argNameIndex['*actual_type_return']]`'s jsctypes equivalent type to obtain the elements
+			var theRetunedPropertyTypeActuallyIs = xgwpArg.$actual_type_return.contents.toString(); // if AnyPropertyType was not used then this is just the same as req_type (but it will not be jsInt, like i expect myself to be setting `req_type` to
+			var theReturnedFormat = xgwpArg.$actual_format_return.contents; // set to the format of the returned property (so there is a chnance this can change) (so this makes me think maybe the arg when being passed in can be passed as anything? unless x11 does some internal checks to see if its 8, 16, or 32
+			// bytes_after_return should be MIN between ("actual length of the stored property in bytes (even if format is 16 or 32)" - "4*xgwpArg.long_offset" || "4*xgwpArg.long_length") IF THIS VALUE TURNS OUT BE NEGATIVE, THEN ostypes.BADVALUE IS RETURNED BY `_dec('XGetWindowProperty')`
+			if (xgwpArg.$actual_format_return.contents == 8) {
+				// then xgwpArg.$$prop_return is represented as a char array
+			} else if (xgwpArg.$actual_format_return.contents == 16) {
+				// then xgwpArg.$$prop_return is represented as a short array and should be cast to `xgwpArg.$actual_type_return`'s jsctypes equivalent type to obtain the elements
+			} else if (xgwpArg.$actual_format_return.contents == 32) {
+				// then xgwpArg.$$prop_return is represented as a long array and should be cast to `xgwpArg.$actual_type_return`'s jsctypes equivalent type to obtain the elements
 			} else {
 				throw new Error('extremely weird, this should NEVER happen, it should always be 8, 16, or 32');
 			}
 			
 			// must always XFree, even if prop_return is empty because: XGetWindowProperty always allocates one extra byte in prop_return (even if the property is zero length) and sets it to zero
-			var rez_XFree = _dec('XFree')(xgwpArg[argNameIndex['**prop_return']]/*.contents*/); //probably should XFree the ** rather then the *. so meaning should probably XFree the .ptr.ptr instead of the .ptr
+			var rez_XFree = _dec('XFree')(xgwpArg.$$prop_return/*.contents*/); //probably should XFree the ** rather then the *. so meaning should probably XFree the .ptr.ptr instead of the .ptr
 			console.info('rez_XFree:', rez_XFree, rez_XFree.toString(), uneval(rez_XFree));
 		} else {
 			console.warn('some unknown combinations returned');

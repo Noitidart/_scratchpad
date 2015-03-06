@@ -161,6 +161,17 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DATA	// *data
 		);
 	},
+	XFlush: function() {
+		/* http://www.xfree86.org/4.4.0/XFlush.3.html
+		 * int XFlush(
+		 *   Display	*display
+		 * );
+		 */
+		return _lib('x11').declare('XFlush', ctypes.default_abi,
+			ostypes.INT,		// return
+			ostypes.DISPLAY.ptr	// *display
+		);
+	},
 	XGetWindowProperty: function() {
 		/* http://www.xfree86.org/4.4.0/XChangeProperty.3.html
 		 * int XChangeProperty(
@@ -186,7 +197,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.LONG,					// long_offset
 			ostypes.LONG,					// long_length
 			ostypes.BOOL,					// delete
-			ostypes.ATOM,					// req_type		// note to self: always put a jsInt here because in comparison checks after running `_dec('XGetWindowProperty')` I do `xgwpArg[argNameIndex['req_type']] != xgwpArg[argNameIndex['*actual_type_return']]` to test for mismatch, and i also test to make sure its not ostypes.ANYPROPERTYTYPE. and on return they are `UInt64{}` (even though declared to be `ostypes.ATOM.ptr` in `preDec`) but `new ostypes.ATOM(5)` is `CData{ UInt64{} }`. so doing a simple == for comparison requires one or the other be a jsInt  
+			ostypes.ATOM,					// req_type		// note on note: actually if ANYPROPERTYTYPE and NONE are jsInt then thse can be atoms. note to self: always put a jsInt here because in comparison checks after running `_dec('XGetWindowProperty')` I do `xgwpArg[argNameIndex['req_type']] != xgwpArg[argNameIndex['*actual_type_return']]` to test for mismatch, and i also test to make sure its not ostypes.ANYPROPERTYTYPE. and on return they are `UInt64{}` (even though declared to be `ostypes.ATOM.ptr` in `preDec`) but `new ostypes.ATOM(5)` is `CData{ UInt64{} }`. so doing a simple == for comparison requires one or the other be a jsInt  
 			ostypes.ATOM.ptr,				// *actual_type_return
 			ostypes.INT.ptr,				// *actual_format_return
 			ostypes.UNSIGNED_LONG.ptr,		// *nitems_return
@@ -314,9 +325,10 @@ function xidFromXULWin(aXULWin) {
 function processArgsArr(refArr) {
 	var argNameIndex = {}
 	for (var ia=0; ia<refArr.length; ia++) {
-		argNameIndex[refArr[ia][0]] = i;
+		argNameIndex[refArr[ia][0]] = ia;
 		refArr[ia] = refArr[ia][1];
 	}
+	return argNameIndex;
 }
 
 /* end helper functions */
@@ -400,7 +412,7 @@ function main() {
 			['*display',		GetXDisplay()],
 			['w',				xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser'))],
 			['property',		GetAtom('_NET_WM_ICON')],
-			['type',			GetAtom('CARDINAL')/*ostypes.XA_CARDINAL*/],
+			['type',			ostypes.XA_CARDINAL],
 			['format',			32],
 			['mode',			ostypes.PROPMODEREPLACE],
 			['*data',			myXData],
@@ -418,6 +430,8 @@ function main() {
 		console.info('rez_XNxtEv:', rez_XNxtEv, rez_XNxtEv.toString(), uneval(rez_XNxtEv));
 		*/
 		
+		var rez_XFlush = _dec('XFlush')(GetXDisplay());
+		console.info('rez_XFlush:', rez_XFlush, rez_XFlush.toString(), uneval(rez_XFlush));
 		
 		//https://github.com/benizi/config-bin/blob/4f606bde322af570429bbb17b3bd7023093cee27/set-icon.py#L69
 		// many window managers need a hint that the icon has changed
@@ -426,18 +440,19 @@ function main() {
 		var xgwpArg = [
 			['*display',				GetXDisplay()],
 			['w',						xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser'))],
-			['property',				GetAtom('WM_HINTS')],
+			['property',				GetAtom('_NET_WM_ICON')],
 			['long_offset',				ostypes.LONG(0)],
 			['long_length',				ostypes.LONG(0)],
 			['delete',					0],
-			['req_type',				null],
-			['*actual_type_return',		null],
-			['*actual_format_return',	new ostypes.INT(123)], // i can set this to whatever i want, im very sure, as it gets set to 0, if prop DNE and it gets set to right format if it exists (in both existance situations [(req_type != AnyPropertyType && req_type != actual_type_return) || (req_type == AnyPropertyType || req_type == actual_type_return)]
-			['*nitems_return',			null],
-			['*bytes_after_return',		null],
-			['**prop_return',			null]
+			['req_type',				ostypes.ANYPROPERTYTYPE],
+			['*actual_type_return',		new ostypes.ATOM().address()],
+			['*actual_format_return',	new ostypes.INT(123).address()], // i can set this to whatever i want, im very sure, as it gets set to 0, if prop DNE and it gets set to right format if it exists (in both existance situations [(req_type != AnyPropertyType && req_type != actual_type_return) || (req_type == AnyPropertyType || req_type == actual_type_return)]
+			['*nitems_return',			new ostypes.UNSIGNED_LONG().address()],
+			['*bytes_after_return',		new ostypes.UNSIGNED_LONG().address()],
+			['**prop_return',			new ostypes.UNSIGNED_CHAR.ptr().address()]
 		];
 		var argNameIndex = processArgsArr(xgwpArg);
+		console.info('argNameIndex:', argNameIndex, uneval(argNameIndex));
 		var rez_XGetWinProp = _dec('XGetWindowProperty').apply(null, xgwpArg);
 		console.info('rez_XGetWinProp:', rez_XGetWinProp, rez_XGetWinProp.toString(), uneval(rez_XGetWinProp));
 		
@@ -447,7 +462,7 @@ function main() {
 			if (xgwpArg[argNameIndex['*nitems_return']].isNull() == false) {
 				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg[argNameIndex['*nitems_return']], xgwpArg[argNameIndex['*nitems_return']].toString(), uneval(xgwpArg[argNameIndex['*nitems_return']]));
 			}
-		} else if (xgwpArg[argNameIndex['req_type']] != ostypes.ANYPROPERTYTYPE /*ANYPROPERTYTYPE should be jsInt*/ && xgwpArg[argNameIndex['req_type']] /*req_type should be jsInt*/ != xgwpArg[argNameIndex['*actual_type_return']]) {
+		} else if (xgwpArg[argNameIndex['req_type']] != ostypes.ANYPROPERTYTYPE /*ANYPROPERTYTYPE should be jsInt*/ && xgwpArg[argNameIndex['req_type']] /*req_type should be jsInt*/ != xgwpArg[argNameIndex['*actual_type_return']].contents) {
 			// nitems_return argument will be empty
 			console.log('Specified property exists but its type does not match the specified type. The delete argument was ignored. The nitems_return argument will be empty.');
 			var theRetunedPropertyTypeActuallyIs = xgwpArg[argNameIndex['*actual_type_return']].contents.value.toString();
@@ -459,10 +474,13 @@ function main() {
 			}
 		} else if (xgwpArg[argNameIndex['req_type']] == ostypes.ANYPROPERTYTYPE /*ANYPROPERTYTYPE should be jsInt*/ || xgwpArg[argNameIndex['req_type']] /*req_type should be jsInt*/ == xgwpArg[argNameIndex['*actual_type_return']]) {
 			// i think nitems_return CAN be empty here, so a check of if nitems_return is empty or not cannot qualify for these two existance situations
+			console.log('The specified property exists and either you assigned AnyPropertyType to the req_type argument or the specified type matched the actual property type of the returned data.');
+			console.info('xgwpArg:', xgwpArg, xgwpArg.toString(), uneval(xgwpArg));
+
 			if (xgwpArg[argNameIndex['req_type']] == ostypes.ANYPROPERTYTYPE) {
 				// `xgwpArg[argNameIndex['*actual_type_return']]` was set to what the type of the returned property really is
 			}
-			var theRetunedPropertyTypeActuallyIs = xgwpArg[argNameIndex['*actual_type_return']].contents.value.toString(); // if AnyPropertyType was not used then this is just the same as req_type (but it will not be jsInt, like i expect myself to be setting `req_type` to
+			var theRetunedPropertyTypeActuallyIs = xgwpArg[argNameIndex['*actual_type_return']].contents.toString(); // if AnyPropertyType was not used then this is just the same as req_type (but it will not be jsInt, like i expect myself to be setting `req_type` to
 			var theReturnedFormat = xgwpArg[argNameIndex['*actual_format_return']].contents; // set to the format of the returned property (so there is a chnance this can change) (so this makes me think maybe the arg when being passed in can be passed as anything? unless x11 does some internal checks to see if its 8, 16, or 32
 			// bytes_after_return should be MIN between ("actual length of the stored property in bytes (even if format is 16 or 32)" - "4*xgwpArg[argNameIndex['long_offset']]" || "4*xgwpArg[argNameIndex['long_length']]") IF THIS VALUE TURNS OUT BE NEGATIVE, THEN ostypes.BADVALUE IS RETURNED BY `_dec('XGetWindowProperty')`
 			if (xgwpArg[argNameIndex['*actual_format_return']].contents == 8) {

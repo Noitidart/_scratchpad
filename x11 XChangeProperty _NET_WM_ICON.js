@@ -7,6 +7,7 @@ var nixtypesInit = function() {
 	this.CHAR = ctypes.char;
 	this.GDKDRAWABLE = ctypes.StructType('GdkDrawable');
 	this.GDKWINDOW = ctypes.StructType('GdkWindow');
+	this.DATA = ctypes.voidptr_t;
 	this.DISPLAY = new ctypes.StructType('Display');
 	this.INT = ctypes.int;
 	this.LONG = ctypes.long;
@@ -147,6 +148,17 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		return _lib('x11').declare('XCloseDisplay', ctypes.default_abi,
 			ostypes.INT,		// return
 			ostypes.DISPLAY.ptr	// *display
+		);
+	},
+	XFree: function() {
+		/* http://www.xfree86.org/4.4.0/XFree.3.html
+		 * int XFree(
+		 *   void	*data
+		 * );
+		 */
+		return _lib('x11').declare('XFree', ctypes.default_abi,
+			ostypes.INT,	// return
+			ostypes.DATA	// *data
 		);
 	},
 	XGetWindowProperty: function() {
@@ -452,7 +464,7 @@ function main() {
 			}
 			var theRetunedPropertyTypeActuallyIs = xgwpArg[argNameIndex['*actual_type_return']].contents.value.toString(); // if AnyPropertyType was not used then this is just the same as req_type (but it will not be jsInt, like i expect myself to be setting `req_type` to
 			var theReturnedFormat = xgwpArg[argNameIndex['*actual_format_return']].contents; // set to the format of the returned property (so there is a chnance this can change) (so this makes me think maybe the arg when being passed in can be passed as anything? unless x11 does some internal checks to see if its 8, 16, or 32
-			// bytes_after_return should be MIN between ("actual length of the stored property in bytes (even if format is 16 or 32)" - "4*xgwpArg[argNameIndex['long_length']]" || "4*xgwpArg[argNameIndex['long_length']]") IF THIS VALUE TURNS OUT BE NEGATIVE, THEN ostypes.BADVALUE IS RETURNED BY `_dec('XGetWindowProperty')`
+			// bytes_after_return should be MIN between ("actual length of the stored property in bytes (even if format is 16 or 32)" - "4*xgwpArg[argNameIndex['long_offset']]" || "4*xgwpArg[argNameIndex['long_length']]") IF THIS VALUE TURNS OUT BE NEGATIVE, THEN ostypes.BADVALUE IS RETURNED BY `_dec('XGetWindowProperty')`
 			if (xgwpArg[argNameIndex['*actual_format_return']].contents == 8) {
 				// then xgwpArg[argNameIndex['**prop_return']] is represented as a char array
 			} else if (xgwpArg[argNameIndex['*actual_format_return']].contents == 16) {
@@ -462,6 +474,10 @@ function main() {
 			} else {
 				throw new Error('extremely weird, this should NEVER happen, it should always be 8, 16, or 32');
 			}
+			
+			// must always XFree, even if prop_return is empty because: XGetWindowProperty always allocates one extra byte in prop_return (even if the property is zero length) and sets it to zero
+			var rez_XFree = _dec('XFree')(xgwpArg[argNameIndex['**prop_return']]/*.contents*/); //probably should XFree the ** rather then the *. so meaning should probably XFree the .ptr.ptr instead of the .ptr
+			console.info('rez_XFree:', rez_XFree, rez_XFree.toString(), uneval(rez_XFree));
 		} else {
 			console.warn('some unknown combinations returned');
 		}

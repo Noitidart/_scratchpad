@@ -466,16 +466,21 @@ function main() {
 			console.log('The specified property exists and either you assigned AnyPropertyType to the req_type argument or the specified type matched the actual property type of the returned data.');
 			if (xgwpArg.req_type == ostypes.ANYPROPERTYTYPE) {
 				// `xgwpArg.$actual_type_return` was set to what the type of the returned property really is
+			} else {
+				// `xgwpArg.req_type` and xgwpArg.$actual_type_return match
 			}
 			var theRetunedPropertyTypeActuallyIs = xgwpArg.$actual_type_return.contents.toString(); // if AnyPropertyType was not used then this is just the same as req_type (but it will not be jsInt, like i expect myself to be setting `req_type` to
 			var theReturnedFormat = xgwpArg.$actual_format_return.contents; // set to the format of the returned property (so there is a chnance this can change) (so this makes me think maybe the arg when being passed in can be passed as anything? unless x11 does some internal checks to see if its 8, 16, or 32
 			// bytes_after_return should be MIN between ("actual length of the stored property in bytes (even if format is 16 or 32)" - "4*xgwpArg.long_offset" || "4*xgwpArg.long_length") IF THIS VALUE TURNS OUT BE NEGATIVE, THEN ostypes.BADVALUE IS RETURNED BY `_dec('XGetWindowProperty')`
 			if (xgwpArg.$actual_format_return.contents == 8) {
 				// then xgwpArg.$$prop_return is represented as a char array
+				console.log('then xgwpArg.$$prop_return is represented as a char array');
 			} else if (xgwpArg.$actual_format_return.contents == 16) {
 				// then xgwpArg.$$prop_return is represented as a short array and should be cast to `xgwpArg.$actual_type_return`'s jsctypes equivalent type to obtain the elements
+				console.log('then xgwpArg.$$prop_return is represented as a short array and should be cast to `xgwpArg.$actual_type_return`\'s jsctypes equivalent type to obtain the elements');
 			} else if (xgwpArg.$actual_format_return.contents == 32) {
 				// then xgwpArg.$$prop_return is represented as a long array and should be cast to `xgwpArg.$actual_type_return`'s jsctypes equivalent type to obtain the elements
+				console.log('then xgwpArg.$$prop_return is represented as a long array and should be cast to `xgwpArg.$actual_type_return`\'s jsctypes equivalent type to obtain the elements');
 			} else {
 				throw new Error('extremely weird, this should NEVER happen, it should always be 8, 16, or 32');
 			}

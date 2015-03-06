@@ -13,6 +13,7 @@ var nixtypesInit = function() {
 	this.UNSIGNED_CHAR = ctypes.unsigned_char;
 	this.UNSIGNED_INT = ctypes.unsigned_int;
 	this.UNSIGNED_LONG = ctypes.unsigned_long;
+	this.XEVENT = ctypes.voidptr_t; //this is just for debugging
 	
 	// ADVANCED TYPES (ones that are equal to something predefined by me, order matters here, as the basic or pre-advanced type needs to be defined before the type)
 	if (/^(Alpha|hppa|ia64|ppc64|s390|x86_64)-/.test(Services.appinfo.XPCOMABI)) { // https://github.com/foudfou/FireTray/blob/a0c0061cd680a3a92b820969b093cc4780dfb10c/src/modules/ctypes/linux/x11.jsm#L45 // // http://mxr.mozilla.org/mozilla-central/source/configure.in
@@ -22,11 +23,30 @@ var nixtypesInit = function() {
 	}
 	this.WINDOW = this.CARD32;
 	this.XID = this.CARD32;
+	this.PIXMAP = this.CARD32;
+
+	// /usr/include/X11/Xutil.h:4867 ????
+	// https://github.com/kamcord/kamcord-android-samples/blob/571bf5f4f2627999169ec6ed33ddedcea591d1cd/cocos2d-x-2.2.2/external/emscripten/system/include/X11/Xutil.h#L111
+	// http://www.unix.com/man-page/x11r4/3/XWMHints/
+	this.XWMHINTS = new ctypes.StructType('XWMHints', [
+		{ flags: this.LONG },			// marks which fields in this structure are defined
+		{ input: this.BOOL },			// does this application rely on the window manager to get keyboard input?
+		{ initial_state: this.INT },	// see below
+		{ icon_pixmap: this.PIXMAP },	// pixmap to be used as icon
+		{ icon_window: this.WINDOW },	// window to be used as icon
+		{ icon_x: this.INT },			// initial position of icon
+		{ icon_y: this.INT },			// initial position of icon
+		{ icon_mask: this.PIXMAP },		// pixmap to be used as mask for icon_pixmap
+		{ window_group: this.XID }		// id of related window group
+	]);
 	
 	// CONSTANTS
+	this.ANYPROPERTYTYPE = 0; //AnyPropertyType //this.ATOM(0) // need this jsInt for comparison
 	this.BADGC = 13;
+	this.NONE = 0; // leave it at 0 (a jsInt) as simple comparison is done in GetAtom, cuz in GetAtom i do `if (rez == ostypes.NONE)` and if is a number here it works. otherwise its weird. ostypes.ATOM(0) and new ostypes.ATOM(0) both give back CData{ value: UInt64{} } but the XInternAtom even thouh return is ostypes.ATOM it gives back UInt64 &&& doing UInt64 == jsInt seems to work. oin ostypes.ATOM(0).value == returnedUInt64 does not work if i do this then i have to to returnedUInt64.toString() == ostypes.ATOM(0).value.toStrin() so weird
 	this.PROPMODEREPLACE = 0; // PropModeReplace
-  this.XA_CARDINAL = 6;
+	this.SUCCESS = 0;
+	this.XA_CARDINAL = 6; // can do parseInt(GetAtom('CARDINAL').toString())
 
 }
 var ostypes = new nixtypesInit();
@@ -85,7 +105,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 	gdk_x11_drawable_get_xid: function() {
 		/* https://developer.gnome.org/gdk2/stable/gdk2-X-Window-System-Interaction.html#gdk-x11-drawable-get-xid
 		 * XID gdk_x11_drawable_get_xid (
-		 *   GdkDrawable *drawable
+		 *   GdkDrawable	*drawable
 		 * );
 		 */
 		return _lib('libgdk-x11-2.0.so.0').declare('gdk_x11_drawable_get_xid', ctypes.default_abi,
@@ -96,14 +116,14 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 	XChangeProperty: function() {
 		/* http://www.xfree86.org/4.4.0/XChangeProperty.3.html
 		 * int XChangeProperty(
-		 *   Display *display,
-		 *   Window w,
-		 *   Atom property,
-		 *   Atom type,
-		 *   int format,
-		 *   int mode,
-		 *   unsigned char *data,
-		 *   int nelements
+		 *   Display		*display,
+		 *   Window			w,
+		 *   Atom			property,
+		 *   Atom			type,
+		 *   int			format,
+		 *   int			mode,
+		 *   unsigned char	*data,
+		 *   int			nelements
 		 * );
 		 */
 		return _lib('x11').declare('XChangeProperty', ctypes.default_abi,
@@ -132,18 +152,18 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 	XGetWindowProperty: function() {
 		/* http://www.xfree86.org/4.4.0/XChangeProperty.3.html
 		 * int XChangeProperty(
-		 *   Display *display,
-		 *   Window w,
-		 *   Atom property,
-		 *   long long_offset,
-		 *   long long_length,
-		 *   Bool delete,
-		 *   Atom req_type,
-		 *   Atom *actual_type_return,
-		 *   int *actual_format_return,
-		 *   unsigned long *nitems_return,
-		 *   unsigned long *bytes_after_return,
-		 *   unsigned char **prop_return,
+		 *   Display		*display,
+		 *   Window			w,
+		 *   Atom			property,
+		 *   long			long_offset,
+		 *   long			long_length,
+		 *   Bool			delete,
+		 *   Atom			req_type,
+		 *   Atom			*actual_type_return,
+		 *   int			*actual_format_return,
+		 *   unsigned long	*nitems_return,
+		 *   unsigned long	*bytes_after_return,
+		 *   unsigned char	**prop_return,
 		 * );
 		 */
 		return _lib('x11').declare('XGetWindowProperty', ctypes.default_abi,
@@ -154,7 +174,7 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.LONG,					// long_offset
 			ostypes.LONG,					// long_length
 			ostypes.BOOL,					// delete
-			ostypes.ATOM,					// req_type
+			ostypes.ATOM,					// req_type		// note to self: always put a jsInt here because in comparison checks after running `_dec('XGetWindowProperty')` I do `xgwpArg[argNameIndex['req_type']] != xgwpArg[argNameIndex['*actual_type_return']]` to test for mismatch, and i also test to make sure its not ostypes.ANYPROPERTYTYPE. and on return they are `UInt64{}` (even though declared to be `ostypes.ATOM.ptr` in `preDec`) but `new ostypes.ATOM(5)` is `CData{ UInt64{} }`. so doing a simple == for comparison requires one or the other be a jsInt  
 			ostypes.ATOM.ptr,				// *actual_type_return
 			ostypes.INT.ptr,				// *actual_format_return
 			ostypes.UNSIGNED_LONG.ptr,		// *nitems_return
@@ -175,6 +195,32 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DISPLAY.ptr,	// *display
 			ostypes.CHAR.ptr,		// *atom_name
 			ostypes.BOOL			// only_if_exists
+		);
+	},
+	XMapWindow: function() {
+		/* http://www.xfree86.org/4.4.0/XMapWindow.3.html
+		 * int XMapWindow(
+		 *   Display	*display,
+		 *   Window		w
+		 * );
+		 */
+		return _lib('x11').declare('XMapWindow', ctypes.default_abi,
+			ostypes.INT,			// return
+			ostypes.DISPLAY.ptr,	// *display
+			ostypes.WINDOW			// w
+		);
+	},
+	XNextEvent: function() {
+		/* http://www.xfree86.org/4.4.0/XNextEvent.3.html
+		 * int XNextEvent(
+		 *   Display	*display, 
+		 *   XEvent		*event_return 
+		 * );
+		 */
+		return _lib('x11').declare('XNextEvent', ctypes.default_abi,
+			ostypes.INT,			// return
+			ostypes.DISPLAY.ptr,	// *display
+			ostypes.XEVENT.ptr		// *event_return
 		);
 	},
 	XOpenDisplay: function() {
@@ -210,7 +256,7 @@ function GetXDisplay() {
 	return GetXDisplayConst;
 }
 
-var GetAtomCache = {};
+var _GetAtomCache = {};
 function GetAtom(name, createIfDNE) {
 	// createIfDNE is jsBool, true or false. if set to true/1 then the atom is creatd if it doesnt exist. if set to false/0, then an error is thrown when atom does not exist
 	// default behavior is throw when atom doesnt exist
@@ -221,15 +267,15 @@ function GetAtom(name, createIfDNE) {
 	if (createIfDNE) {
 		onlyIfExists = 0;
 	}
-	if (!(name in GetAtomCache)) {		
+	if (!(name in _GetAtomCache)) {		
 		var atom = _dec('XInternAtom')(GetXDisplay(), name, createIfDNE ? 0 : 1); //passing 3rd arg of false, means even if atom doesnt exist it returns a created atom, this can be used with GetProperty to see if its supported etc, this is how Chromium does it
-		if (atom == ostypes.NONE) { //will never equal ostypes.NONE because i pass 3rd arg of `false` to XInternAtom
+		if (atom == ostypes.NONE) { //will never equal ostypes.NONE if i pass 3rd arg of `false` to XInternAtom
 			console.warn('No atom with name:', name, 'return val of atom:', atom, uneval(atom), atom.toString());
 			throw new Error('No atom with name "' + name + '"), return val of atom:"' +  atom + '" toString:"' + atom.toString() + '"');
 		}
-		GetAtomCache[name] = atom;
+		_GetAtomCache[name] = atom;
 	}
-	return GetAtomCache[name];
+	return _GetAtomCache[name];
 }
 
 function xidFromXULWin(aXULWin) {
@@ -254,7 +300,9 @@ function xidFromXULWin(aXULWin) {
 }
 
 function processArgsArr(refArr) {
+	var argNameIndex = {}
 	for (var ia=0; ia<refArr.length; ia++) {
+		argNameIndex[refArr[ia][0]] = i;
 		refArr[ia] = refArr[ia][1];
 	}
 }
@@ -340,39 +388,84 @@ function main() {
 			['*display',		GetXDisplay()],
 			['w',				xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser'))],
 			['property',		GetAtom('_NET_WM_ICON')],
-			['type',			ostypes.XA_CARDINAL],
+			['type',			GetAtom('CARDINAL')/*ostypes.XA_CARDINAL*/],
 			['format',			32],
 			['mode',			ostypes.PROPMODEREPLACE],
 			['*data',			myXData],
 			['nelements',		myXData.length]
 		];
-		processArgsArr(XChangeProp_argsArr);
+		var argNameIndex = processArgsArr(XChangeProp_argsArr);
 		var rez_XChangeProp = _dec('XChangeProperty').apply(null, XChangeProp_argsArr);
 		console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
+		/*
+		var rez_XMapWin = _dec('XMapWindow')(GetXDisplay(), XChangeProp_argsArr[1]);
+		console.info('rez_XMapWin:', rez_XMapWin, rez_XMapWin.toString(), uneval(rez_XMapWin));
+		
+		var myE = new ostypes.XEVENT();
+		var rez_XNxtEv = _dec('XNextEvent')(GetXDisplay(), myE.address());
+		console.info('rez_XNxtEv:', rez_XNxtEv, rez_XNxtEv.toString(), uneval(rez_XNxtEv));
+		*/
+		
 		
 		//https://github.com/benizi/config-bin/blob/4f606bde322af570429bbb17b3bd7023093cee27/set-icon.py#L69
 		// many window managers need a hint that the icon has changed
 		// bits 2, 3, and 5 of the WM_HINTS flags int are, respectively:
 		// IconPixmapHint, IconWindowHint, and IconMaskHint
-		/*
-		var XGetWinProp_argsArr = [
+		var xgwpArg = [
 			['*display',				GetXDisplay()],
 			['w',						xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser'))],
-			['property',				null],
-			['long_offset',				null],
-			['long_length',				null],
-			['delete',					null],
+			['property',				GetAtom('WM_HINTS')],
+			['long_offset',				ostypes.LONG(0)],
+			['long_length',				ostypes.LONG(0)],
+			['delete',					0],
 			['req_type',				null],
 			['*actual_type_return',		null],
-			['*actual_format_return',	null],
+			['*actual_format_return',	new ostypes.INT(123)], // i can set this to whatever i want, im very sure, as it gets set to 0, if prop DNE and it gets set to right format if it exists (in both existance situations [(req_type != AnyPropertyType && req_type != actual_type_return) || (req_type == AnyPropertyType || req_type == actual_type_return)]
 			['*nitems_return',			null],
 			['*bytes_after_return',		null],
 			['**prop_return',			null]
 		];
-		processArgsArr(XGetWinProp_argsArr);
-		var rez_XGetWinProp = _dec('XGetWindowProperty').apply(null, XGetWinProp_argsApplyArr);
+		var argNameIndex = processArgsArr(xgwpArg);
+		var rez_XGetWinProp = _dec('XGetWindowProperty').apply(null, xgwpArg);
 		console.info('rez_XGetWinProp:', rez_XGetWinProp, rez_XGetWinProp.toString(), uneval(rez_XGetWinProp));
-		*/
+		
+		if(xgwpArg[argNameIndex['req_type']] == ostypes.NONE /* must be jsInt */ && xgwpArg[argNameIndex['*actual_format_return']].contents == 0 && xgwpArg[argNameIndex['*bytes_after_return']].contents.value.toString() == 0) {
+			// nitems_return argument will be empty
+			console.log('The specified property does not exist for the specified window. The delete argument was ignored. The nitems_return argument will be empty.');
+			if (xgwpArg[argNameIndex['*nitems_return']].isNull() == false) {
+				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg[argNameIndex['*nitems_return']], xgwpArg[argNameIndex['*nitems_return']].toString(), uneval(xgwpArg[argNameIndex['*nitems_return']]));
+			}
+		} else if (xgwpArg[argNameIndex['req_type']] != ostypes.ANYPROPERTYTYPE /*ANYPROPERTYTYPE should be jsInt*/ && xgwpArg[argNameIndex['req_type']] /*req_type should be jsInt*/ != xgwpArg[argNameIndex['*actual_type_return']]) {
+			// nitems_return argument will be empty
+			console.log('Specified property exists but its type does not match the specified type. The delete argument was ignored. The nitems_return argument will be empty.');
+			var theRetunedPropertyTypeActuallyIs = xgwpArg[argNameIndex['*actual_type_return']].contents.value.toString();
+			// if the passed in *actual_format_return didn't match, it is changed to be what the format is, if it matched, then it stays the same
+			var theReturnedFormat = xgwpArg[argNameIndex['*actual_format_return']].contents;
+			var theReturnedPropLengthInBytes = xgwpArg[argNameIndex['*bytes_after_return']]; //its in bytes even if theFormat is 16 or 32 (im guessing if format is 8 then its byte)
+			if (xgwpArg[argNameIndex['*nitems_return']].isNull() == false) {
+				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg[argNameIndex['*nitems_return']], xgwpArg[argNameIndex['*nitems_return']].toString(), uneval(xgwpArg[argNameIndex['*nitems_return']]));
+			}
+		} else if (xgwpArg[argNameIndex['req_type']] == ostypes.ANYPROPERTYTYPE /*ANYPROPERTYTYPE should be jsInt*/ || xgwpArg[argNameIndex['req_type']] /*req_type should be jsInt*/ == xgwpArg[argNameIndex['*actual_type_return']]) {
+			// i think nitems_return CAN be empty here, so a check of if nitems_return is empty or not cannot qualify for these two existance situations
+			if (xgwpArg[argNameIndex['req_type']] == ostypes.ANYPROPERTYTYPE) {
+				// `xgwpArg[argNameIndex['*actual_type_return']]` was set to what the type of the returned property really is
+			}
+			var theRetunedPropertyTypeActuallyIs = xgwpArg[argNameIndex['*actual_type_return']].contents.value.toString(); // if AnyPropertyType was not used then this is just the same as req_type (but it will not be jsInt, like i expect myself to be setting `req_type` to
+			var theReturnedFormat = xgwpArg[argNameIndex['*actual_format_return']].contents; // set to the format of the returned property (so there is a chnance this can change) (so this makes me think maybe the arg when being passed in can be passed as anything? unless x11 does some internal checks to see if its 8, 16, or 32
+			// bytes_after_return should be MIN between ("actual length of the stored property in bytes (even if format is 16 or 32)" - "4*xgwpArg[argNameIndex['long_length']]" || "4*xgwpArg[argNameIndex['long_length']]") IF THIS VALUE TURNS OUT BE NEGATIVE, THEN ostypes.BADVALUE IS RETURNED BY `_dec('XGetWindowProperty')`
+			if (xgwpArg[argNameIndex['*actual_format_return']].contents == 8) {
+				// then xgwpArg[argNameIndex['**prop_return']] is represented as a char array
+			} else if (xgwpArg[argNameIndex['*actual_format_return']].contents == 16) {
+				// then xgwpArg[argNameIndex['**prop_return']] is represented as a short array and should be cast to `xgwpArg[argNameIndex['*actual_type_return']]`'s jsctypes equivalent type to obtain the elements
+			} else if (xgwpArg[argNameIndex['*actual_format_return']].contents == 32) {
+				// then xgwpArg[argNameIndex['**prop_return']] is represented as a long array and should be cast to `xgwpArg[argNameIndex['*actual_type_return']]`'s jsctypes equivalent type to obtain the elements
+			} else {
+				throw new Error('extremely weird, this should NEVER happen, it should always be 8, 16, or 32');
+			}
+		} else {
+			console.warn('some unknown combinations returned');
+		}
+		
 	};
 	img.src = OS.Path.toFileURI(OS.Path.join(OS.Constants.Path.desktopDir, 'profilist-ff-channel-logos', 'release64.png'));
 }

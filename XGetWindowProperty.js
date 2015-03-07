@@ -294,7 +294,7 @@ function xidFromXULWin(aXULWin) {
 	return aXID;
 }
 
-function readAsCharThenAsJSChar(stringPtr, known_len, jschar) {
+function readAsChar8ThenAsChar16(stringPtr, known_len, jschar) {
 	// when reading as jschar it assumes max length of 500
 	
 	// stringPtr is either char or jschar, if you know its jschar for sure, pass 2nd arg as true
@@ -371,11 +371,11 @@ function main() {
 	var xgwpArg = {
 		$display:				/*DISPLAY.ptr*/				GetXDisplay(),
 		w:						/*WINDOW*/					xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')),
-		property:				/*ATOM*/					GetAtom('_NET_WM_PID'),//GetAtom('_NET_WM_ICON'),
+		property:				/*ATOM*/					GetAtom('_NET_WM_PID'),
 		long_offset:			/*LONG*/					ostypes.LONG(0),
-		long_length:			/*LONG*/					ostypes.LONG(ostypes.UNSIGNED_LONG.size), // i expect _NET_WM_PID to be one number so just give buffer enough size for one // this is critical, dont set this to 0, otherwise even if stuff is there, you will get 0 data returned in $$prop_return and 0 for $nitems_return
+		long_length:			/*LONG*/					ostypes.LONG(ostypes.UNSIGNED_LONG.size), // if just query'ing, meaning sending xgwpArg.req_type that doesnt match type of xgwpArg.property, then this is ignored // this is critical for when wanting data returned, dont set this to 0, otherwise even if stuff is there, you will get 0 data returned in $$prop_return and 0 for $nitems_return
 		delete:					/*BOOL*/					0,
-		req_type:				/*ATOM - jsInt*/			ostypes.ANYPROPERTYTYPE,
+		req_type:				/*ATOM - jsInt*/			/*ostypes.ANYPROPERTYTYPE*/ 1, //if want to query for actual_type_return, actual_format_return, long_length, then set this to be NOT the type of the return
 		$actual_type_return:	/*ATOM.ptr*/				ostypes.ATOM(),
 		$actual_format_return:	/*INT.ptr*/					ostypes.INT(), // i can set this to whatever i want, im very sure, as it gets set to 0, if prop DNE and it gets set to right format if it exists (in both existance situations [(req_type != AnyPropertyType && req_type != actual_type_return) || (req_type == AnyPropertyType || req_type == actual_type_return]
 		$nitems_return:			/*UNSIGNED_LONG.ptr*/		ostypes.UNSIGNED_LONG(),
@@ -391,20 +391,29 @@ function main() {
 	if (!jscEqual(rez_XGetWinProp, ostypes.SUCCESS)) {
 		console.log('XGetWindowProperty failed with reason:', rez_XGetWinProp, rez_XGetWinProp.toString(), uneval(rez_XGetWinProp));
 	} else {
-		if(jscEqual(xgwpArg.req_type, ostypes.NONE) && jscEqual(xgwpArg.$actual_format_return, 0) && jscEqual(xgwpArg.$bytes_after_return, 0)) {
+		if(jscEqual(xgwpArg.$actual_type_return, ostypes.NONE) && jscEqual(xgwpArg.$actual_format_return, 0) && jscEqual(xgwpArg.$bytes_after_return, 0)) {
 			// nitems_return argument will be empty
 			console.log('The specified property does not exist for the specified window. The delete argument was ignored. The nitems_return argument will be empty.');
-			if (xgwpArg.$nitems_return.isNull() == false) {
+			if (jscGetDeepest(xgwpArg.$nitems_return) != 0) {
 				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg.$nitems_return, xgwpArg.$nitems_return.toString(), uneval(xgwpArg.$nitems_return));
 			}
 		} else if (!jscEqual(xgwpArg.req_type, ostypes.ANYPROPERTYTYPE) && !jscEqual(xgwpArg.req_type, xgwpArg.$actual_type_return)) {
+			// so this is result, is a answer to the query for what the actual type is, the actual length, and actual format
+			// this is done by setting xgwpArg.req_type to a type we know the resultant is not
+			
 			// nitems_return argument will be empty
-			console.log('Specified property exists but its type does not match the specified type. The delete argument was ignored. The nitems_return argument will be empty.');
+			console.log('Specified property/atom exists on window but here because returns actual type does not match the specified type (the xgwpArg.req_type) you supplied to function. The delete argument was ignored. The nitems_return argument will be empty.');
 			var theRetunedPropertyTypeActuallyIs = jscGetDeepest(xgwpArg.$actual_type_return);
 			// if the passed in *actual_format_return didn't match, it is changed to be what the format is, if it matched, then it stays the same
 			var theReturnedFormat = jscGetDeepest(xgwpArg.$actual_format_return);
 			var theReturnedPropLengthInBytes = jscGetDeepest(xgwpArg.$bytes_after_return); //its in bytes even if theFormat is 16 or 32 (im guessing if format is 8 then its byte)
-			if (xgwpArg.$nitems_return.isNull() == false) {
+			//console.info('you requested this many bytes, but this value was ignored, as in this situation it just populates this pointer with how many bytes you should request when setting req_type to AnyPropertyType or the matching expected type:', jscGetDeepest(xgwpArg.long_length), 'and on return this is how many bytes we got:', theReturnedPropLengthInBytes); //if jscEqual(theReturnedPropLengthInBytes, xgwpArg.long_length) then probably theres more available unless you knew exactly how much to expect and set long_lenght confidently
+			console.info('theReturnedPropLengthInBytes:', theReturnedPropLengthInBytes);
+			console.info('theReturnedFormat:', theReturnedFormat);
+			console.info('theRetunedPropertyTypeActuallyIs:', theRetunedPropertyTypeActuallyIs);
+			// so can query by not setting req_type to AnyPropertyType, and not what you expect, so set it to 0, then we get get the `theReturnedPropLengthInBytes` then re-query with exact
+			// so whaever you put for long_length, is not reallly what was requested, in this situation, it just needs a pointer and it fills it with how many bytes long_length should be
+			if (jscGetDeepest(xgwpArg.$nitems_return) != 0) {
 				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg.$nitems_return, xgwpArg.$nitems_return.toString(), uneval(xgwpArg.$nitems_return));
 			}
 		} else if (jscEqual(xgwpArg.req_type, ostypes.ANYPROPERTYTYPE) || jscEqual(xgwpArg.req_type, xgwpArg.$actual_type_return)) {
@@ -438,7 +447,7 @@ function main() {
 				// "xgwpArg.$$prop_return.contents.toString()" "82"
 				// "xgwpArg.$$prop_return.toString()" "ctypes.unsigned_char.ptr(ctypes.UInt64("0x7fc506538df0"))"
 				
-				readAsCharThenAsJSChar(xgwpArg.$$prop_return);
+				readAsChar8ThenAsChar16(xgwpArg.$$prop_return);
 				console.info('xgwpArg.$$prop_return.contents.toString()', xgwpArg.$$prop_return.contents.toString());
 				console.info('xgwpArg.$$prop_return.toString()', xgwpArg.$$prop_return.toString());
 				

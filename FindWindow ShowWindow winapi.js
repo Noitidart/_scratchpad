@@ -3,9 +3,13 @@ Cu.import('resource://gre/modules/ctypes.jsm')
 var wintypesInit = function() {	
 	// BASIC TYPES (ones that arent equal to something predefined by me)
 	this.BOOL = ctypes.bool;
-  this.LPCTSTR = ctypes.jschar.ptr;
 	this.HWND = ctypes.voidptr_t;
 	this.INT = ctypes.int;
+	this.WCHAR = ctypes.jschar;
+
+	// ADVANCED TYPES
+	this.LPTSTR = new ctypes.PointerType(this.WCHAR);
+	this.LPCTSTR = this.LPTSTR;
   
 	// CONSTANTS
 	this.SW_HIDE = 0;

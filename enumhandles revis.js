@@ -4,7 +4,7 @@ var lib_kernel32 = ctypes.open("kernel32.dll");
 
 var STATUS_BUFFER_TOO_SMALL = 0xC0000023>>0;
 var STATUS_INFO_LENGTH_MISMATCH = 0xC0000004>>0;
-var SystemHandleInformation = 16;
+var SystemHandleInformation = 16; // 0x10
 
 var UNICODE_STRING = new ctypes.StructType("UNICODE_STRING", [
     {'Length': ctypes.unsigned_short}, //USHORT
@@ -26,7 +26,7 @@ var SYSTEM_HANDLE_TABLE_ENTRY_INFO = new ctypes.StructType('SYSTEM_HANDLE_TABLE_
 
 var SYSTEM_HANDLE_INFORMATION = new ctypes.StructType('SYSTEM_HANDLE_INFORMATION', [
     {'NumberOfHandles': ctypes.unsigned_long},
-    {'Handles': SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(1)}
+    {'Handles': SYSTEM_HANDLE_TABLE_ENTRY_INFO.array()}
 ]);
 
 var NtQuerySystemInformation = lib_ntdll.declare("NtQuerySystemInformation", ctypes.winapi_abi, ctypes.long, // return //NTSTATUS 
@@ -58,25 +58,16 @@ function enumHandles() {
     var buffer = ctypes.char.array(_enumBufSize.value)();
     */
     var bufferType = ctypes.ArrayType(SYSTEM_HANDLE_INFORMATION); //ctypes.char.array(_enumBufSize.value)();
-    /*
-    var news = SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(1)();
-    //var newscasted = ctypes.cast(news, ctypes.voidptr_t);
-    console.log(news.constructor.size);
-    console.log(SYSTEM_HANDLE_TABLE_ENTRY_INFO.size)
-    //console.log(news, newscasted)
-    */
-    var news = SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(1)();
-    var buffer = new SYSTEM_HANDLE_INFORMATION(); //new bufferType(SYSTEM_HANDLE_INFORMATION.size * 1);
-    //buffer.Handles = news;
-    //var _enumBufSize = new ctypes.unsigned_long(SYSTEM_HANDLE_INFORMATION.size); //size when 1 element == 32. when 2 element == 60, 3 == 88// this is 32 - 4 / 4 == 7 fields. 60-4/4 == 14 fields
-    console.log('buffer:', buffer)
-    //console.log('_enumBufSize:', _enumBufSize, _enumBufSize.toString())
+
     
-    var ReturnLength = new ctypes.unsigned_long();
-    //var numFields = (32 - 4) / 7 / 4;
-    
+    var buffer = new SYSTEM_HANDLE_INFORMATION();
+    buffer.Handles = SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(2)();
+    //var sizeOfBuffer = ctypes.unsigned_long.size + (SYSTEM_HANDLE_TABLE_ENTRY_INFO.size * buffer.Handles.length)
+    //console.log(sizeOfBuffer, buffer.Handles.contents.length)
+    console.log('buffer.Handles:', buffer.Handles, buffer.Handles.toString(), uneval(buffer.Handles))
+    return;
     //while (true) {
-        var status = NtQuerySystemInformation(SystemHandleInformation, buffer.address(), buffer.constructor.size, ReturnLength.address());
+        var status = NtQuerySystemInformation(SystemHandleInformation, Size.address(), 0, null);
         //if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH) {
         //    buffer = ctypes.char.array(_enumBufSize.value)();
         //} else break;
@@ -84,6 +75,7 @@ function enumHandles() {
     console.log('status:', status.toString(), 'STATUS_BUFFER_TOO_SMALL:', status == STATUS_BUFFER_TOO_SMALL, 'STATUS_INFO_LENGTH_MISMATCH:', status == STATUS_INFO_LENGTH_MISMATCH);
     console.log('ReturnLength:', ReturnLength.value.toString(), (ReturnLength.value.toString() / SYSTEM_HANDLE_TABLE_ENTRY_INFO.size));
     console.log('NumberOfHandles:', buffer.NumberOfHandles.toString());
+    console.log('Size:', Size, Size.toString(), uneval(Size));
     ////// rep it
     return;
     var news = SYSTEM_HANDLE_TABLE_ENTRY_INFO.array(parseInt(buffer.NumberOfHandles))();

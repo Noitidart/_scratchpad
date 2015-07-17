@@ -3,37 +3,114 @@ Cu.import('resource://gre/modules/Services.jsm');
 Cu.import('resource://gre/modules/XPCOMUtils.jsm');
 XPCOMUtils.defineLazyGetter(myServices, 'ds', function () { return Services.dirsvc.QueryInterface(Ci.nsIDirectoryService) });
 
+// start - helper functions
+var vcLs30; //jsBool for if this ff version is < 30
+function getVcLs30() {
+	if (vcLs30 === null || vcLs30 === undefined) {
+		vcLs30 = (Services.vc.compare(Services.appinfo.version, 30) < 0);
+	}
+}
+
+var txtDecodr; // holds TextDecoder if created
+function getTxtDecodr() {
+	if (!txtDecodr) {
+		txtDecodr = new TextDecoder();
+	}
+	return txtDecodr;
+}
+function Deferred() {
+	// this function gets the Deferred object depending on what is available, if not available it throws
+	
+	if (Promise && Promise.defer) {
+		//need import of Promise.jsm for example: Cu.import('resource:/gree/modules/Promise.jsm');
+		return Promise.defer();
+	} else if (PromiseUtils && PromiseUtils.defer) {
+		//need import of PromiseUtils.jsm for example: Cu.import('resource:/gree/modules/PromiseUtils.jsm');
+		return PromiseUtils.defer();
+	} else {
+		try {
+			/* A method to resolve the associated Promise with the value passed.
+			 * If the promise is already settled it does nothing.
+			 *
+			 * @param {anything} value : This value is used to resolve the promise
+			 * If the value is a Promise then the associated promise assumes the state
+			 * of Promise passed as value.
+			 */
+			this.resolve = null;
+
+			/* A method to reject the assocaited Promise with the value passed.
+			 * If the promise is already settled it does nothing.
+			 *
+			 * @param {anything} reason: The reason for the rejection of the Promise.
+			 * Generally its an Error object. If however a Promise is passed, then the Promise
+			 * itself will be the reason for rejection no matter the state of the Promise.
+			 */
+			this.reject = null;
+
+			/* A newly created Pomise object.
+			 * Initially in pending state.
+			 */
+			this.promise = new Promise(function(resolve, reject) {
+				this.resolve = resolve;
+				this.reject = reject;
+			}.bind(this));
+			Object.freeze(this);
+		} catch (ex) {
+			throw new Error('Promise/Deferred is not available');
+		}
+	}
+}
+function read_encoded(path, options) {
+	// because the options.encoding was introduced only in Fx30, this function enables previous Fx to use it
+	// must pass encoding to options object, same syntax as OS.File.read >= Fx30
+	// TextDecoder must have been imported with Cu.importGlobalProperties(['TextDecoder']);
+	
+	var deferred_read_encoded = new Deferred();
+	var promise_read_encoded = deferred_read_encoded.promise;
+	
+	if (!options || !('encoding' in options)) {
+		throw new Error('Must pass encoding in options object');
+	}
+	
+	if (getVcLs30()) {
+		//var encoding = options.encoding; // looks like i dont need to pass encoding to TextDecoder, not sure though for non-utf-8 though
+		delete options.encoding;
+	}
+	var promise_read = OS.File.read(path, options);
+	
+	promise_read.then(
+		function(aVal) {
+			console.log('Fulfilled - promise_read - ');
+			var readStr;
+			if (getVcLs30()) {
+				readStr = getTxtDecodr().decode(aVal); // Convert this array to a text
+			} else {
+				readStr = aVal;
+			}
+			deferred_read_encoded.resolve(readStr);
+		},
+		function(aReason) {
+			var rejObj = {
+				promiseName: 'promise_read',
+				aReason: aReason
+			};
+			console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
+			deferred_read_encoded.reject(aReason); // i return aReason here instead of my usual rejObj so it works just like OS.File.read
+		}
+	).catch(
+		function(aCaught) {
+			console.error('Caught - promise_read - ', aCaught);
+			throw aCaught;
+		}
+	);
+	
+	return promise_read_encoded;
+}
+// end - helper functions
+
 /*
 // on profile launcher creation do this:
-// start - write main app paths file
-var pathsFileContentsJson = {
-	mainAppPath: Services.dirsvc.get('XREExeF', Ci.nsIFile).parent.parent.parent.path,
-	main_profLD_LDS_basename: Services.dirsvc.get('ProfLD', Ci.nsIFile).parent.path,
-	
-};
-var pathsFileContents = JSON.stringify(pathsFileContentsJson);
-var path_to_pathsFile = OS.Path.join(pathToFFApp, 'Contents', 'MacOS', 'profilist-main-paths.json');
-var promise_writePathsFile = OS.File.writeAtomic(path_to_pathsFile, pathsFileContents, {{encoding:'utf-8', tmpPath:path_to_pathsFile+'.bkp'}});
-promise_writePathsFile.then(
-	function(aVal) {
-		console.log('Fulfilled - promise_writePathsFile - ', aVal);
-		//deferred_readThenWritePlist.resolve();
-	},
-	function(aReason) {
-		var rejObj = {
-			promiseName: 'promise_writePathsFile',
-			aReason: aReason
-		};
-		console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
-		//deferred_readThenWritePlist.reject(rejObj);
-	}
-).catch(
-	function(aCaught) {
-		console.error('Caught - promise_writePathsFile - ', aCaught);
-		throw aCaught;
-	}
-);
-// end - write main app paths file
+
 */
 // start - for use in dirProvider, getFile
 function overrideSpecialPaths(pathsFileContentsJson) {
@@ -137,7 +214,7 @@ function overrideSpecialPaths(pathsFileContentsJson) {
 // end - for use in dirProvider, getFile
 
 function checkIfShouldOverridePaths() {
-	var path_to_ThisPathsFile = OS.Path.join(OS.Constatns.Path.libDir, 'profilist-main-paths.json');
+	var path_to_ThisPathsFile = OS.Path.join(Services.dirsvc.get('GreBinD').path, 'profilist-main-paths.json');
 	var promise_readThisPathsFile = read_encoded(path_to_ThisPathsFile, {encoding:'utf-8'});
 	promise_readThisPathsFile.then(
 		function(aVal) {

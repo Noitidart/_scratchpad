@@ -44,6 +44,7 @@ var nixtypesInit = function() {
 	// CONSTANTS
 	this.ANYPROPERTYTYPE = 0; //AnyPropertyType //this.ATOM(0) // need this jsInt for comparison
 	this.BADGC = 13;
+	this.BADWINDOW = 3; //# /usr/include/X11/X.h:353
 	this.NONE = 0; // leave it at 0 (a jsInt) as simple comparison is done in GetAtom, cuz in GetAtom i do `if (rez == ostypes.NONE)` and if is a number here it works. otherwise its weird. ostypes.ATOM(0) and new ostypes.ATOM(0) both give back CData{ value: UInt64{} } but the XInternAtom even thouh return is ostypes.ATOM it gives back UInt64 &&& doing UInt64 == jsInt seems to work. oin ostypes.ATOM(0).value == returnedUInt64 does not work if i do this then i have to to returnedUInt64.toString() == ostypes.ATOM(0).value.toStrin() so weird
 	this.PROPMODEREPLACE = 0; // PropModeReplace
 	this.SUCCESS = 0;
@@ -114,29 +115,14 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.GDKDRAWABLE.ptr		// *drawable
 		);
 	},
-	XChangeProperty: function() {
-		/* http://www.xfree86.org/4.4.0/XChangeProperty.3.html
-		 * int XChangeProperty(
-		 *   Display		*display,
-		 *   Window			w,
-		 *   Atom			property,
-		 *   Atom			type,
-		 *   int			format,
-		 *   int			mode,
-		 *   unsigned char	*data,
-		 *   int			nelements
+	XAllocWMHints: function() {
+		/* http://www.xfree86.org/4.4.0/XAllocWMHints.3.html
+		 * XWMHints *XAllocWMHints
+		 *   void
 		 * );
 		 */
 		return _lib('x11').declare('XChangeProperty', ctypes.default_abi,
-			ostypes.INT,				// return
-			ostypes.DISPLAY.ptr,		// *display
-			ostypes.WINDOW,				// w
-			ostypes.ATOM,				// property
-			ostypes.ATOM,				// type
-			ostypes.INT,				// format
-			ostypes.INT,				// mode
-			ostypes.UNSIGNED_CHAR.ptr,	// *data
-			ostypes.INT					// nelements
+			ostypes.XWMHINTS.ptr		// return
 		);
 	},
 	XCloseDisplay: function() {
@@ -146,6 +132,17 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		 * );
 		 */
 		return _lib('x11').declare('XCloseDisplay', ctypes.default_abi,
+			ostypes.INT,		// return
+			ostypes.DISPLAY.ptr	// *display
+		);
+	},
+	XFlush: function() {
+		/* http://www.xfree86.org/4.4.0/XFlush.3.html
+		 * int XFlush(
+		 *   Display	*display
+		 * );
+		 */
+		return _lib('x11').declare('XFlush', ctypes.default_abi,
 			ostypes.INT,		// return
 			ostypes.DISPLAY.ptr	// *display
 		);
@@ -161,48 +158,18 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DATA	// *data
 		);
 	},
-	XFlush: function() {
-		/* http://www.xfree86.org/4.4.0/XFlush.3.html
-		 * int XFlush(
-		 *   Display	*display
-		 * );
-		 */
-		return _lib('x11').declare('XFlush', ctypes.default_abi,
-			ostypes.INT,		// return
-			ostypes.DISPLAY.ptr	// *display
-		);
-	},
-	XGetWindowProperty: function() {
-		/* http://www.xfree86.org/4.4.0/XChangeProperty.3.html
-		 * int XChangeProperty(
+	XGetWMHints: function() {
+		/* http://www.xfree86.org/4.4.0/XGetWMHints.3.html
+		 * int XGetWMHints(
 		 *   Display		*display,
 		 *   Window			w,
-		 *   Atom			property,
-		 *   long			long_offset,
-		 *   long			long_length,
-		 *   Bool			delete,
-		 *   Atom			req_type,
-		 *   Atom			*actual_type_return,
-		 *   int			*actual_format_return,
-		 *   unsigned long	*nitems_return,
-		 *   unsigned long	*bytes_after_return,
-		 *   unsigned char	**prop_return,
+		 *   XWMHints 		*wmhints
 		 * );
 		 */
-		return _lib('x11').declare('XGetWindowProperty', ctypes.default_abi,
-			ostypes.INT,					// return
-			ostypes.DISPLAY.ptr,			// *display
-			ostypes.WINDOW,					// w
-			ostypes.ATOM,					// property
-			ostypes.LONG,					// long_offset
-			ostypes.LONG,					// long_length
-			ostypes.BOOL,					// delete
-			ostypes.ATOM,					// req_type		// note on note: actually if ANYPROPERTYTYPE and NONE are jsInt then thse can be atoms. note to self: always put a jsInt here because in comparison checks after running `_dec('XGetWindowProperty')` I do `xgwpArg.req_type != xgwpArg.$actual_type_return` to test for mismatch, and i also test to make sure its not ostypes.ANYPROPERTYTYPE. and on return they are `UInt64{}` (even though declared to be `ostypes.ATOM.ptr` in `preDec`) but `new ostypes.ATOM(5)` is `CData{ UInt64{} }`. so doing a simple == for comparison requires one or the other be a jsInt  
-			ostypes.ATOM.ptr,				// *actual_type_return
-			ostypes.INT.ptr,				// *actual_format_return
-			ostypes.UNSIGNED_LONG.ptr,		// *nitems_return
-			ostypes.UNSIGNED_LONG.ptr,		// *bytes_after_return
-			ostypes.UNSIGNED_CHAR.ptr.ptr	// **prop_return
+		return _lib('x11').declare('XGetWMHints', ctypes.default_abi,
+			ostypes.XWMHINTS.ptr,		// return
+			ostypes.DISPLAY.ptr,		// *display
+			ostypes.WINDOW				// w
 		);
 	},
 	XInternAtom: function() {
@@ -220,32 +187,6 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.BOOL			// only_if_exists
 		);
 	},
-	XMapWindow: function() {
-		/* http://www.xfree86.org/4.4.0/XMapWindow.3.html
-		 * int XMapWindow(
-		 *   Display	*display,
-		 *   Window		w
-		 * );
-		 */
-		return _lib('x11').declare('XMapWindow', ctypes.default_abi,
-			ostypes.INT,			// return
-			ostypes.DISPLAY.ptr,	// *display
-			ostypes.WINDOW			// w
-		);
-	},
-	XNextEvent: function() {
-		/* http://www.xfree86.org/4.4.0/XNextEvent.3.html
-		 * int XNextEvent(
-		 *   Display	*display, 
-		 *   XEvent		*event_return 
-		 * );
-		 */
-		return _lib('x11').declare('XNextEvent', ctypes.default_abi,
-			ostypes.INT,			// return
-			ostypes.DISPLAY.ptr,	// *display
-			ostypes.XEVENT.ptr		// *event_return
-		);
-	},
 	XOpenDisplay: function() {
 		/* http://www.xfree86.org/4.4.0/XOpenDisplay.3.html
 		 * Display *XOpenDisplay(
@@ -256,10 +197,46 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 			ostypes.DISPLAY.ptr,	// return
 			ostypes.CHAR.ptr		// *display_name
 		); 
+	},
+	XSetWMHints: function() {
+		/* http://www.xfree86.org/4.4.0/XSetWMHints.3.html
+		 * int XSetWMHints(
+		 *   Display		*display,
+		 *   Window			w,
+		 *   XWMHints 		*wmhints
+		 * );
+		 */
+		return _lib('x11').declare('XSetWMHints', ctypes.default_abi,
+			ostypes.INT,				// return
+			ostypes.DISPLAY.ptr,		// *display
+			ostypes.WINDOW,				// w
+			ostypes.XWMHINTS.ptr		// *wmhints
+		);
 	}
 }
 
 /* start helper functions */
+function jscGetDeepest(obj) {
+	// used to get the deepest .contents .value and so on. expecting a number object
+	//console.info('start jscGetDeepest:', obj.toString());
+	while (isNaN(obj) && ('contents' in obj || 'value' in obj)) {
+		if ('contents' in obj) {
+			obj = obj.contents;
+		} else if ('value' in obj) {
+			obj = obj.value
+		} else {
+			throw new Error('huh, isNaN, but no contents or value in obj', 'obj:', obj);
+		}
+		//console.info('loop jscGetDeepest:', obj.toString());
+	}
+	//console.info('pre final jscGetDeepest:', obj.toString());
+	if (!isNaN(obj)) {
+		obj = obj.toString();
+	}
+	//console.info('finaled jscGetDeepest:', obj.toString());
+	return obj;
+}
+
 function jscEqual(obj1, obj2) {
 	// ctypes numbers equal
 	// compares obj1 and obj2
@@ -269,25 +246,8 @@ function jscEqual(obj1, obj2) {
 	var str1 = obj1;
 	var str2 = obj2;
 	
-	var setToDeepest = function(obj) {
-		while (isNaN(obj) && ('contents' in obj || 'value' in obj)) {
-			if ('contents' in obj) {
-				obj = obj.contents;
-			} else if ('value' in obj) {
-				obj = obj.value
-			} else {
-				throw new Error('huh, isNaN, but no contents or value in obj', 'obj:', obj);
-			}
-		}
-		if (!isNaN(obj)) {
-			obj = obj.toString();
-		}
-		
-		return obj;
-	}
-	
-	var str1 = setToDeepest(str1); //cuz apparently its not passing by reference
-	var str2 = setToDeepest(str2); //cuz apparently its not passing by reference
+	var str1 = jscGetDeepest(str1); //cuz apparently its not passing by reference
+	var str2 = jscGetDeepest(str2); //cuz apparently its not passing by reference
 	
 	if (str1 == str2) {
 		return true;
@@ -380,99 +340,104 @@ function shutdown() {
 
 
 function main() {
-	/*
-	// this block here works, it changes the title of the window
-	// but have to change line 116 back to `ostypes.UNSIGNED_CHAR.ptr`
-	var myXData = ostypes.UNSIGNED_CHAR.array()('ppbeta');
-	console.info('myXData:', myXData, myXData.toString(), uneval(myXData));
-	var rez_XChangeProp = _dec('XChangeProperty')(GetXDisplay(), xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')), GetAtom('WM_NAME'), GetAtom('UTF8_STRING'), 8, ostypes.PROPMODEREPLACE, myXData, myXData.length);
-	console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
-	*/
-	
-	var doc = gBrowser.contentDocument;
-	
-	var img = new Image();
-	img.onload = function() {
-		var canvas = doc.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
-		doc.body.appendChild(canvas);
 		
-		var ctx = canvas.getContext('2d');
-		
-		var size = this.width;
-		canvas.width = size;
-		canvas.height = size;
-		
-		ctx.clearRect(0, 0, size, size);
-		
-		ctx.drawImage(this, 0, 0);
-
-		// Getting pixels as a byte (uint8) array
-		var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-		var pixels8BitsRGBA = imageData.data;
-
-		// Reverting bytes from RGBA to ARGB
-		
-		var littleEndian = (function() {
-		  var buffer = new ArrayBuffer(2);
-		  new DataView(buffer).setInt16(0, 256, true);
-		  return new Int16Array(buffer)[0] === 256;
-		})();
-		
-		var buffer = new ArrayBuffer(4 + 4 + (size*size*4));
-		var view = new DataView(buffer);
-		view.setUint32(0, size, littleEndian);
-		view.setUint32(4, size, littleEndian);
-		/*
-		var pixels8BitsARGB = new Uint8Array(pixels8BitsRGBA.length + 8); // +8 bytes for the two leading 32 bytes integers
-		for(var i = 0 ; i < pixels8BitsRGBA.length ; i += 4) {
-			pixels8BitsARGB[i+8 ] = pixels8BitsRGBA[i+3];
-			pixels8BitsARGB[i+9 ] = pixels8BitsRGBA[i  ];
-			pixels8BitsARGB[i+10] = pixels8BitsRGBA[i+1];
-			pixels8BitsARGB[i+11] = pixels8BitsRGBA[i+2];
-		}
-
-		// Converting array buffer to a uint32 one, and adding leading width and height
-		var pixelsAs32Bits = new Uint32Array(pixels8BitsARGB.buffer);
-		pixelsAs32Bits[0] = canvas.width;
-		pixelsAs32Bits[1] = canvas.height;
-
-		//console.log(pixelsAs32Bits);
-		var jsarr = Array.prototype.slice.call(pixelsAs32Bits);
-		//console.log('jsarr:', jsarr);
-			
-		var myXDataULONG = ostypes.UNSIGNED_LONG.array()(jsarr);
-		var myXData = ctypes.cast(myXDataLONG.address(), ostypes.UNSIGNED_CHAR.array(myXDataULONG.length).ptr).contents;
-		//console.info('myXData:', myXData);
-		*/
-		
-		var myJsDataLong = ['16777215','50331648','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','50331648','16777215','117440512','-179727685','-13794122','-7501709','-2579612','-12091753','-11689787','-8663845','-8729638','-12612424','-12360329','-4941740','-670645','-342721','-106524059','117440512','520093696','-1924502','-3243974','-1669338','-9017258','-15895118','-13397058','-10042412','-10042412','-13991247','-16164456','-16298359','-10130877','-600557','-137156','520093696','587202560','-2000091','-2199019','-2199024','-8563138','-15965032','-11755851','-10108719','-10042669','-13596748','-16164712','-15902826','-16233077','-12693681','-669681','587202560','587202560','-2066396','-2133221','-2660335','-3126519','-2206455','-5019855','-10505018','-11227448','-13004873','-13005900','-10636341','-11559489','-16434316','-4224992','587202560','654311424','-2066654','-2133221','-2133221','-1666476','-1001601','-7692655','-10307379','-11557437','-10767926','-10636854','-12744270','-11428673','-14722936','-3237322','654311424','654311424','-2066655','-2133221','-2066657','-2324167','-10773841','-10572087','-10506038','-10506038','-10901050','-15904626','-15839603','-14326887','-11563857','-1390041','654311424','687865856','-2132705','-2923495','-3510485','-4092338','-11497296','-10837309','-10771004','-10771004','-10837053','-13536862','-16434563','-15975303','-14068866','-802546','687865856','704643072','-5755123','-6086910','-8760247','-11696978','-11563854','-11234117','-11168068','-11168068','-11233860','-12485462','-16502669','-16570265','-7640013','-548596','704643072','721420288','-5100540','-4246015','-3513571','-10724253','-12162676','-10721420','-7048367','-8553877','-11961433','-12751710','-16044432','-16638627','-1590456','-481270','721420288','754974720','-3127291','-2274304','-2203377','-2133221','-2133221','-2133221','-2264291','-2256322','-11182995','-16639135','-16770980','-16312757','-666027','-413935','754974720','771751936','-2068969','-2007285','-2138099','-5887736','-5492214','-4896748','-6795731','-12760969','-14600580','-16772007','-13555655','-5738717','-268799','-479193','771751936','805306368','-2132966','-2199019','-2133992','-3249890','-10996944','-16312751','-13880445','-15720598','-13880957','-12571067','-2855395','-1337332','-935936','-274084','805306368','822083584','-2066404','-2199024','-2133226','-2199021','-2133223','-5219036','-9749959','-9225160','-7386577','-2658787','-2132966','-1669883','-871912','-134302','822083584','520093696','-106147016','-2794469','-2198244','-2066144','-2066148','-1933785','-1867216','-1867215','-1933779','-2000089','-2135789','-1602038','-132835','-104553172','520093696','50331648','822083584','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','822083584','50331648'];
-		var myXDataLONG = ostypes.LONG.array(myJsDataLong);
-		var myXData = ctypes.cast(myXDataLONG.address(), ostypes.UNSIGNED_CHAR.array(myXDataLONG.length).ptr).contents;
-		var xgpArg = {
-			$display:	/*INT*/					GetXDisplay(),
-			w:			/*DISPLAY.ptr*/			xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')),
-			property:	/*WINDOW*/				GetAtom('_NET_WM_ICON'),
-			type:		/*ATOM*/				ostypes.XA_CARDINAL,
-			format:		/*INT*/					32,
-			mode:		/*INT*/					ostypes.PROPMODEREPLACE,
-			$data:		/*UNSIGNED_CHAR.ptr*/	myXData,
-			nelements:	/*INT*/					myXData.length
-		};
-		var rez_XChangeProp = _dec('XChangeProperty')(xgpArg.$display, xgpArg.w, xgpArg.property, xgpArg.type, xgpArg.format, xgpArg.mode, xgpArg.$data, xgpArg.nelements);
-		console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
-		/*
-		var rez_XMapWin = _dec('XMapWindow')(GetXDisplay(), XChangeProp_argsArr[1]);
-		console.info('rez_XMapWin:', rez_XMapWin, rez_XMapWin.toString(), uneval(rez_XMapWin));
-		
-		var myE = new ostypes.XEVENT();
-		var rez_XNxtEv = _dec('XNextEvent')(GetXDisplay(), myE.address());
-		console.info('rez_XNxtEv:', rez_XNxtEv, rez_XNxtEv.toString(), uneval(rez_XNxtEv));
-		*/
-		
-		var rez_XFlush = _dec('XFlush')(GetXDisplay());
-		console.info('rez_XFlush:', rez_XFlush, rez_XFlush.toString(), uneval(rez_XFlush));
+	var arg0 = {
+		$display:	/*DISPLAY.ptr*/		GetXDisplay(),
+		w:			/*WINDOW*/			xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser'))
 	};
-	img.src = OS.Path.toFileURI(OS.Path.join(OS.Constants.Path.desktopDir, 'profilist-ff-channel-logos', 'release48.png'));
+	var hints = _dec('XGetWMHints')(GetXDisplay(), arg0.w);
+	console.info('hints:', hints, hints.toString(), uneval(hints));
+	console.info('hints.contents:', hints.contents, hints.contents.toString(), uneval(hints.contents));
+	
+	if (hints.isNull()) {
+		console.warn('this window doesnt have any hints');
+	} else if (hints.contents.toString() == ostypes.BADWINDOW.toString()) { // i havent been able to get this error, so im not sure im testing for it in right way
+		console.warn('the window passed as argument to get hints does not exist');
+	} else {
+		// got hints
+		
+		/*
+		// mark urgent:
+		var XUrgencyHint = 256; //# /usr/include/X11/Xutil.h:4880
+		
+		console.log('pre or:', jscGetDeepest(hints.contents.flags));
+		var newFlags = parseInt(jscGetDeepest(hints.contents.flags)) | XUrgencyHint;
+		console.log('post or:', newFlags);
+		
+		hints.contents.flags = ostypes.LONG(newFlags);
+		*/
+		
+		/*
+		// https://github.com/benizi/config-bin/blob/master/set-icon.py#L66
+		# many window managers need a hint that the icon has changed
+		# bits 2, 3, and 5 of the WM_HINTS flags int are, respectively:
+		# IconPixmapHint, IconWindowHint, and IconMaskHint
+		wmhints_type,wmhints_fmt,wmhints_tuple=wmhints
+		wmhints_flags = wmhints_tuple[0]
+		for member in [2,3,5]:
+			if wmhints_flags & (1 << member):
+				wmhints_flags ^= 1 << member
+				wmhints_tuple[member+1] = 0
+		*/
+		
+		/*
+		// http://tronche.com/gui/x/xlib/ICC/client-to-window-manager/wm-hints.html
+		#define	InputHint	(1L << 0)
+		#define	StateHint	(1L << 1)
+		#define	IconPixmapHint	(1L << 2)
+		#define	IconWindowHint	(1L << 3)
+		#define	IconPositionHint	(1L << 4)
+		#define	IconMaskHint	(1L << 5)
+		#define	WindowGroupHint	(1L << 6)
+		#define	UrgencyHint	(1L << 8)
+		#define	AllHints 	(InputHint|StateHint|IconPixmapHint|IconWindowHint|IconPositionHint|IconMaskHint|WindowGroupHint)
+		*/
+		
+		// correct but not used as im trying to match the py
+		var IconPixmapHint = 1 << 2;
+		var IconWindowHint = 1 << 3;
+		var IconMaskHint = 1 << 5;
+		
+		var IconPixmapHintBits = 2;
+		var IconWindowHintBits = 3;
+		var IconMaskHintBits = 5;
+		
+		var newFlags = parseInt(jscGetDeepest(hints.contents.flags));
+		var MEMBRS = { // field name in XWMHINTS structure to the bits for its corresponding hint
+			icon_pixmap: IconPixmapHintBits,
+			icon_window: IconWindowHintBits,
+			icon_mask: IconMaskHintBits
+		};
+		var MEMBRS_TYPE = { // field name in XWMHINTS structure to the corresponding type
+			icon_pixmap: ostypes.PIXMAP,
+			icon_window: ostypes.XID,
+			icon_mask: ostypes.PIXMAP
+		};		
+		for (var member in MEMBRS) {
+			if (newFlags & (1 << MEMBRS[member])) {
+				newFlags ^= (1 << MEMBRS[member]);
+				console.log('hints.contents.addressOfField(member).contents:', hints.contents.addressOfField(member).contents.toString());
+				hints.contents.addressOfField(member).contents = MEMBRS_TYPE[member](0);
+			}
+		}
+		hints.contents.flags = ostypes.LONG(newFlags);
+		
+		var arg1 = {
+			$display:	/*DISPLAY.ptr*/		GetXDisplay(),
+			w:			/*WINDOW*/			xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')),
+			$wmhints:	/*XWMHINTS.ptr*/	hints
+			
+		};
+		var rez_XSet = _dec('XSetWMHints')(arg1.$display, arg1.w, arg1.$wmhints);
+		console.info('rez_XSet:', rez_XSet, rez_XSet.toString(), uneval(rez_XSet));
+		
+		var rez_XFree = _dec('XFree')(hints);
+		console.info('rez_XFree:', rez_XFree, rez_XFree.toString(), uneval(rez_XFree));
+	}
+	
+	//var rez_XFlush = _dec('XFlush')(GetXDisplay());
+	//console.info('rez_XFlush:', rez_XFlush, rez_XFlush.toString(), uneval(rez_XFlush));
+	
 }
 
 try {

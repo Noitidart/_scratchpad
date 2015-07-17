@@ -84,9 +84,9 @@ function read_encoded(path, options) {
 	
 	promise_read.then(
 		function(aVal) {
-			console.log('Fulfilled - promise_read - ', aVal);
+			console.log('Fulfilled - promise_read - ');
 			var readStr;
-			if (getVcLs30) {
+			if (getVcLs30()) {
 				readStr = getTxtDecodr().decode(aVal); // Convert this array to a text
 			} else {
 				readStr = aVal;
@@ -260,8 +260,8 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 							?
 								OS.File.makeDir(copyToPath)
 							: // } else {
-								//OS.File.unixSymLink(stuffToMakeAtDepth[i].path, stuffToMakeAtDepth[i].path.replace(new RegExp(escapeRegExp(pathToSrcDir), 'i'), pathToDestDir))
-								OS.File.copy(stuffToMakeAtDepth[i].path, copyToPath)
+								OS.File.unixSymLink(stuffToMakeAtDepth[i].path, stuffToMakeAtDepth[i].path.replace(new RegExp(escapeRegExp(pathToSrcDir), 'i'), pathToDestDir))
+								//OS.File.copy(stuffToMakeAtDepth[i].path, copyToPath)
 							// }
 						);
 					}
@@ -311,7 +311,10 @@ function duplicateDirAndContents(pathToSrcDir, pathToDestDir, max_depth, targetD
 }
 // end helper functions
 
-function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
+function makeMacFFProfileLauncher(path_profileDir, pathToBuildsApp, launcher_file_name, path_icon, dir_to_place_launcher) {
+	// launcher_file_name no need for .app, if omitted, then path_profileDir will be the name
+	// if path_icon is omitted, then same icon of that in pahtToFFApp is used
+	// path_profileDir is REQUIRED, path_profileDir is the path to the profile to launch, like: OS.Constants.Path.profileDir
 	// if pathToBuildsApp is null/undefined, then the current build you are running this code from will be used
 	var deferred_makeMacFFProfileLauncher = new Deferred();
 	var promise_makeMacFFProfileLauncher = deferred_makeMacFFProfileLauncher.promise;
@@ -324,45 +327,84 @@ function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
 	} else {
 		pathToFFApp = OS.Path.split(exePath);
 		for (var i=0; i<pathToFFApp.components.length; i++) {
+			console.log(pathToFFApp.components[i]);
 			if (pathToFFApp.components[i].substr(pathToFFApp.components[i].length-4) == '.app') {
-				pathToFFApp = pathToFFApp.slice(0, i);
+				pathToFFApp = OS.Path.join.apply(OS.Path, pathToFFApp.components.slice(0, i+1));
+				console.log(pathToFFApp);
 				break;
 			}
 		}
-		//var pathToFFApp = OS.Path.join(OS.Constants.Path.macLocalApplicationDir, 'Firefox.app');
 	}
-	var launcherName = OS.Path.basename(path_profileDir) + '.app';
-	var pathToLauncher = OS.Path.join(path_iniDir, 'profilist_data', 'profile_launchers', launcherName);
+	var launcherName = (launcher_file_name ? launcher_file_name : OS.Path.basename(path_profileDir)) + '.app';
+	var pathToLauncher = dir_to_place_launcher ? OS.Path.join(dir_to_place_launcher, launcherName) : OS.Path.join(path_iniDir, 'profilist_data', 'profile_launchers', launcherName);
 	
 	var promise_copyFxApp = duplicateDirAndContents(pathToFFApp,  pathToLauncher);
 	promise_copyFxApp.then(
 		function(aVal) {
 			console.log('Fulfilled - promise_copyFxApp - ', aVal);
-				//start - promise_readThenWritePlist
+			
+			// start - write main app paths file
+			var pathsFileContentsJson = {
+				mainAppPath: Services.dirsvc.get('XREExeF', Ci.nsIFile).parent.parent.parent.path,
+				main_profLD_LDS_basename: Services.dirsvc.get('ProfLD', Ci.nsIFile).parent.path,
+			};
+			var pathsFileContents = JSON.stringify(pathsFileContentsJson);
+			var path_to_pathsFile = OS.Path.join(pathToLauncher, 'Contents', 'MacOS', 'profilist-main-paths.json');
+			var promise_writePathsFile = OS.File.writeAtomic(path_to_pathsFile, pathsFileContents, {encoding:'utf-8', tmpPath:path_to_pathsFile+'.bkp'});
+			promise_writePathsFile.then(
+				function(aVal) {
+					console.log('Fulfilled - promise_writePathsFile - ', aVal);
+					//deferred_readThenWritePlist.resolve();
+				},
+				function(aReason) {
+					var rejObj = {
+						promiseName: 'promise_writePathsFile',
+						aReason: aReason
+					};
+					console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
+					//deferred_readThenWritePlist.reject(rejObj);
+				}
+			).catch(
+				function(aCaught) {
+					console.error('Caught - promise_writePathsFile - ', aCaught);
+					throw aCaught;
+				}
+			);
+			// end - write main app paths file
+			
+			//start - promise_readThenWritePlist
 			var deferred_readThenWritePlist = new Deferred();
 			var promise_readThenWritePlist = deferred_readThenWritePlist.promise;
 			
-			var path_infoPlist_inSrc = OS.File.join(pathToFFApp, 'Contents', 'Info.plist');
+			var path_infoPlist_inSrc = OS.Path.join(pathToFFApp, 'Contents', 'Info.plist');
 			var promise_readPlist = read_encoded(path_infoPlist_inSrc, {encoding:'utf-8'});
 			promise_readPlist.then(
 				function(aVal) {
-					console.log('Fulfilled - promise_readPlist - ', aVal);
-					var modifiedReadStr = aVal.replace(/<key>CFBundleExecute<\/key><string>(.*?)<\/string>/, function(a, b) {
+					console.log('Fulfilled - promise_readPlist - ');
+					var modifiedReadStr = aVal.replace(/<key>CFBundleExecutable<\/key>[\s\S]*?<string>(.*?)<\/string>/, function(a, b) {
 						// this function gets the original executable name (i cant assume its firefox, it might nightly etc)
 						// it also replaces it with profilist-exec
 						return a.replace(b, 'profilist-exec');
 					});
 					
-					modifiedReadStr = modifiedReadStr.replace(/<key>CFBundleIconFile<\/key><string>(.*?)<\/string>/, function(a, b) {
+					modifiedReadStr = modifiedReadStr.replace(/<key>CFBundleIconFile<\/key>[\s\S]*?<string>(.*?)<\/string>/, function(a, b, c) {
 						// this function replaces icon with profilist-badged.icns, so in future i can easily replace it without having to know name first, like i dont know if its firefox.icns for nightly etc
 						return a.replace(b, 'profilist-badged');
 					});
+
+					modifiedReadStr = modifiedReadStr.replace(/<key>CFBundleIdentifier<\/key>[\s\S]*?<string>(.*?)<\/string>/, function(a, b, c) {
+						// this function replaces the bundle identifier
+						return a.replace(b, OS.Path.basename(path_profileDir).replace(/[^a-z\.0-9]/ig, '-'));
+						//The bundle identifier string identifies your application to the system. This string must be a uniform type identifier (UTI) that contains only alphanumeric (A-Z,a-z,0-9), hyphen (-), and period (.) characters. The string should also be in reverse-DNS format. For example, if your company’s domain is Ajax.com and you create an application named Hello, you could assign the string com.Ajax.Hello as your application’s bundle identifier. The bundle identifier is used in validating the application signature. source (apple developer: https://developer.apple.com/library/ios/#documentation/CoreFoundation/Conceptual/CFBundles/BundleTypes/BundleTypes.html#//apple_ref/doc/uid/10000123i-CH101-SW1)
+						//An identifier used by iOS and Mac OS X to recognize any future updates to your app. Your Bundle ID must be registered with Apple and unique to your app. Bundle IDs are app-type specific (either iOS or Mac OS X). The same Bundle ID cannot be used for both iOS and Mac OS X apps. source https://itunesconnect.apple.com/docs/iTunesConnect_DeveloperGuide.pdf
+					});
 					
-					var path_infoPlist_inDest = OS.File.join(pathToLauncher, 'Contents', 'Info.plist');
+					var path_infoPlist_inDest = OS.Path.join(pathToLauncher, 'Contents', 'Info.plist');
 					var promise_writePlist = OS.File.writeAtomic(path_infoPlist_inDest, modifiedReadStr, {encoding:'utf-8', tmpPath:path_infoPlist_inDest+'.profilist.bkp'});
 					promise_writePlist.then(
 						function(aVal) {
 							console.log('Fulfilled - promise_writePlist - ', aVal);
+							deferred_readThenWritePlist.resolve();
 						},
 						function(aReason) {
 							var rejObj = {
@@ -377,10 +419,7 @@ function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
 							console.error('Caught - promise_writePlist - ', aCaught);
 							throw aCaught;
 						}
-					);				
-					
-					
-					
+					);
 				},
 				function(aReason) {
 					var rejObj = {
@@ -464,12 +503,37 @@ function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
 			// end - copy icns
 			
 			// start - write exec
-			var path_profilistExec = OS.File.join(pathToLauncher, 'Contents', 'MacOS', 'profilist-exec');
-			var path_originalExec = OS.File.join(pathToLauncher, 'Contents', 'MacOS', 'firefox');
+			var deferred_execWrittenAndPermed = new Deferred();
+			var promise_execWrittenAndPermed = deferred_execWrittenAndPermed.promise;
+			
+			var path_profilistExec = OS.Path.join(pathToLauncher, 'Contents', 'MacOS', 'profilist-exec');
+			var path_originalExec = OS.Path.join(pathToLauncher, 'Contents', 'MacOS', 'firefox');
 			var promise_writeExec = OS.File.writeAtomic(path_profilistExec, '#!/bin/sh\nexec "' + path_originalExec + '" -profile "' + path_profileDir + '" -no-remote', {tmpPath:path_profilistExec+'.profilist.bkp'});
 			promise_writeExec.then(
 				function(aVal) {
 					console.log('Fulfilled - promise_writeExec - ', aVal);
+					var promise_setPermsScript = OS.File.setPermissions(path_profilistExec, {
+						unixMode: FileUtils.PERMS_DIRECTORY
+					});
+					promise_setPermsScript.then(
+						function(aVal) {
+							console.log('Fulfilled - promise_setPermsScript - ', aVal);
+							deferred_execWrittenAndPermed.resolve('perms set');
+						},
+						function(aReason) {
+							var rejObj = {
+								promiseName: 'promise_setPermsScript',
+								aReason: aReason
+							};
+							console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
+							deferred_execWrittenAndPermed.reject(rejObj);
+						}
+					).catch(
+						function(aCaught) {
+							console.error('Caught - promise_setPermsScript - ', aCaught);
+							throw aCaught;
+						}
+					);
 				},
 				function(aReason) {
 					var rejObj = {
@@ -477,6 +541,7 @@ function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
 						aReason: aReason
 					};
 					console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
+					deferred_execWrittenAndPermed.reject(rejObj);
 				}
 			).catch(
 				function(aCaught) {
@@ -486,6 +551,59 @@ function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
 			);	
 			// end - write exec
 			
+			// start - reflect mods
+			var reflectMods = function() {
+				var path_toDummy = OS.Path.join(pathToLauncher, 'profilist-reflect-mods-dummy-dir');
+				var promise_makeDummy = OS.File.makeDir(path_toDummy);
+				promise_makeDummy.then(
+					function(aVal) {
+						console.log('Fulfilled - promise_makeDummy - ', aVal);
+						var promise_removeDummy = OS.File.removeDir(path_toDummy);
+						promise_removeDummy.then(
+							function(aVal) {
+								console.log('Fulfilled - promise_removeDummy - ', aVal);
+								deferred_reflectMods.resolve('change should be reflecting now on dir, need to reflect on dock now');
+							},
+							function(aReason) {
+								var rejObj = {
+									promiseName: 'promise_removeDummy',
+									aReason: aReason
+								};
+								console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
+								deferred_reflectMods.reject(rejObj);
+							}
+						).catch(
+							function(aCaught) {
+								console.error('Caught - promise_removeDummy - ', aCaught);
+								throw aCaught;
+							}
+						);
+					},
+					function(aReason) {
+						var rejObj = {
+							promiseName: 'promise_makeDummy',
+							aReason: aReason
+						};
+						console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
+						deferred_reflectMods.reject(rejObj);
+					}
+				).catch(
+					function(aCaught) {
+						console.error('Caught - promise_makeDummy - ', aCaught);
+						throw aCaught;
+					}
+				);
+			};
+			// start timer for reflect mods
+			var reflectTimerEvent = {
+				notify: function() {
+					console.log('triggering reflectMods()');
+					reflectMods();
+				}
+			};
+			// end timer for reflect mods
+			// end - reflect mods
+			
 			// start - promiseAll_makeMods and promise_All_reflectMods
 			var deferred_reflectMods = new Deferred();
 			var promise_reflectMods = deferred_reflectMods.promise;
@@ -493,54 +611,16 @@ function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
 			var promiseAllArr_makeMods = [
 				promise_readThenWritePlist,
 				promise_copyIcon,
-				promise_writeExec
+				promise_execWrittenAndPermed,
+				promise_xattr,
+				promise_writePathsFile
 			];
 			var promiseAll_makeMods = Promise.all(promiseAllArr_makeMods);
 			promiseAll_makeMods.then(
 				function(aVal) {
 					console.log('Fulfilled - promiseAll_makeMods - ', aVal);
-					// start - reflect mods
-					var path_toDummy = OS.Path.join(pathToLauncher, 'profilist-reflect-mods-dummy-dir');
-					var promise_makeDummy = OS.File.makeDir(path_toDummy);
-					promise_makeDummy.then(
-						function(aVal) {
-							console.log('Fulfilled - promise_makeDummy - ', aVal);
-							var promise_removeDummy = OS.File.removeDir(path_toDummy);
-							promise_removeDummy.then(
-								function(aVal) {
-									console.log('Fulfilled - promise_removeDummy - ', aVal);
-									deferred_reflectMods.resolve('change should be reflecting now on dir, need to reflect on dock now');
-								},
-								function(aReason) {
-									var rejObj = {
-										promiseName: 'promise_removeDummy',
-										aReason: aReason
-									};
-									console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
-									deferred_reflectMods.reject(rejObj);
-								}
-							).catch(
-								function(aCaught) {
-									console.error('Caught - promise_removeDummy - ', aCaught);
-									throw aCaught;
-								}
-							);
-						},
-						function(aReason) {
-							var rejObj = {
-								promiseName: 'promise_makeDummy',
-								aReason: aReason
-							};
-							console.error('Rejected - ' + rejObj.promiseName + ' - ', rejObj);
-							deferred_reflectMods.reject(rejObj);
-						}
-					).catch(
-						function(aCaught) {
-							console.error('Caught - promise_makeDummy - ', aCaught);
-							throw aCaught;
-						}
-					);
-					// end - reflect mods
+					var reflectTimer = Cc['@mozilla.org/timer;1'].createInstance(Ci.nsITimer); // refelct mods block was here
+					reflectTimer.initWithCallback(reflectTimerEvent, 1000, Ci.nsITimer.TYPE_ONE_SHOT);
 				},
 				function(aReason) {
 					var rejObj = {
@@ -557,13 +637,13 @@ function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
 			);
 			// end - promiseAll_makeMods and promise_All_reflectMods
 			
-			// start - promiseAll_transformed		
-			var promiseAllArr_transformed = [promise_reflectMods, promise_xattr];
+			// start - promiseAll_transformed
+			var promiseAllArr_transformed = [promiseAll_makeMods, promise_reflectMods];
 			var promiseAll_transformed = Promise.all(promiseAllArr_transformed);
 			promiseAll_transformed.then(
 				function(aVal) {
 					console.log('Fulfilled - promiseAll_transformed - ', aVal);
-					promise_makeMacFFProfileLauncher.resolve('transformation completed, clicking this app wil now launch into profile of build of dir copied');
+					deferred_makeMacFFProfileLauncher.resolve('transformation completed, clicking this app wil now launch into profile of build of dir copied');
 				},
 				function(aReason) {
 					var rejObj = {
@@ -600,7 +680,7 @@ function makeMacFFProfileLauncher(path_profileDir, path_icon, pathToBuildsApp) {
 }
 
 
-var promise_makeLauncher = makeMacFFProfileLauncher(OS.Constants.Path.profileDir);
+var promise_makeLauncher = makeMacFFProfileLauncher(OS.Constants.Path.profileDir, OS.Path.join(OS.Constants.Path.macLocalApplicationsDir, 'Firefox.app'), 'Firefox - current profile name here', null /*OS.Path.join(OS.Constants.Path.desktopDir, 'nightly.icns')*/, OS.Constants.Path.desktopDir);
 promise_makeLauncher.then(
 	function(aVal) {
 		console.log('Fulfilled - promise_makeLauncher - ', aVal);

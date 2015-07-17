@@ -9,11 +9,11 @@ var TYPES = {
 	GAppInfo: ctypes.StructType('GAppInfo'),
 	GAppLaunchContext: ctypes.StructType('GAppLaunchContext'),
 	GDesktopAppInfo: ctypes.StructType('GDesktopAppInfo'),
-    GList: new ctypes.StructType('GList', [
+	GList: new ctypes.StructType('GList', [
 		{'data': ctypes.voidptr_t},
 		{'next': ctypes.voidptr_t},
 		{'prev': ctypes.voidptr_t}
-    ]),
+	]),
 	GQuark: ctypes.uint32_t
 };
 
@@ -24,11 +24,6 @@ TYPES.GError = new ctypes.StructType('GError', [
 	{'code': ctypes.int},
 	{'message': ctypes.char.ptr}
 ]);
-	
-// CONSTANTS
-var CONSTS = {
-	None: 0
-};
 
 // FUNCTIONS
 /* https://developer.gnome.org/gio/unstable/gio-Desktop-file-based-GAppInfo.html#g-desktop-app-info-new-from-filename
@@ -77,11 +72,11 @@ function main() {
 	}
 	
 	launcher = ctypes.cast(launcher, TYPES.GAppInfo.ptr);
-	var uris = new TYPES.GList();
-	var launch_context = new TYPES.GAppLaunchContext.ptr();
-	var error = new TYPES.GError.ptr();
-	//var rez_launch_uris = launch_uris(launcher.address(), uris.address(), launch_context.address(), error.address());
-	var rez_launch_uris = launch_uris(launcher, null, null, null);
+	var uris = new TYPES.GList(); // can use `null`
+	var launch_context = null; // have to use null due o this explanation here: // cannot use `var launch_context = new TYPES.GAppLaunchContext();` //throws `Error: cannot construct an opaque StructType` so i have to get launch_context from something like `gdk_display_get_app_launch_context` because i dont know he structure to it, and i obviously cannto create opaque structures
+	var error = new TYPES.GError.ptr(); // can use `null`
+
+	var rez_launch_uris = launch_uris(launcher, uris.address(), launch_context/*launch_context.address()*/, error.address());
 	console.info('rez_launch_uris:', rez_launch_uris, rez_launch_uris.toString(), uneval(rez_launch_uris));
 	console.info('error:', error, error.toString(), uneval(error));
 }

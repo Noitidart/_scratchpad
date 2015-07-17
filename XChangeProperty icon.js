@@ -24,22 +24,6 @@ var nixtypesInit = function() {
 	}
 	this.WINDOW = this.CARD32;
 	this.XID = this.CARD32;
-	this.PIXMAP = this.CARD32;
-
-	// /usr/include/X11/Xutil.h:4867 ????
-	// https://github.com/kamcord/kamcord-android-samples/blob/571bf5f4f2627999169ec6ed33ddedcea591d1cd/cocos2d-x-2.2.2/external/emscripten/system/include/X11/Xutil.h#L111
-	// http://www.unix.com/man-page/x11r4/3/XWMHints/
-	this.XWMHINTS = new ctypes.StructType('XWMHints', [
-		{ flags: this.LONG },			// marks which fields in this structure are defined
-		{ input: this.BOOL },			// does this application rely on the window manager to get keyboard input?
-		{ initial_state: this.INT },	// see below
-		{ icon_pixmap: this.PIXMAP },	// pixmap to be used as icon
-		{ icon_window: this.WINDOW },	// window to be used as icon
-		{ icon_x: this.INT },			// initial position of icon
-		{ icon_y: this.INT },			// initial position of icon
-		{ icon_mask: this.PIXMAP },		// pixmap to be used as mask for icon_pixmap
-		{ window_group: this.XID }		// id of related window group
-	]);
 	
 	// CONSTANTS
 	this.ANYPROPERTYTYPE = 0; //AnyPropertyType //this.ATOM(0) // need this jsInt for comparison
@@ -170,39 +154,6 @@ var preDec = { //stands for pre-declare (so its just lazy stuff) //this must be 
 		return _lib('x11').declare('XFlush', ctypes.default_abi,
 			ostypes.INT,		// return
 			ostypes.DISPLAY.ptr	// *display
-		);
-	},
-	XGetWindowProperty: function() {
-		/* http://www.xfree86.org/4.4.0/XChangeProperty.3.html
-		 * int XChangeProperty(
-		 *   Display		*display,
-		 *   Window			w,
-		 *   Atom			property,
-		 *   long			long_offset,
-		 *   long			long_length,
-		 *   Bool			delete,
-		 *   Atom			req_type,
-		 *   Atom			*actual_type_return,
-		 *   int			*actual_format_return,
-		 *   unsigned long	*nitems_return,
-		 *   unsigned long	*bytes_after_return,
-		 *   unsigned char	**prop_return,
-		 * );
-		 */
-		return _lib('x11').declare('XGetWindowProperty', ctypes.default_abi,
-			ostypes.INT,					// return
-			ostypes.DISPLAY.ptr,			// *display
-			ostypes.WINDOW,					// w
-			ostypes.ATOM,					// property
-			ostypes.LONG,					// long_offset
-			ostypes.LONG,					// long_length
-			ostypes.BOOL,					// delete
-			ostypes.ATOM,					// req_type		// note on note: actually if ANYPROPERTYTYPE and NONE are jsInt then thse can be atoms. note to self: always put a jsInt here because in comparison checks after running `_dec('XGetWindowProperty')` I do `xgwpArg.req_type != xgwpArg.$actual_type_return` to test for mismatch, and i also test to make sure its not ostypes.ANYPROPERTYTYPE. and on return they are `UInt64{}` (even though declared to be `ostypes.ATOM.ptr` in `preDec`) but `new ostypes.ATOM(5)` is `CData{ UInt64{} }`. so doing a simple == for comparison requires one or the other be a jsInt  
-			ostypes.ATOM.ptr,				// *actual_type_return
-			ostypes.INT.ptr,				// *actual_format_return
-			ostypes.UNSIGNED_LONG.ptr,		// *nitems_return
-			ostypes.UNSIGNED_LONG.ptr,		// *bytes_after_return
-			ostypes.UNSIGNED_CHAR.ptr.ptr	// **prop_return
 		);
 	},
 	XInternAtom: function() {
@@ -380,99 +331,67 @@ function shutdown() {
 
 
 function main() {
-	/*
-	// this block here works, it changes the title of the window
-	// but have to change line 116 back to `ostypes.UNSIGNED_CHAR.ptr`
-	var myXData = ostypes.UNSIGNED_CHAR.array()('ppbeta');
-	console.info('myXData:', myXData, myXData.toString(), uneval(myXData));
-	var rez_XChangeProp = _dec('XChangeProperty')(GetXDisplay(), xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')), GetAtom('WM_NAME'), GetAtom('UTF8_STRING'), 8, ostypes.PROPMODEREPLACE, myXData, myXData.length);
-	console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
-	*/
 	
-	var doc = gBrowser.contentDocument;
+	//// this block here works, it changes the title of the window
+	// var myXData = ostypes.UNSIGNED_CHAR.array()('ppbeta');
+	// console.info('myXData:', myXData, myXData.toString(), uneval(myXData));
+	// var xcpArg = {
+		// $display:	/*INT*/					GetXDisplay(),
+		// w:			/*DISPLAY.ptr*/			xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')),
+		// property:	/*WINDOW*/				GetAtom('WM_NAME'), //may need to change to _NET_WM_NAME
+		// type:		/*ATOM*/				GetAtom('UTF8_STRING'),
+		// format:		/*INT*/					8,
+		// mode:		/*INT*/					ostypes.PROPMODEREPLACE,
+		// $data:		/*UNSIGNED_CHAR.ptr*/	myXData,
+		// nelements:	/*INT*/					myXData.length
+	// };
+	// var rez_XChangeProp = _dec('XChangeProperty')(xcpArg.$display, xcpArg.w, xcpArg.property, xcpArg.type, xcpArg.format, xcpArg.mode, xcpArg.$data, xcpArg.nelements);	
+	// console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
 	
-	var img = new Image();
-	img.onload = function() {
-		var canvas = doc.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
-		doc.body.appendChild(canvas);
 		
-		var ctx = canvas.getContext('2d');
-		
-		var size = this.width;
-		canvas.width = size;
-		canvas.height = size;
-		
-		ctx.clearRect(0, 0, size, size);
-		
-		ctx.drawImage(this, 0, 0);
-
-		// Getting pixels as a byte (uint8) array
-		var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-		var pixels8BitsRGBA = imageData.data;
-
-		// Reverting bytes from RGBA to ARGB
-		
-		var littleEndian = (function() {
-		  var buffer = new ArrayBuffer(2);
-		  new DataView(buffer).setInt16(0, 256, true);
-		  return new Int16Array(buffer)[0] === 256;
-		})();
-		
-		var buffer = new ArrayBuffer(4 + 4 + (size*size*4));
-		var view = new DataView(buffer);
-		view.setUint32(0, size, littleEndian);
-		view.setUint32(4, size, littleEndian);
-		/*
-		var pixels8BitsARGB = new Uint8Array(pixels8BitsRGBA.length + 8); // +8 bytes for the two leading 32 bytes integers
-		for(var i = 0 ; i < pixels8BitsRGBA.length ; i += 4) {
-			pixels8BitsARGB[i+8 ] = pixels8BitsRGBA[i+3];
-			pixels8BitsARGB[i+9 ] = pixels8BitsRGBA[i  ];
-			pixels8BitsARGB[i+10] = pixels8BitsRGBA[i+1];
-			pixels8BitsARGB[i+11] = pixels8BitsRGBA[i+2];
+	//var myJsDataLong = ['16', '16', '16777215','50331648','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','50331648','16777215','117440512','-179727685','-13794122','-7501709','-2579612','-12091753','-11689787','-8663845','-8729638','-12612424','-12360329','-4941740','-670645','-342721','-106524059','117440512','520093696','-1924502','-3243974','-1669338','-9017258','-15895118','-13397058','-10042412','-10042412','-13991247','-16164456','-16298359','-10130877','-600557','-137156','520093696','587202560','-2000091','-2199019','-2199024','-8563138','-15965032','-11755851','-10108719','-10042669','-13596748','-16164712','-15902826','-16233077','-12693681','-669681','587202560','587202560','-2066396','-2133221','-2660335','-3126519','-2206455','-5019855','-10505018','-11227448','-13004873','-13005900','-10636341','-11559489','-16434316','-4224992','587202560','654311424','-2066654','-2133221','-2133221','-1666476','-1001601','-7692655','-10307379','-11557437','-10767926','-10636854','-12744270','-11428673','-14722936','-3237322','654311424','654311424','-2066655','-2133221','-2066657','-2324167','-10773841','-10572087','-10506038','-10506038','-10901050','-15904626','-15839603','-14326887','-11563857','-1390041','654311424','687865856','-2132705','-2923495','-3510485','-4092338','-11497296','-10837309','-10771004','-10771004','-10837053','-13536862','-16434563','-15975303','-14068866','-802546','687865856','704643072','-5755123','-6086910','-8760247','-11696978','-11563854','-11234117','-11168068','-11168068','-11233860','-12485462','-16502669','-16570265','-7640013','-548596','704643072','721420288','-5100540','-4246015','-3513571','-10724253','-12162676','-10721420','-7048367','-8553877','-11961433','-12751710','-16044432','-16638627','-1590456','-481270','721420288','754974720','-3127291','-2274304','-2203377','-2133221','-2133221','-2133221','-2264291','-2256322','-11182995','-16639135','-16770980','-16312757','-666027','-413935','754974720','771751936','-2068969','-2007285','-2138099','-5887736','-5492214','-4896748','-6795731','-12760969','-14600580','-16772007','-13555655','-5738717','-268799','-479193','771751936','805306368','-2132966','-2199019','-2133992','-3249890','-10996944','-16312751','-13880445','-15720598','-13880957','-12571067','-2855395','-1337332','-935936','-274084','805306368','822083584','-2066404','-2199024','-2133226','-2199021','-2133223','-5219036','-9749959','-9225160','-7386577','-2658787','-2132966','-1669883','-871912','-134302','822083584','520093696','-106147016','-2794469','-2198244','-2066144','-2066148','-1933785','-1867216','-1867215','-1933779','-2000089','-2135789','-1602038','-132835','-104553172','520093696','50331648','822083584','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','822083584','50331648'];
+	var myJsDataLong = [];
+	var sizesWanted = [16,22,24,48];
+	for (var h=0; h<sizesWanted.length; h++) {
+		myJsDataLong.push(sizesWanted[h] + '');
+		myJsDataLong.push(sizesWanted[h] + '');
+		for (var i=0; i<Math.pow(sizesWanted[h], 2); i++) {
+			myJsDataLong.push('-2579612');
 		}
-
-		// Converting array buffer to a uint32 one, and adding leading width and height
-		var pixelsAs32Bits = new Uint32Array(pixels8BitsARGB.buffer);
-		pixelsAs32Bits[0] = canvas.width;
-		pixelsAs32Bits[1] = canvas.height;
-
-		//console.log(pixelsAs32Bits);
-		var jsarr = Array.prototype.slice.call(pixelsAs32Bits);
-		//console.log('jsarr:', jsarr);
-			
-		var myXDataULONG = ostypes.UNSIGNED_LONG.array()(jsarr);
-		var myXData = ctypes.cast(myXDataLONG.address(), ostypes.UNSIGNED_CHAR.array(myXDataULONG.length).ptr).contents;
-		//console.info('myXData:', myXData);
-		*/
+	}
+	console.log('myJsDataLong.length:', myJsDataLong.length);
 		
-		var myJsDataLong = ['16777215','50331648','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','117440512','50331648','16777215','117440512','-179727685','-13794122','-7501709','-2579612','-12091753','-11689787','-8663845','-8729638','-12612424','-12360329','-4941740','-670645','-342721','-106524059','117440512','520093696','-1924502','-3243974','-1669338','-9017258','-15895118','-13397058','-10042412','-10042412','-13991247','-16164456','-16298359','-10130877','-600557','-137156','520093696','587202560','-2000091','-2199019','-2199024','-8563138','-15965032','-11755851','-10108719','-10042669','-13596748','-16164712','-15902826','-16233077','-12693681','-669681','587202560','587202560','-2066396','-2133221','-2660335','-3126519','-2206455','-5019855','-10505018','-11227448','-13004873','-13005900','-10636341','-11559489','-16434316','-4224992','587202560','654311424','-2066654','-2133221','-2133221','-1666476','-1001601','-7692655','-10307379','-11557437','-10767926','-10636854','-12744270','-11428673','-14722936','-3237322','654311424','654311424','-2066655','-2133221','-2066657','-2324167','-10773841','-10572087','-10506038','-10506038','-10901050','-15904626','-15839603','-14326887','-11563857','-1390041','654311424','687865856','-2132705','-2923495','-3510485','-4092338','-11497296','-10837309','-10771004','-10771004','-10837053','-13536862','-16434563','-15975303','-14068866','-802546','687865856','704643072','-5755123','-6086910','-8760247','-11696978','-11563854','-11234117','-11168068','-11168068','-11233860','-12485462','-16502669','-16570265','-7640013','-548596','704643072','721420288','-5100540','-4246015','-3513571','-10724253','-12162676','-10721420','-7048367','-8553877','-11961433','-12751710','-16044432','-16638627','-1590456','-481270','721420288','754974720','-3127291','-2274304','-2203377','-2133221','-2133221','-2133221','-2264291','-2256322','-11182995','-16639135','-16770980','-16312757','-666027','-413935','754974720','771751936','-2068969','-2007285','-2138099','-5887736','-5492214','-4896748','-6795731','-12760969','-14600580','-16772007','-13555655','-5738717','-268799','-479193','771751936','805306368','-2132966','-2199019','-2133992','-3249890','-10996944','-16312751','-13880445','-15720598','-13880957','-12571067','-2855395','-1337332','-935936','-274084','805306368','822083584','-2066404','-2199024','-2133226','-2199021','-2133223','-5219036','-9749959','-9225160','-7386577','-2658787','-2132966','-1669883','-871912','-134302','822083584','520093696','-106147016','-2794469','-2198244','-2066144','-2066148','-1933785','-1867216','-1867215','-1933779','-2000089','-2135789','-1602038','-132835','-104553172','520093696','50331648','822083584','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','1493172224','822083584','50331648'];
-		var myXDataLONG = ostypes.LONG.array(myJsDataLong);
-		var myXData = ctypes.cast(myXDataLONG.address(), ostypes.UNSIGNED_CHAR.array(myXDataLONG.length).ptr).contents;
-		var xgpArg = {
-			$display:	/*INT*/					GetXDisplay(),
-			w:			/*DISPLAY.ptr*/			xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')),
-			property:	/*WINDOW*/				GetAtom('_NET_WM_ICON'),
-			type:		/*ATOM*/				ostypes.XA_CARDINAL,
-			format:		/*INT*/					32,
-			mode:		/*INT*/					ostypes.PROPMODEREPLACE,
-			$data:		/*UNSIGNED_CHAR.ptr*/	myXData,
-			nelements:	/*INT*/					myXData.length
-		};
-		var rez_XChangeProp = _dec('XChangeProperty')(xgpArg.$display, xgpArg.w, xgpArg.property, xgpArg.type, xgpArg.format, xgpArg.mode, xgpArg.$data, xgpArg.nelements);
-		console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
-		/*
-		var rez_XMapWin = _dec('XMapWindow')(GetXDisplay(), XChangeProp_argsArr[1]);
-		console.info('rez_XMapWin:', rez_XMapWin, rez_XMapWin.toString(), uneval(rez_XMapWin));
-		
-		var myE = new ostypes.XEVENT();
-		var rez_XNxtEv = _dec('XNextEvent')(GetXDisplay(), myE.address());
-		console.info('rez_XNxtEv:', rez_XNxtEv, rez_XNxtEv.toString(), uneval(rez_XNxtEv));
-		*/
-		
-		var rez_XFlush = _dec('XFlush')(GetXDisplay());
-		console.info('rez_XFlush:', rez_XFlush, rez_XFlush.toString(), uneval(rez_XFlush));
+    for (var i=0; i<myJsDataLong.length; i++) {
+      myJsDataLong[i] = ctypes.Int64(myJsDataLong[i]);
+    }
+	var myXDataLONG = ostypes.LONG.array()(myJsDataLong);
+	var myXData = ctypes.cast(myXDataLONG.address(), ostypes.UNSIGNED_CHAR.array(myXDataLONG.length).ptr).contents;
+	var xgpArg = {
+		$display:	/*INT*/					GetXDisplay(),
+		w:			/*DISPLAY.ptr*/			xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')),
+		property:	/*WINDOW*/				GetAtom('_NET_WM_ICON'),
+		type:		/*ATOM*/				ostypes.XA_CARDINAL,
+		format:		/*INT*/					32,
+		mode:		/*INT*/					ostypes.PROPMODEREPLACE,
+		$data:		/*UNSIGNED_CHAR.ptr*/	myXData,
+		nelements:	/*INT*/					myXData.length
 	};
-	img.src = OS.Path.toFileURI(OS.Path.join(OS.Constants.Path.desktopDir, 'profilist-ff-channel-logos', 'release48.png'));
+	var rez_XChangeProp = _dec('XChangeProperty')(xgpArg.$display, xgpArg.w, xgpArg.property, xgpArg.type, xgpArg.format, xgpArg.mode, xgpArg.$data, xgpArg.nelements);
+	console.info('rez_XChangeProp:', rez_XChangeProp, rez_XChangeProp.toString(), uneval(rez_XChangeProp));
+	
+	//// maybe try map win to get icon to change
+	// var rez_XMapWin = _dec('XMapWindow')(GetXDisplay(), xgpArg.w);
+	// console.info('rez_XMapWin:', rez_XMapWin, rez_XMapWin.toString(), uneval(rez_XMapWin));
+	// var myE = new ostypes.XEVENT();
+	// var rez_XNxtEv = _dec('XNextEvent')(GetXDisplay(), myE.address()); // dont do this next event stuff it freezes stuff up and i have to force quit firefox
+	// console.info('rez_XNxtEv:', rez_XNxtEv, rez_XNxtEv.toString(), uneval(rez_XNxtEv));
+
+	//// maybe try flush
+	// var rez_XFlush = _dec('XFlush')(GetXDisplay());
+	// console.info('rez_XFlush:', rez_XFlush, rez_XFlush.toString(), uneval(rez_XFlush));
+    
+    //// maybe try updating WMHints like this guy does here: https://github.com/benizi/config-bin/blob/master/set-icon.py#L66
+	// i tried it, didnt work: https://gist.github.com/Noitidart/f426bae5b0d7782c98bd
 }
 
 try {

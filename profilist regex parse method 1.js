@@ -1,0 +1,10 @@
+var str = '[General]\nStartWithLastProfile=0\nProfilist.notifications=true\nProfilist.dev=true\nProfilist.dev-builds=80k\nProfilist.launch_on_create=true\n\n[Profile0]\nName=Dev Profilist\nIsRelative=1\nPath=Profiles/j0a1zjle.Unnamed Profile 1\nProfilist.tie=0\n\n[Profile55]\nName=Main\nIsRelative=1\nPath=Profiles/qekfxcdm.Unnamed Profile 1\n';
+console.time('parse');
+str = str.replace(/^\[(.*?)\]$/mg, function(a,b){return '\'' + b + '\':{'});
+str = str.replace(/^(.*?)=(.*)$/mg, function(a,b,c){return '\'' + b + '\': \'' + c + '\','});
+str = str.replace(/\n\n/mg, '\n},\n');
+str = '{' + str.replace(/\n/mg, '') + '}';
+console.log(str);
+var objParsed = JSON.parse(str);
+console.timeEnd('parse');
+console.log('objParsed:', str);

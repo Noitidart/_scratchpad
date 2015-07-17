@@ -294,7 +294,7 @@ function xidFromXULWin(aXULWin) {
 	return aXID;
 }
 
-function readAsChar8ThenAsChar16(stringPtr, known_len, jschar) {
+function readAsCharThenAsJSChar(stringPtr, known_len, jschar) {
 	// when reading as jschar it assumes max length of 500
 	
 	// stringPtr is either char or jschar, if you know its jschar for sure, pass 2nd arg as true
@@ -371,11 +371,11 @@ function main() {
 	var xgwpArg = {
 		$display:				/*DISPLAY.ptr*/				GetXDisplay(),
 		w:						/*WINDOW*/					xidFromXULWin(Services.wm.getMostRecentWindow('navigator:browser')),
-		property:				/*ATOM*/					GetAtom('_NET_WM_PID'),
+		property:				/*ATOM*/					GetAtom('_NET_WM_PID'),//GetAtom('_NET_WM_ICON'),
 		long_offset:			/*LONG*/					ostypes.LONG(0),
-		long_length:			/*LONG*/					ostypes.LONG(ostypes.UNSIGNED_LONG.size), // if just query'ing, meaning sending xgwpArg.req_type that doesnt match type of xgwpArg.property, then this is ignored // this is critical for when wanting data returned, dont set this to 0, otherwise even if stuff is there, you will get 0 data returned in $$prop_return and 0 for $nitems_return // so after reading docs, this isnt the amount automatically allocated, if the long_length (this value) is less then the "actual length of the stored property in bytes     (even if the format is 16 or 32)" then it will return "this (long_length) much * 4" to prop_data, otherwise it will return ("actual length of the stored property in bytes     (even if the format is 16 or 32)" minus the "long_offset") // so im thinking its safe to just set this number to some huge number to make sure to get all the bytes always because this number is not what is actually allocated (even though if it was it would be XFree'ed but i still dont wouldnt want to allocate a huge amount) // should verify this // so in summary; its ok to set this to be some crazy big number if you expect to get all of the data stored with this property on the window returned, IF you dont put enough of a length then you wont get all the data, and i log a warning, its easy to tell if you didnt get all of the data because the pointer to $bytes_after_return is set to the bytes that were not read
+		long_length:			/*LONG*/					ostypes.LONG(ostypes.UNSIGNED_LONG.size), // i expect _NET_WM_PID to be one number so just give buffer enough size for one // this is critical, dont set this to 0, otherwise even if stuff is there, you will get 0 data returned in $$prop_return and 0 for $nitems_return
 		delete:					/*BOOL*/					0,
-		req_type:				/*ATOM - jsInt*/			/*ostypes.ANYPROPERTYTYPE*/ 1, //if want to query for actual_type_return, actual_format_return, long_length, then set this to be NOT the type of the return
+		req_type:				/*ATOM - jsInt*/			ostypes.ANYPROPERTYTYPE,
 		$actual_type_return:	/*ATOM.ptr*/				ostypes.ATOM(),
 		$actual_format_return:	/*INT.ptr*/					ostypes.INT(), // i can set this to whatever i want, im very sure, as it gets set to 0, if prop DNE and it gets set to right format if it exists (in both existance situations [(req_type != AnyPropertyType && req_type != actual_type_return) || (req_type == AnyPropertyType || req_type == actual_type_return]
 		$nitems_return:			/*UNSIGNED_LONG.ptr*/		ostypes.UNSIGNED_LONG(),
@@ -391,30 +391,20 @@ function main() {
 	if (!jscEqual(rez_XGetWinProp, ostypes.SUCCESS)) {
 		console.log('XGetWindowProperty failed with reason:', rez_XGetWinProp, rez_XGetWinProp.toString(), uneval(rez_XGetWinProp));
 	} else {
-		if(jscEqual(xgwpArg.$actual_type_return, ostypes.NONE) && jscEqual(xgwpArg.$actual_format_return, 0) && jscEqual(xgwpArg.$bytes_after_return, 0)) {
+		if(jscEqual(xgwpArg.req_type, ostypes.NONE) && jscEqual(xgwpArg.$actual_format_return, 0) && jscEqual(xgwpArg.$bytes_after_return, 0)) {
 			// nitems_return argument will be empty
 			console.log('The specified property does not exist for the specified window. The delete argument was ignored. The nitems_return argument will be empty.');
-			if (jscGetDeepest(xgwpArg.$nitems_return) != 0) {
+			if (xgwpArg.$nitems_return.isNull() == false) {
 				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg.$nitems_return, xgwpArg.$nitems_return.toString(), uneval(xgwpArg.$nitems_return));
 			}
 		} else if (!jscEqual(xgwpArg.req_type, ostypes.ANYPROPERTYTYPE) && !jscEqual(xgwpArg.req_type, xgwpArg.$actual_type_return)) {
-			// so this is result, is a answer to the query for what the actual type is, the actual length, and actual format
-			// this is done by setting xgwpArg.req_type to a type we know the resultant is not
-			
 			// nitems_return argument will be empty
-			console.log('Specified property/atom exists on window but here because returns actual type does not match the specified type (the xgwpArg.req_type) you supplied to function. The delete argument was ignored. The nitems_return argument will be empty.');
+			console.log('Specified property exists but its type does not match the specified type. The delete argument was ignored. The nitems_return argument will be empty.');
 			var theRetunedPropertyTypeActuallyIs = jscGetDeepest(xgwpArg.$actual_type_return);
 			// if the passed in *actual_format_return didn't match, it is changed to be what the format is, if it matched, then it stays the same
 			var theReturnedFormat = jscGetDeepest(xgwpArg.$actual_format_return);
-			var ifWantedReturnItWouldNeedThisManyLength = jscGetDeepest(xgwpArg.$bytes_after_return); // this is "actual length of the stored property in bytes (even if format is 16 or 32)"
-			//console.info('you requested this many bytes, but this value was ignored, as in this situation it just populates this pointer with how many bytes you should request when setting req_type to AnyPropertyType or the matching expected type:', jscGetDeepest(xgwpArg.long_length), 'and on return this is how many bytes we got:', theReturnedPropLengthInBytes); //if jscEqual(theReturnedPropLengthInBytes, xgwpArg.long_length) then probably theres more available unless you knew exactly how much to expect and set long_length confidently
-			console.info('ifWantedReturnItWouldNeedThisMuchLengh:', ifWantedReturnItWouldNeedThisManyLength); // the ctual needed bytes would be this * 4
-			console.info('ifWantedReturnItWouldNeedThisMuchBYTES:', ifWantedReturnItWouldNeedThisManyLength * 4); // the ctual needed bytes would be this * 4
-			console.info('theReturnedFormat:', theReturnedFormat);
-			console.info('theRetunedPropertyTypeActuallyIs:', theRetunedPropertyTypeActuallyIs);
-			// so can query by not setting req_type to AnyPropertyType, and not what you expect, so set it to 0, then we get get the `theReturnedPropLengthInBytes` then re-query with exact
-			// so whaever you put for long_length, is not reallly what was requested, in this situation, it just needs a pointer and it fills it with how many bytes long_length should be
-			if (jscGetDeepest(xgwpArg.$nitems_return) != 0) {
+			var theReturnedPropLengthInBytes = jscGetDeepest(xgwpArg.$bytes_after_return); //its in bytes even if theFormat is 16 or 32 (im guessing if format is 8 then its byte)
+			if (xgwpArg.$nitems_return.isNull() == false) {
 				console.warn('nitems_return argument should be empty but its not!', 'xgwpArg[argNameIndex[\'*nitems_return\']]:', xgwpArg.$nitems_return, xgwpArg.$nitems_return.toString(), uneval(xgwpArg.$nitems_return));
 			}
 		} else if (jscEqual(xgwpArg.req_type, ostypes.ANYPROPERTYTYPE) || jscEqual(xgwpArg.req_type, xgwpArg.$actual_type_return)) {
@@ -428,27 +418,8 @@ function main() {
 			var theRetunedPropertyTypeActuallyIs = jscGetDeepest(xgwpArg.$actual_type_return); // if AnyPropertyType was not used then this is just the same as req_type (but it will not be jsInt, like i expect myself to be setting `req_type` to
 			var theReturnedFormat = jscGetDeepest(xgwpArg.$actual_format_return); // set to the format of the returned property (so there is a chnance this can change) (so this makes me think maybe the arg when being passed in can be passed as anything? unless x11 does some internal checks to see if its 8, 16, or 32			
 			// bytes_after_return should be MIN between ("actual length of the stored property in bytes (even if format is 16 or 32)" - "4*xgwpArg.long_offset" || "4*xgwpArg.long_length") IF THIS VALUE TURNS OUT BE NEGATIVE, THEN ostypes.BADVALUE IS RETURNED BY `_dec('XGetWindowProperty')`
-			var numberOfUnreturnedBytes = jscGetDeepest(xgwpArg.$bytes_after_return); // if you had a combination of long_offset and long_length which did not return to you the full stored property, this will be something > 0
-			var jsInt_nitems_return = parseInt(jscGetDeepest(xgwpArg.$nitems_return)); // assuming here that i never get more then biggest 53bit int
-			if (ctypes.UInt64.compare(xgwpArg.$bytes_after_return.value, ctypes.UInt64(0)) == 1) { //testing if greater then 0
-				// impossible for $bytes_after_return to be < 0 as that would through a make XGetWindowProperty return BadValue
-				var numberOfUnreturnedLength = parseInt(numberOfUnreturnedBytes) / 4;
-				console.warn('This warning applies to you only if you were expecting all of the data stored with this associated property to be returned: YOUR LONG_LENGTH WAS NOT SUFFICIENT TO RETURN ALL DATA. MEANING THERE IS MORE DATA TO BE RETURNED, INCREASE YOUR ARGUMENT OF xgwpArg.long_length OR SET xgwpArg.long_offset TO 0, THE NUMBER OF BYTES REMAINING TO BE READ:', numberOfUnreturnedBytes, 'NUMBER OF LENGTH UNREAD:', numberOfUnreturnedLength);
-				
-				var numberOfBytesReturned = 4 * jsInt_nitems_return; // i thought it would ostypes.LONG.size * jsInt_nitems_return or ostypes.SHORT.size or ostypes.CHAR.size but this return is always in multiple of 4
-				var theMaxPossibleOfBytesToReturn = numberOfBytesReturned + ' + ' + numberOfUnreturnedBytes;
-				console.info('numberOfBytesReturned:', numberOfBytesReturned);
-				console.info('numberOfLENGTHReturned:', numberOfBytesReturned / 4);
-				console.info('theMaxPossibleOfBytesToReturn:', 'take out a calculator and calculate this = ' + theMaxPossibleOfBytesToReturn); // i write this out as equation cuz it might be UInt64 which i cant do math on, i can but i dont want to bother with writing the UInt64 math functions like the add function here: https://developer.mozilla.org/en-US/docs/Mozilla/js-ctypes/Using_js-ctypes/Working_with_data#Performing_arithmetic_with_64-bit_values
-				console.info('theMaxPossibleOfLENGTHToReturn:', 'take out a calculator and calculate this = (' + theMaxPossibleOfBytesToReturn + ') / 4');  // i write this out as equation cuz it might be UInt64 which i cant do math on, i can but i dont want to bother with writing the UInt64 math functions like the add function here: https://developer.mozilla.org/en-US/docs/Mozilla/js-ctypes/Using_js-ctypes/Working_with_data#Performing_arithmetic_with_64-bit_values
-			}
 			
-			console.info('numberOfUnreturnedBytes:', numberOfUnreturnedBytes);
-			
-			console.info('theReturnedFormat:', theReturnedFormat);
-			console.info('theRetunedPropertyTypeActuallyIs:', theRetunedPropertyTypeActuallyIs);
-			
-			
+			var jsInt_nitems_return = jscGetDeepest(xgwpArg.$nitems_return);
 			console.log('jsInt_nitems_return deepest:', jsInt_nitems_return);
 			
 			
@@ -467,33 +438,18 @@ function main() {
 				// "xgwpArg.$$prop_return.contents.toString()" "82"
 				// "xgwpArg.$$prop_return.toString()" "ctypes.unsigned_char.ptr(ctypes.UInt64("0x7fc506538df0"))"
 				
-				readAsChar8ThenAsChar16(xgwpArg.$$prop_return);
+				readAsCharThenAsJSChar(xgwpArg.$$prop_return);
 				console.info('xgwpArg.$$prop_return.contents.toString()', xgwpArg.$$prop_return.contents.toString());
 				console.info('xgwpArg.$$prop_return.toString()', xgwpArg.$$prop_return.toString());
+				
 			} else if (jscEqual(xgwpArg.$actual_format_return, 16)) {
 				// then xgwpArg.$$prop_return is represented as a short array and should be cast to `xgwpArg.$actual_type_return`'s jsctypes equivalent type to obtain the elements
 				console.log('then xgwpArg.$$prop_return is represented as a short array and should be cast to `xgwpArg.$actual_type_return`\'s jsctypes equivalent type to obtain the elements');
 			} else if (jscEqual(xgwpArg.$actual_format_return, 32)) {
 				// then xgwpArg.$$prop_return is represented as a long array and should be cast to `xgwpArg.$actual_type_return`'s jsctypes equivalent type to obtain the elements
 				console.log('then xgwpArg.$$prop_return is represented as a long array and should be cast to `xgwpArg.$actual_type_return`\'s jsctypes equivalent type to obtain the elements');
+				//var prop_return_casted = ctypes.cast(xgwpArg.$$prop_return, ctypes.unsigned_
 				// i have to cast even if i want a ctypes.long
-				//console.info('xgwpArg.$$prop_return:', xgwpArg.$$prop_return, xgwpArg.$$prop_return.toString(), uneval(xgwpArg.$$prop_return));
-				//console.info('xgwpArg.$$prop_return.contents:', xgwpArg.$$prop_return.contents, xgwpArg.$$prop_return.contents.toString(), uneval(xgwpArg.$$prop_return.contents));
-				var prop_return_casted = ctypes.cast(xgwpArg.$$prop_return, ostypes.LONG.array(jsInt_nitems_return).ptr).contents; // jsInt_nitems_return is a js int, i can supply .array a UInt64, so i can go xgwpArg.$bytes_after_return.value but i didnt bother because i dont think ill ever have that many elements
-				console.info('prop_return_casted:', prop_return_casted, prop_return_casted.toString(), uneval(prop_return_casted));
-				
-				// test results
-					//when 4 items returned:
-					//"xgwpArg.$$prop_return:" CData { contents: 2 } "ctypes.unsigned_char.ptr(ctypes.UInt64("0x7fdb7862f550"))" "ctypes.unsigned_char.ptr(ctypes.UInt64("0x7fdb7862f550"))"
-					//"xgwpArg.$$prop_return.contents:" 1 "1" "1"
-					//"prop_return_casted:" CData { length: 4 } "ctypes.long.array(4)([ctypes.Int64("1"), ctypes.Int64("1"), ctypes.Int64("26"), ctypes.Int64("1")])" "ctypes.long.array(4)([ctypes.Int64("1"), ctypes.Int64("1"), ctypes.Int64("26"), ctypes.Int64("1")])"
-					
-					// when 1 item returned:
-					//"xgwpArg.$$prop_return:" CData { contents: 1 } "ctypes.unsigned_char.ptr(ctypes.UInt64("0x7fdb78cd4d20"))" "ctypes.unsigned_char.ptr(ctypes.UInt64("0x7fdb78cd4d20"))"
-					//"xgwpArg.$$prop_return.contents:" 216 "216" "216"
-					//"prop_return_casted:" CData { length: 1 } "ctypes.long.array(1)([ctypes.Int64("5592")])" "ctypes.long.array(1)([ctypes.Int64("5592")])"
-				
-				// so i always have to cast, even if just one item
 			} else {
 				throw new Error('extremely weird, this should NEVER happen, it should always be 8, 16, or 32');
 			}
@@ -504,8 +460,8 @@ function main() {
 			// @zotero XFree's the non-casted even though he does cast with `clientList = ctypes.cast(res[0], X11Window.array(nClients).ptr).contents`: https://github.com/zotero/zotero/blob/15108eea3f099a5a39a145ed55043d1ed9889e6a/chrome/content/zotero/xpcom/integration.js#L583
 
 			//so in conclusion: i can XFree on casted or on non-casted as: console.log('XFree\'ing on prop_return_casted, and won\'t need to XFree on xgwpArg.$$prop_return.contents as the casted is connected by reference, so XFree\'ing this will free that');
-			var rez_XFree = _dec('XFree')(xgwpArg.$$prop_return);
-			console.info('rez_XFree:', rez_XFree, rez_XFree.toString(), uneval(rez_XFree));
+			//var rez_XFree = _dec('XFree')(xgwpArg.$$prop_return);
+			//console.info('rez_XFree:', rez_XFree, rez_XFree.toString(), uneval(rez_XFree));
 		} else {
 			console.warn('some unknown combinations returned');
 		}

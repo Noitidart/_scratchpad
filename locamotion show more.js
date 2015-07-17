@@ -1,0 +1,1 @@
+document.querySelector('.edit-ctx a').click()

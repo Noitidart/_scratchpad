@@ -1,0 +1,71 @@
+-------
+doing casting like this crashes:
+
+//making integers array like this is wrong, it throws type error, obviously
+var my = ctypes.long.ptr.array()([1, 2, 3, 4]);
+TypeError: expected type pointer, got 1
+
+// so we make arr like this
+var my = ctypes.long.array()([1, 2, 3, 4]);
+my.addressOfElement(1).contents; // spits out `Int64 {  }`
+
+my.toString(): "ctypes.long.array(4)([ctypes.Int64("1"), ctypes.Int64("2"), ctypes.Int64("3"), ctypes.Int64("4")])"
+
+// if i do it like this it destroys the remaining elementsi n array, i just get the first element
+var cy = ctypes.cast(my, ctypes.int);
+cy.toString(): "ctypes.int(1)"
+
+// if do like this accessing elements on it crashes 
+var my = ctypes.long.array()([1, 2, 3, 4]);
+var my2 = ctypes.cast(my, ctypes.int.ptr.array(4))
+now this line doesnt crash it yet: my2.addressOfElement(1) // it just spits out `CData { contents: CData }` // i was hoping contents should be same as `my.addressOfElement(1).contents;` but casted
+now this line crashes it: my2.addressOfElement(1).contents
+
+-------------------
+after studying:
+
+
+ok this is from linux, so i need arg 1 and arg2 in the form of this seen here: https://gist.github.com/Noitidart/5a24e8a4f8886ce7bbf6#file-_ff-addon-snippet-x11_windowsmatchingpid-js-L160
+ctypes.cast(ctypes.char.ptr(), ctypes.unsigned_long.array(nElements).ptr)
+
+i figured this out cuz we they did here: ctypes.cast(propData, ctypes.unsigned_long.array(nElements).ptr)
+and propData is set to equal new ctypes.char.ptr();
+
+
+now this is what i need to get first arg to:
+var cy = ctypes.int.ptr()
+cy.constructor: CType { targetType: CType, name: "int*", size: 4, ptr: CType, prototype: CData }
+
+ok now i have to keep going until i can get constructor of first arg i want to pass to ctypes.cast to match cy.constructor
+
+this is what i have:
+var my = ctypes.int.array()([1, 2, 3, 4]); //this is how to make an array of integers
+my.constructor: CType { elementType: CType, length: 4, name: "int[4]", size: 16, ptr: CType, prototype: CData }
+my.toString(): "ctypes.int.array(4)([1, 2, 3, 4])"
+
+ok lets try to get the consturctor:
+my.constructor: CType { elementType: CType, length: 4, name: "int[4]", size: 16, ptr: CType, prototype: CData }
+
+this doesnt match constructor of cy.constructor, as we dont have a targetType
+
+lets try my.address()'s constructor:
+my.address().constructor: CType { targetType: CType, name: "int(*)[4]", size: 4, ptr: CType, prototype: CData }
+
+ok this matches the object seen in cy.constructor!!! 
+
+ok trying it:
+var ry = ctypes.cast(my.address(), ctypes.unsigned_long.array(4).ptr)
+ry.constructor: CType { targetType: CType, name: "unsigned_long(*)[4]", size: 4, ptr: CType, prototype: CData }
+
+so now ry.contents should be ctypes.unsinged_long.array(4)([1, 2, 3, 4])
+ry.contents.toString(): "ctypes.unsigned_long.array(4)([ctypes.UInt64("1"), ctypes.UInt64("2"), ctypes.UInt64("3"), ctypes.UInt64("4")])"
+
+so ry.contents.toString() is casted of my.toString()
+
+this shows that ry is succesfully casted from my. my type was int and ry type is now unsigned_long
+
+THEREFORE in conclusion:
+
+var my = ctypes.long.array()([1, 2, 3, 4]); // my.addressOfElement(1).contents; is `Int64 {  }` and my.addressOfElement(1).contents.toString() is `"2"`
+var myCasted = ctypes.cast(my.address(), ctypes.int.array(my.length).ptr).contents; // myCasted.addressOfElement(1).contents is now `2`
+

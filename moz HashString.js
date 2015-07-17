@@ -12,8 +12,8 @@ function HashString(aStr, aLength) {
 function HashUntilZero(aStr) {
 	var hash = 0;
 	//for (T c; (c = *aStr); aStr++) {
-	for (var c=0; c<aStr.length; aStr++) {
-		hash = AddToHash(hash, String.charCodeAt(aStr[c]));
+	for (var c=0; c<aStr.length; c++) {
+		hash = AddToHash(hash, aStr.charCodeAt(c));
 	}
 	
 	return hash;
@@ -34,7 +34,7 @@ function AddUintptrToHash(aHash, aValue) {
 
 function AddU32ToHash(aHash, aValue) {
 	var kGoldenRatioU32 = 0x9E3779B9;
-	return (kGoldenRatioU32 * Math.pow(RotateBitsLeft32(aHash, 5), aValue));
+	return (kGoldenRatioU32 * (RotateBitsLeft32(aHash, 5) ^ aValue));
 }
 
 function RotateBitsLeft32(aValue, aBits) {
@@ -42,4 +42,4 @@ function RotateBitsLeft32(aValue, aBits) {
 	return (aValue << aBits) | (aValue >> (32 - aBits));
 }
 
-console.log(HashString('a'));
+console.log(HashString('C:\Users\Vayeate\AppData\Roaming\Mozilla\Firefox\Profiles\aksozfjt.Unnamed Profile 10')); // should return 3181739213

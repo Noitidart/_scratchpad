@@ -1,4 +1,3 @@
-//start - helper function
 function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, depth) {
 	// IMPORTANT: as dev calling this functiopn `depth` arg must ALWAYS be undefined (dont even set it to 0 or null, must completly omit setting it, or set it to undefined). this arg is meant for internal use for iteration
 	// `delegate` is required
@@ -34,8 +33,10 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 		var iterrator = new OS.File.DirectoryIterator(pathToDir);
 		var subdirs = [];
 		var promise_batch = iterrator.nextBatch();
+		// :TODO: iterrator.close() somewhere!! maybe here as i dont use iterrator anymore after .nextBatch()
 		promise_batch.then(
 			function(aVal) {
+        iterrator.close();
 				console.log('Fullfilled - promise_batch - ', aVal);
 				// start - do stuff here - promise_batch
 				for (var i = 0; i < aVal.length; i++) {
@@ -67,7 +68,7 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 							var rejObj = {name:'promiseAll_itrSubdirs', aReason:aReason};
 							rejObj.aExtra = 'meaning finished iterating all entries INCLUDING subitering subdirs in dir of pathToDir';
 							rejobj.pathToDir = pathToDir;
-							console.warn('Rejected - promiseAll_itrSubdirs - ', rejObj);
+							console.error('Rejected - promiseAll_itrSubdirs - ', rejObj);
 							deferredMain_enumChildEntries.reject(rejObj);
 						}
 					).catch(
@@ -83,15 +84,17 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 				// end - do stuff here - promise_batch
 			},
 			function(aReason) {
+        iterrator.close();
 				var rejObj = {name:'promise_batch', aReason:aReason};
 				if (aReason.winLastError == 2) {
 					rejObj.probableReason = 'directory at pathToDir doesnt exist';
 				}
-				console.warn('Rejected - promise_batch - ', rejObj);
+				console.error('Rejected - promise_batch - ', rejObj);
 				deferredMain_enumChildEntries.reject(rejObj);
 			}
 		).catch(
 			function(aCaught) {
+        iterrator.close();
 				var rejObj = {name:'promise_batch', aCaught:aCaught};
 				console.error('Caught - promise_batch - ', rejObj);
 				deferredMain_enumChildEntries.reject(rejObj);
@@ -103,32 +106,51 @@ function enumChildEntries(pathToDir, delegate, max_depth, runDelegateOnRoot, dep
 
 	return deferredMain_enumChildEntries.promise;
 }
-// end - helper function
 
+function Deferred() {
+	if (Promise.defer) {
+		//need import of Promise.jsm for example: Cu.import('resource:/gree/modules/Promise.jsm');
+		return Promise.defer();
+	} else if (PromiseUtils.defer) {
+		//need import of PromiseUtils.jsm for example: Cu.import('resource:/gree/modules/PromiseUtils.jsm');
+		return PromiseUtils.defer();
+	} else {
+		/* A method to resolve the associated Promise with the value passed.
+		 * If the promise is already settled it does nothing.
+		 *
+		 * @param {anything} value : This value is used to resolve the promise
+		 * If the value is a Promise then the associated promise assumes the state
+		 * of Promise passed as value.
+		 */
+		this.resolve = null;
 
-/************ start usage **************/
-var totalEntriesEnummed = 0; //meaning total number of entries ran delegate on, includes root dir
-function delegate_handleEntry(entry) {
-  // return true to make enumeration stop
-  totalEntriesEnummed++;
-  console.info('entry:', entry);
+		/* A method to reject the assocaited Promise with the value passed.
+		 * If the promise is already settled it does nothing.
+		 *
+		 * @param {anything} reason: The reason for the rejection of the Promise.
+		 * Generally its an Error object. If however a Promise is passed, then the Promise
+		 * itself will be the reason for rejection no matter the state of the Promise.
+		 */
+		this.reject = null;
+
+		/* A newly created Pomise object.
+		 * Initially in pending state.
+		 */
+		this.promise = new Promise(function(resolve, reject) {
+			this.resolve = resolve;
+			this.reject = reject;
+		}.bind(this));
+		Object.freeze(this);
+	}
 }
 
-var pathToTarget = OS.Constants.Path.desktopDir;
-var promise_enumEntries = enumChildEntries(pathToTarget, delegate_handleEntry, null /*to get all*/, false, null);
-promise_enumEntries.then(
-  function(aVal) {
-    // on resolve, aVal is undefined if it went through all possible entries
-    console.log('Fullfilled - promise_enumEntries - ', aVal);
-    console.info('totalEntriesEnummed:', totalEntriesEnummed)
-  },
-  function(aReason) {
-    console.error('Rejected - promise_enumEntries - ', aReason);
-    throw {rejectorOf_promiseName:'promise_enumEntries', aReason:aReason};
-  }
+var del = function(aEntry, aDepth) {
+  console.info('aDepth:', aDepth, 'aEntry:', aEntry.name);
+}
+
+enumChildEntries(OS.Path.join(OS.Constants.Path.desktopDir, 'p'), del, 0, true).then(
+  x => console.log('x:', x),
+  y => console.error('y:', y)
 ).catch(
-  function(aCatch) {
-    console.error('Caught - promise_enumEntries - ', aCatch);
-    throw aCatch;
-  }  
+  z => console.error('z:', z)
 );

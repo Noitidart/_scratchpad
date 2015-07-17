@@ -389,7 +389,7 @@ var x11Init = function() {
 			 *   Display	*display
 			 * );
 			 */
-			return lib('x11').declare('XCloseDisplay', ctypes.default_abi,
+			return lib('x11').declare('XCloseDisplay', self.TYPE.ABI,
 				self.TYPE.int,		// return
 				self.TYPE.Display.ptr	// *display
 			);
@@ -400,7 +400,7 @@ var x11Init = function() {
 			 *   Display	*display
 			 * );
 			 */
-			return lib('x11').declare('XFlush', ctypes.default_abi,
+			return lib('x11').declare('XFlush', self.TYPE.ABI,
 				self.TYPE.int,		// return
 				self.TYPE.Display.ptr	// *display
 			);
@@ -411,7 +411,7 @@ var x11Init = function() {
 			 *   void	*data
 			 * );
 			 */
-			return lib('x11').declare('XFree', ctypes.default_abi,
+			return lib('x11').declare('XFree', self.TYPE.ABI,
 				self.TYPE.int,		// return
 				self.TYPE.void.ptr	// *data
 			);
@@ -430,7 +430,7 @@ var x11Init = function() {
 			 *   unsigned int	*depth_return
 			 * );
 			 */
-			return lib('x11').declare('XGetGeometry', ctypes.default_abi,
+			return lib('x11').declare('XGetGeometry', self.TYPE.ABI,
 				self.TYPE.Status,			// return
 				self.TYPE.Display.ptr,		// *display
 				self.TYPE.Drawable,			// d
@@ -451,7 +451,7 @@ var x11Init = function() {
 			 *   XWindowAttributes	*window_attributes_return
 			 * );
 			 */
-			return lib('x11').declare('XGetWindowAttributes', ctypes.default_abi,
+			return lib('x11').declare('XGetWindowAttributes', self.TYPE.ABI,
 				self.TYPE.Status,				// return
 				self.TYPE.Display.ptr,			// *display
 				self.TYPE.Window,				// *display_name
@@ -475,7 +475,7 @@ var x11Init = function() {
 			 *   unsigned char	**prop_return
 			 * );
 			 */
-			return lib('x11').declare('XGetWindowProperty', ctypes.default_abi,
+			return lib('x11').declare('XGetWindowProperty', self.TYPE.ABI,
 				self.TYPE.int,					// return
 				self.TYPE.Display.ptr,			// *display
 				self.TYPE.Window,					// w
@@ -499,7 +499,7 @@ var x11Init = function() {
 			 *   XTextProperty	*text_prop_return 
 			 * );
 			 */
-			 return lib('x11').declare('XGetWMName', ctypes.default_abi,
+			 return lib('x11').declare('XGetWMName', self.TYPE.ABI,
 				self.TYPE.Status,				// return
 				self.TYPE.Display.ptr,			// *display
 				self.TYPE.Window,				// w
@@ -514,7 +514,7 @@ var x11Init = function() {
 			 *   Bool		only_if_exists
 			 * );
 			 */
-			 return lib('x11').declare('XInternAtom', ctypes.default_abi,
+			 return lib('x11').declare('XInternAtom', self.TYPE.ABI,
 				self.TYPE.Atom,			// return
 				self.TYPE.Display.ptr,	// *display
 				self.TYPE.char.ptr,		// *atom_name
@@ -527,7 +527,7 @@ var x11Init = function() {
 			 *   char	*display_name
 			 * );
 			 */
-			return lib('x11').declare('XOpenDisplay', ctypes.default_abi,
+			return lib('x11').declare('XOpenDisplay', self.TYPE.ABI,
 				self.TYPE.Display.ptr,	// return
 				self.TYPE.char.ptr		// *display_name
 			); 
@@ -543,7 +543,7 @@ var x11Init = function() {
 			 *   unsigned int	*nchildren_return
 			 * );
 			 */
-			return lib('x11').declare('XQueryTree', ctypes.default_abi,
+			return lib('x11').declare('XQueryTree', self.TYPE.ABI,
 				self.TYPE.Status,				// return
 				self.TYPE.Display.ptr,		// *display
 				self.TYPE.Window,				// w
@@ -566,7 +566,7 @@ var x11Init = function() {
 			 *   Window		*child_return
 			 * );
 			 */
-			return lib('x11').declare('XTranslateCoordinates', ctypes.default_abi,
+			return lib('x11').declare('XTranslateCoordinates', self.TYPE.ABI,
 				self.TYPE.Bool,			// return
 				self.TYPE.Display.ptr,	// *display
 				self.TYPE.Window,			// src_w
@@ -578,6 +578,39 @@ var x11Init = function() {
 				self.TYPE.Window.ptr		// *child_return
 			); 
 		},
+		XAllPlanes: function() {
+			/* http://tronche.com/gui/x/xlib/display/display-macros.html
+			 * unsigned long XAllPlanes()
+			 */
+			return lib('x11').declare('XAllPlanes', self.TYPE.ABI,
+				self.TYPE.unsigned_long	// return
+			);
+		},
+		XGetImage: function() {
+			/* http://www.xfree86.org/4.4.0/XGetImage.3.html
+			 * XImage *XGetImage (
+			 *   Display *display,
+			 *   Drawable d,
+			 *   int x,
+			 *   int y,
+			 *   unsigned int width,
+			 *   unsigned int height,
+			 *   unsigned long plane_mask,
+			 *   int format
+			 * ); 
+			 */
+			return lib('x11').declare('XGetImage', self.TYPE.ABI,
+				self.TYPE.XImage.ptr,		// return
+				self.TYPE.Display.ptr,		// *display,
+				self.TYPE.Drawable,			// d,
+				self.TYPE.int,				// x,
+				self.TYPE.int,				// y,
+				self.TYPE.unsigned_int,		// width,
+				self.TYPE.unsigned_int,		// height,
+				self.TYPE.unsigned_long,	// plane_mask,
+				self.TYPE.int				// format
+			);
+		}
 	};
 	// end - predefine your declares here
 	// end - function declares
@@ -737,6 +770,7 @@ function shootAllMons() {
 	// https://github.com/BoboTiG/python-mss/blob/a4d40507c492962d59fcb97a509ede1f4b8db634/mss.py#L116
 	
 	
+	// enum_display_monitors
 	// this call to XGetWindowAttributes grab one screenshot of all monitors
 	var gwa = ostypes.TYPE.XWindowAttributes();
 	var rez_XGetWinAttr = ostypes.API('XGetWindowAttributes')(ostypes.HELPER.cachedXOpenDisplay(), ostypes.HELPER.cachedDefaultRootWindow(), gwa.address());
@@ -748,6 +782,19 @@ function shootAllMons() {
 	var originY = cutils.jscGetDeepest(gwa.y);
 	
 	console.info('fullWidth:', fullWidth, 'fullHeight:', fullHeight, 'originX:', originX, 'originY:', originY, '_END_');
+	
+	// get_pixels
+	var allplanes = ostypes.API('XAllPlanes')();
+	console.info('allplanes:', allplanes.toString());
+	
+	var ZPixmap = 2;
+	
+	// Fix for XGetImage:
+	// expected LP_Display instance instead of LP_XWindowAttributes
+	var rootAsDisp = ctypes.cast(ostypes.HELPER.cachedDefaultRootWindow(), ostypes.TYPE.Drawable.ptr);
+	
+	var ximage = ostypes.API('XGetImage')(ostypes.HELPER.cachedXOpenDisplay(), rootAsDisp, originX, originY, fullWidth, fullHeight, allplanes, ZPixmap);
+	console.info('ximage:', ximage.toString());
 	
 }
 

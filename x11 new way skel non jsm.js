@@ -5,6 +5,11 @@ var core = {os:{}};
 core.os.xpcomabi = Services.appinfo.XPCOMABI; // for non worker
 core.os.name = OS.Constants.Sys.Name.toLowerCase();
 
+// temp overide as no cutils:
+var cutils = {
+	jscGetDeepest: function(a) { return a }
+}
+
 if (ctypes.voidptr_t.size == 4 /* 32-bit */) {
 	var is64bit = false;
 } else if (ctypes.voidptr_t.size == 8 /* 64-bit */) {
@@ -730,10 +735,19 @@ var ostypes = new x11Init();
 function shootAllMons() {
 	// https://github.com/BoboTiG/python-mss/blob/a4d40507c492962d59fcb97a509ede1f4b8db634/mss.py#L116
 	// https://github.com/BoboTiG/python-mss/blob/a4d40507c492962d59fcb97a509ede1f4b8db634/mss.py#L116
+	
+	
+	// this call to XGetWindowAttributes grab one screenshot of all monitors
 	var gwa = ostypes.TYPE.XWindowAttributes();
 	var rez_XGetWinAttr = ostypes.API('XGetWindowAttributes')(ostypes.HELPER.cachedXOpenDisplay(), ostypes.HELPER.cachedDefaultRootWindow(), gwa.address());
-	
 	console.info('gwa:', gwa.toString());
+	
+	var fullWidth = cutils.jscGetDeepest(gwa.width);
+	var fullHeight = cutils.jscGetDeepest(gwa.height);
+	var originX = cutils.jscGetDeepest(gwa.x);
+	var originY = cutils.jscGetDeepest(gwa.y);
+	
+	console.info('fullWidth:', fullWidth, 'fullHeight:', fullHeight, 'originX:', originX, 'originY:', originY, '_END_');
 	
 }
 

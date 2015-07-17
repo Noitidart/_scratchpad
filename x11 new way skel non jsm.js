@@ -1,7 +1,9 @@
 Cu.import('resource://gre/modules/ctypes.jsm');
 var libx11 = ctypes.open('libX11.so.6');
 
+var core = {os:{}};
 core.os.xpcomabi = Services.appinfo.XPCOMABI; // for non worker
+core.os.name = OS.Constants.Sys.Name.toLowerCase();
 
 if (ctypes.voidptr_t.size == 4 /* 32-bit */) {
 	var is64bit = false;
@@ -73,17 +75,17 @@ var xlibTypes = function() {
 		{ obdata: this.XPointer },					// hook for the object routines to hang on
 		{
 			f: ctypes.StructType('funcs', [			// image manipulation routines
-				create_image: ctypes.voidptr_t,
-				destroy_image: ctypes.voidptr_t,
-				get_pixel: ctypes.voidptr_t,
-				put_pixel: ctypes.voidptr_t,
-				sub_image: ctypes.voidptr_t,
-				add_pixel: ctypes.voidptr_t
+				{ create_image: ctypes.voidptr_t },
+				{ destroy_image: ctypes.voidptr_t },
+				{ get_pixel: ctypes.voidptr_t },
+				{ put_pixel: ctypes.voidptr_t },
+				{ sub_image: ctypes.voidptr_t },
+				{ add_pixel: ctypes.voidptr_t }
 			])
 		}
 	]);
 	
-	this.XWindowAttributes = ctypes.StructType(''XWindowAttributes'', [
+	this.XWindowAttributes = ctypes.StructType('XWindowAttributes', [
 		{ x: this.int },
 		{ y: this.int },							// location of window
 		{ width: this.int },
@@ -123,6 +125,8 @@ var x11Init = function() {
 	
 	this.IS64BIT = is64bit;
 	
+	this.TYPE = new xlibTypes();
+	
 	// CONSTANTS
 	// XAtom.h - https://github.com/simonkwong/Shamoov/blob/64aa8d3d0f69710db48691f69440ce23eeb41ad0/SeniorTeamProject/Bullet/btgui/OpenGLWindow/optionalX11/X11/Xatom.h
 	// xlib.py - https://github.com/hazelnusse/sympy-old/blob/65f802573e5963731a3e7e643676131b6a2500b8/sympy/thirdparty/pyglet/pyglet/window/xlib/xlib.py#L88
@@ -139,8 +143,8 @@ var x11Init = function() {
 		Success: 0,
 		True: 1,
 		XA_ATOM: 4,
-		XA_CARDINAL: 6
-		XA_WINDOW: 33,
+		XA_CARDINAL: 6,
+		XA_WINDOW: 33
 	};
 	
 	var _lib = {}; // cache for lib
@@ -651,7 +655,7 @@ var x11Init = function() {
 			GdkWinPtr = self.TYPE.mozNativeHandlToGdkWinPtr(aMozNativeHandlePtrStr);
 			var xid = self.HELPER.gdkWinPtrToXID(GdkWinPtr);
 			return GtkWinPtr;
-		}
+		},
 		cachedDefaultRootWindow: function(refreshCache, disp) {
 			if (refreshCache || !self._cache.DefaultRootWindow)  {
 				self._cache.DefaultRootWindow = self.MACRO.DefaultRootWindow()(disp);
@@ -660,16 +664,34 @@ var x11Init = function() {
 		},
 		cachedXOpenDisplay: function(refreshCache) {
 			if (refreshCache || !self._cache.XOpenDisplay)  {
-				self._cache.XOpenDisplay = self.API('XOpenDisplay')();
+				self._cache.XOpenDisplay = self.API('XOpenDisplay')(null);
 			}
 			return self._cache.XOpenDisplay;
+		},
+		ifOpenedXCloseDisplay: function() {
+			if (self._cache.XOpenDisplay) {
+				self.API('XCloseDisplay')(self._cache.XOpenDisplay);
+			}
 		}
 	};
 };
+var ostypes = new x11Init();
+
+// ok use it
+
 
 function shootAllMons() {
 	// https://github.com/BoboTiG/python-mss/blob/a4d40507c492962d59fcb97a509ede1f4b8db634/mss.py#L116
 	// https://github.com/BoboTiG/python-mss/blob/a4d40507c492962d59fcb97a509ede1f4b8db634/mss.py#L116
-	var gwa = XWindowAttributes();
-	var rez_XGetWinAttr = XGetWindowAttributes(self.display, self.root, gwa.address());
+	var gwa = ostypes.TYPE.XWindowAttributes();
+	var rez_XGetWinAttr = ostypes.API('XGetWindowAttributes')(ostypes.HELPER.cachedXOpenDisplay(true), ostypes.HELPER.cachedDefaultRootWindow(true, ostypes.HELPER.cachedXOpenDisplay(true)), gwa.address());
+	
+	console.info('gwa:', gwa.toString());
+	
+}
+
+try {
+	shootAllMons();
+} finally {
+	ostypes.HELPER.ifOpenedXCloseDisplay();
 }

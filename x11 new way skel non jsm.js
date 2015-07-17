@@ -335,11 +335,21 @@ var x11Init = function() {
 				self.TYPE.Display.ptr	// *display
 			);
 		},
+		XDefaultScreen: function() {
+			/* int XDefaultScreen(
+			 *   Display *display;
+			 * )
+			 */
+			return lib('x11').declare('XDefaultScreen', self.TYPE.ABI,
+				self.TYPE.int,			// return
+				self.TYPE.Display.ptr	// *display
+			);
+		},
 		XDefaultScreenOfDisplay: function() {
 			/* http://www.xfree86.org/4.4.0/DefaultScreenOfDisplay.3.html
-			 * Screen *DefaultScreenOfDisplay(
-			 *   Display	*display
-			 * );
+			 * Screen *XDefaultScreenOfDisplay(
+			 *   Display *display;
+			 * )
 			 */
 			return lib('x11').declare('XDefaultScreenOfDisplay', self.TYPE.ABI,
 				self.TYPE.Screen.ptr,		// return
@@ -567,9 +577,12 @@ var x11Init = function() {
 	// end - predefine your declares here
 	// end - function declares
 
-	this.MACRO = {
+	this.MACRO = { // http://tronche.com/gui/x/xlib/display/display-macros.html
 		DefaultRootWindow: function() {
-			/* http://www.xfree86.org/4.4.0/DefaultRootWindow.3.html
+			/* The DefaultRootWindow macro returns the root window for the default screen. 
+			 * Argument `display` specifies the connection to the X server.
+			 * Returns the root window for the default screen.
+			 * http://www.xfree86.org/4.4.0/DefaultRootWindow.3.html
 			 * Window DefaultRootWindow(
 			 *   Display	*display
 			 * );
@@ -599,6 +612,28 @@ var x11Init = function() {
 			 * );
 			 */
 			return self.API('XWidthOfScreen');
+		},
+		DefaultScreen: function() {
+			/* The DefaultScreen macro returns the default screen number referenced in the XOpenDisplay routine.
+			 * Argument `display` specifies the connection to the X server. 
+			 * Return the default screen number referenced by the XOpenDisplay() function. This macro or function should be used to retrieve the screen number in applications that will use only a single screen. 
+			 * http://www.xfree86.org/4.4.0/DefaultScreen.3.html
+			 * int DefaultScreen(
+			 *   Display *display
+			 * );
+			 */
+			return self.API('XDefaultScreen');
+		},
+		DefaultScreenOfDisplay: function() {
+			/* The DefaultScreenOfDisplay macro returns the default screen of the specified display. 
+			 * Argument `display` specifies the connection to the X server. 
+			 * Return a pointer to the default screen. 
+			 * http://www.xfree86.org/4.4.0/DefaultScreenOfDisplay.3.html
+			 * Screen *DefaultScreenOfDisplay(
+			 *   Display *display
+			 * ); 
+			 */
+			return self.API('XDefaultScreenOfDisplay')();
 		}
 	};
 	
@@ -656,11 +691,23 @@ var x11Init = function() {
 			var xid = self.HELPER.gdkWinPtrToXID(GdkWinPtr);
 			return GtkWinPtr;
 		},
-		cachedDefaultRootWindow: function(refreshCache, disp) {
+		cachedDefaultRootWindow: function(refreshCache/*, disp*/) {
 			if (refreshCache || !self._cache.DefaultRootWindow)  {
-				self._cache.DefaultRootWindow = self.MACRO.DefaultRootWindow()(disp);
+				self._cache.DefaultRootWindow = self.MACRO.DefaultRootWindow()(/*disp*/self.HELPER.cachedXOpenDisplay());
 			}
 			return self._cache.DefaultRootWindow;
+		},
+		cachedDefaultScreen: function(refreshCache/*, disp*/) {
+			if (refreshCache || !self._cache.DefaultScreen)  {
+				self._cache.DefaultScreen = self.MACRO.DefaultScreen()(/*disp*/self.HELPER.cachedXOpenDisplay());
+			}
+			return self._cache.DefaultScreen;
+		},
+		cachedDefaultScreenOfDisplay: function(refreshCache/*, disp*/) {
+			if (refreshCache || !self._cache.DefaultScreenOfDisplay)  {
+				self._cache.DefaultScreenOfDisplay = self.MACRO.DefaultScreenOfDisplay()(/*disp*/self.HELPER.cachedXOpenDisplay());
+			}
+			return self._cache.DefaultScreenOfDisplay;
 		},
 		cachedXOpenDisplay: function(refreshCache) {
 			if (refreshCache || !self._cache.XOpenDisplay)  {
@@ -684,7 +731,7 @@ function shootAllMons() {
 	// https://github.com/BoboTiG/python-mss/blob/a4d40507c492962d59fcb97a509ede1f4b8db634/mss.py#L116
 	// https://github.com/BoboTiG/python-mss/blob/a4d40507c492962d59fcb97a509ede1f4b8db634/mss.py#L116
 	var gwa = ostypes.TYPE.XWindowAttributes();
-	var rez_XGetWinAttr = ostypes.API('XGetWindowAttributes')(ostypes.HELPER.cachedXOpenDisplay(true), ostypes.HELPER.cachedDefaultRootWindow(true, ostypes.HELPER.cachedXOpenDisplay(true)), gwa.address());
+	var rez_XGetWinAttr = ostypes.API('XGetWindowAttributes')(ostypes.HELPER.cachedXOpenDisplay(), ostypes.HELPER.cachedDefaultRootWindow(), gwa.address());
 	
 	console.info('gwa:', gwa.toString());
 	

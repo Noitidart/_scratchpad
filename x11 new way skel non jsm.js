@@ -791,9 +791,10 @@ function shootAllMons() {
 	
 	// Fix for XGetImage:
 	// expected LP_Display instance instead of LP_XWindowAttributes
-	var rootAsDisp = ctypes.cast(ostypes.HELPER.cachedDefaultRootWindow(), ostypes.TYPE.Drawable.ptr);
+	// console.info('ostypes.HELPER.cachedDefaultRootWindow():', ostypes.HELPER.cachedDefaultRootWindow().toString());
+	// var rootAsDisp = ctypes.cast(ostypes.HELPER.cachedDefaultRootWindow(), ostypes.TYPE.Drawable.ptr);
 	
-	var ximage = ostypes.API('XGetImage')(ostypes.HELPER.cachedXOpenDisplay(), rootAsDisp, originX, originY, fullWidth, fullHeight, allplanes, ZPixmap);
+	var ximage = ostypes.API('XGetImage')(ostypes.HELPER.cachedXOpenDisplay(), ostypes.HELPER.cachedDefaultRootWindow(), originX, originY, fullWidth, fullHeight, allplanes, ZPixmap);
 	console.info('ximage:', ximage.toString());
 	
 }

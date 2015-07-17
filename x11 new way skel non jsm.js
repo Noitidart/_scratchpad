@@ -788,14 +788,27 @@ function shootAllMons() {
 	console.info('allplanes:', allplanes.toString());
 	
 	var ZPixmap = 2;
-	
-	// Fix for XGetImage:
-	// expected LP_Display instance instead of LP_XWindowAttributes
-	// console.info('ostypes.HELPER.cachedDefaultRootWindow():', ostypes.HELPER.cachedDefaultRootWindow().toString());
-	// var rootAsDisp = ctypes.cast(ostypes.HELPER.cachedDefaultRootWindow(), ostypes.TYPE.Drawable.ptr);
-	
+
 	var ximage = ostypes.API('XGetImage')(ostypes.HELPER.cachedXOpenDisplay(), ostypes.HELPER.cachedDefaultRootWindow(), originX, originY, fullWidth, fullHeight, allplanes, ZPixmap);
-	console.info('ximage:', ximage.toString());
+	console.info('ximage:', ximage.contents.data.toString());
+	
+	var imagedata = new ImageData(fullWidth, fullHeight);
+	
+	ostypes.API('memcpy')(imagedata.data.buffer, ximage.contents.data, fullWidth * fullHeight);
+	
+	console.info('imagedata.data:', imagedata.data[0].toString());
+
+	var NS_HTML = 'http://www.w3.org/1999/xhtml';
+	var can = document.createElementNS(NS_HTML, 'canvas');
+	can.width = fullWidth;
+	can.height = fullHeight;
+	 
+	var ctx = can.getContext('2d');
+	 
+	ctx.putImageData(imagedata, 0, 0);
+	 
+	gBrowser.contentDocument.documentElement.appendChild(can);
+
 	
 }
 

@@ -1,5 +1,4 @@
 Cu.import('resource://gre/modules/ctypes.jsm');
-var libx11 = ctypes.open('libX11.so.6');
 
 var core = {os:{}};
 core.os.xpcomabi = Services.appinfo.XPCOMABI; // for non worker
@@ -7,8 +6,9 @@ core.os.name = OS.Constants.Sys.Name.toLowerCase();
 
 // temp overide as no cutils:
 var cutils = {
-	jscGetDeepest: function(a) { return a }
-}
+	jscGetDeepest: function(a) { return a },
+	jscEquals: function(a, b) { return a == b}
+};
 
 if (ctypes.voidptr_t.size == 4 /* 32-bit */) {
 	var is64bit = false;
@@ -43,7 +43,14 @@ var xlibTypes = function() {
 	this.XID = ctypes.unsigned_long;
 	this.XPointer = ctypes.char.ptr;
 	this.CARD32 = /^(Alpha|hppa|ia64|ppc64|s390|x86_64)-/.test(core.os.xpcomabi) ? this.unsigned_int : this.unsigned_long; // https://github.com/foudfou/FireTray/blob/a0c0061cd680a3a92b820969b093cc4780dfb10c/src/modules/ctypes/linux/x11.jsm#L45 // // http://mxr.mozilla.org/mozilla-central/source/configure.in
-
+	this.RROutput = this.XID;
+	this.Connection = ctypes.uint16_t;
+	this.SubpixelOrder = ctypes.uint16_t;
+	this.RRCrtc = this.XID;
+	this.RRMode = this.XID;
+	this.XRRModeFlags = ctypes.uint32_t;
+	this.Rotation = ctypes.uint16_t;
+	
 	// ADVANCED TYPES
 	this.Colormap = this.XID;
 	this.Cursor = this.XID;
@@ -123,6 +130,71 @@ var xlibTypes = function() {
 		{ nitems: this.unsigned_long }		// nitems
 	]);
 	
+	// start - xrandr stuff
+		// resources:
+		// http://cgit.freedesktop.org/xorg/proto/randrproto/tree/randrproto.txt
+		// http://hackage.haskell.org/package/X11-1.6.1/docs/Graphics-X11-Xrandr.html#t:XRRScreenResources
+	
+	this.XRRModeInfo = ctypes.StructType('_XRRModeInfo', [
+		{ id: this.RRMode },
+		{ width: this.unsigned_int },
+		{ height: this.unsigned_int },
+		{ dotClock: this.unsigned_long },
+		{ hSyncStart: this.unsigned_int },
+		{ hSyncEnd: this.unsigned_int },
+		{ hTotal: this.unsigned_int },
+		{ hSkew: this.unsigned_int },
+		{ vSyncStart: this.unsigned_int },
+		{ vSyncEnd: this.unsigned_int },
+		{ vTotal: this.unsigned_int },
+		{ name: this.char.ptr },
+		{ nameLength: this.unsigned_int },
+		{ modeFlags: this.XRRModeFlags }
+	]);
+	
+	this.XRRScreenResources = ctypes.StructType('_XRRScreenResources', [
+		{ timestamp: this.Time },
+		{ configTimestamp: this.Time },
+		{ ncrtc: this.int },
+		{ crtcs: this.RRCrtc.ptr },
+		{ noutput: this.int },
+		{ outputs: this.RROutput.ptr },
+		{ nmode: this.int },
+		{ modes: this.XRRModeInfo.ptr }
+	]);
+	
+	this.XRROutputInfo = ctypes.StructType('_XRROutputInfo', [
+		{ timestamp: this.Time },
+		{ crtc: this.RRCrtc },
+		{ name: this.char.ptr },
+		{ nameLen: this.int },
+		{ mm_width: this.unsigned_long },
+		{ mm_height: this.unsigned_long },
+		{ connection: this.Connection },
+		{ subpixel_order: this.SubpixelOrder },
+		{ ncrtc: this.int },
+		{ crtcs: this.RRCrtc.ptr },
+		{ nclone: this.int },
+		{ clones: this.RROutput.ptr },
+		{ nmode: this.int },
+		{ npreferred: this.int },
+		{ modes: this.RRMode.ptr }
+	]);
+	
+	this.XRRCrtcInfo = ctypes.StructType('_XRRCrtcInfo', [
+		{ timestamp: this.Time },
+		{ x: this.int },
+		{ y: this.int },
+		{ width: this.unsigned_int },
+		{ height: this.unsigned_int },
+		{ mode: this.RRMode },
+		{ rotation: this.Rotation },
+		{ noutput: this.int },
+		{ outputs: this.RROutput.ptr },
+		{ rotations: this.Rotation },
+		{ npossible: this.int },
+		{ possible: this.RROutput.ptr }
+	]);
 };
 
 var x11Init = function() {
@@ -149,7 +221,8 @@ var x11Init = function() {
 		True: 1,
 		XA_ATOM: 4,
 		XA_CARDINAL: 6,
-		XA_WINDOW: 33
+		XA_WINDOW: 33,
+		RR_CONNECTED: 0
 	};
 	
 	var _lib = {}; // cache for lib
@@ -199,7 +272,7 @@ var x11Init = function() {
 								_lib[path] = ctypes.open('libc.so.6');
 								break;
 							case 'gnu/kfreebsd': // physically unverified
-								lib = ctypes.open('libc.so.0.1');
+								_lib[path] = ctypes.open('libc.so.0.1');
 								break;
 							default:
 								throw new Error({
@@ -230,7 +303,27 @@ var x11Init = function() {
 								_lib[path] = ctypes.open('libX11.so.6');
 								break;
 							case 'gnu/kfreebsd': // physically unverified
-								lib = ctypes.open('libX11.so.0.1');
+								_lib[path] = ctypes.open('libX11.so.0.1');
+								break;
+							default:
+								throw new Error({
+									name: 'api-error',
+									message: 'Path to libX11 on operating system of , "' + OS.Constants.Sys.Name + '" is not supported'
+								});
+						}
+
+					break;
+					case 'xrandr':
+
+						switch (core.os.name) {
+							case 'freebsd': // physically unverified
+							case 'openbsd': // physically unverified
+							case 'sunos': // physically unverified
+							case 'netbsd': // physically unverified
+							case 'dragonfly': // physcially unverified
+							case 'linux':
+							case 'gnu/kfreebsd': // physically unverified
+								_lib[path] = ctypes.open('libXrandr.so.2');
 								break;
 							default:
 								throw new Error({
@@ -610,7 +703,85 @@ var x11Init = function() {
 				self.TYPE.unsigned_long,	// plane_mask,
 				self.TYPE.int				// format
 			);
-		}
+		},
+		// start - XRANDR
+		XRRGetScreenResources: function() {
+			/* http://cgit.freedesktop.org/xorg/lib/libXrandr/tree/src/XrrScreen.c
+			 * XRRScreenResources *XRRGetScreenResources(
+			 *   Display *dpy,
+			 *   Window window
+			 * )
+			 */
+			return lib('xrandr').declare('XRRGetScreenResources', self.TYPE.ABI,
+				self.TYPE.XRRScreenResources.ptr,		// return
+				self.TYPE.Display.ptr,					// *dpy
+				self.TYPE.Window						// window
+			);
+		},
+		XRRGetOutputInfo: function() {
+			/* http://cgit.freedesktop.org/xorg/lib/libXrandr/tree/src/XrrOutput.c
+			 * XRROutputInfo *XRRGetOutputInfo (
+			 *   Display *dpy,
+			 *   XRRScreenResources *resources,
+			 *   RROutput output
+			 * )
+			 */
+			return lib('xrandr').declare('XRRGetOutputInfo', self.TYPE.ABI,
+				self.TYPE.XRROutputInfo.ptr,		// return
+				self.TYPE.Display.ptr,				// *dpy
+				self.TYPE.XRRScreenResources.ptr,	// *resources
+				self.TYPE.RROutput					// output
+			);
+		},
+		XRRGetCrtcInfo: function() {
+			/* http://cgit.freedesktop.org/xorg/lib/libXrandr/tree/src/XrrCrtc.c
+			 * XRRCrtcInfo *XRRGetCrtcInfo (
+			 *   Display *dpy,
+			 *   XRRScreenResources *resources,
+			 *   RRCrtc crtc
+			 * )
+			 */
+			return lib('xrandr').declare('XRRGetCrtcInfo', self.TYPE.ABI,
+				self.TYPE.XRRCrtcInfo.ptr,		// return
+				self.TYPE.Display.ptr,					// *dpy
+				self.TYPE.XRRScreenResources.ptr,		// *resources
+				self.TYPE.RRCrtc						// crtc
+			);
+		},
+		XRRFreeCrtcInfo: function() {
+			/* http://cgit.freedesktop.org/xorg/lib/libXrandr/tree/src/XrrCrtc.c
+			 * void XRRFreeCrtcInfo (
+			 *   XRRCrtcInfo *crtcInfo
+			 * )
+			 */
+			return lib('xrandr').declare('XRRFreeCrtcInfo', self.TYPE.ABI,
+				self.TYPE.void,				// return
+				self.TYPE.XRRCrtcInfo.ptr	// *crtcInfo
+			);
+		},
+		XRRFreeOutputInfo: function() {
+			/* http://cgit.freedesktop.org/xorg/lib/libXrandr/tree/src/XrrOutput.c
+			 * void XRRFreeOutputInfo (
+			 *   XRROutputInfo *outputInfo
+			 * )
+			 */
+			return lib('xrandr').declare('XRRFreeOutputInfo', self.TYPE.ABI,
+				self.TYPE.void,				// return
+				self.TYPE.XRROutputInfo.ptr	// *outputInfo
+			);
+		},
+		XRRFreeScreenResources: function() {
+			/* http://cgit.freedesktop.org/xorg/lib/libXrandr/tree/src/XrrScreen.c
+			 * void XRRFreeScreenResources (
+			 *   XRRScreenResources *resources
+			 * )
+			 */
+			return lib('xrandr').declare('XRRFreeScreenResources', self.TYPE.ABI,
+				self.TYPE.void,						// return
+				self.TYPE.XRRScreenResources.ptr	// *resources
+			);
+		}		
+		// end - XRANDR
 	};
 	// end - predefine your declares here
 	// end - function declares
@@ -661,17 +832,6 @@ var x11Init = function() {
 			 * );
 			 */
 			return self.API('XDefaultScreen');
-		},
-		DefaultScreenOfDisplay: function() {
-			/* The DefaultScreenOfDisplay macro returns the default screen of the specified display. 
-			 * Argument `display` specifies the connection to the X server. 
-			 * Return a pointer to the default screen. 
-			 * http://www.xfree86.org/4.4.0/DefaultScreenOfDisplay.3.html
-			 * Screen *DefaultScreenOfDisplay(
-			 *   Display *display
-			 * ); 
-			 */
-			return self.API('XDefaultScreenOfDisplay')();
 		}
 	};
 	
@@ -788,32 +948,75 @@ function shootAllMons() {
 	console.info('allplanes:', allplanes.toString());
 	
 	var ZPixmap = 2;
-
+	
+	// Fix for XGetImage:
+	// expected LP_Display instance instead of LP_XWindowAttributes
+	// console.info('ostypes.HELPER.cachedDefaultRootWindow():', ostypes.HELPER.cachedDefaultRootWindow().toString());
+	// var rootAsDisp = ctypes.cast(ostypes.HELPER.cachedDefaultRootWindow(), ostypes.TYPE.Drawable.ptr);
+	
 	var ximage = ostypes.API('XGetImage')(ostypes.HELPER.cachedXOpenDisplay(), ostypes.HELPER.cachedDefaultRootWindow(), originX, originY, fullWidth, fullHeight, allplanes, ZPixmap);
-	console.info('ximage:', ximage.contents.data.toString());
-	
-	var imagedata = new ImageData(fullWidth, fullHeight);
-	
-	ostypes.API('memcpy')(imagedata.data.buffer, ximage.contents.data, fullWidth * fullHeight);
-	
-	console.info('imagedata.data:', imagedata.data[0].toString());
+	console.info('width:', ximage.contents.width.toString(), 'height:', ximage.contents.height.toString(), 'xoffset:', ximage.contents.xoffset.toString(), 'format:', ximage.contents.format.toString(), 'data:', ximage.contents.data.toString(), 'byte_order:', ximage.contents.byte_order.toString(), 'bitmap_unit:', ximage.contents.bitmap_unit.toString(), 'bitmap_bit_order:', ximage.contents.bitmap_bit_order.toString(), 'bitmap_pad:', ximage.contents.bitmap_pad.toString(), 'depth:', ximage.contents.depth.toString(), 'bytes_per_line:', ximage.contents.bytes_per_line.toString(), 'bits_per_pixel:', ximage.contents.bits_per_pixel.toString(), 'red_mask:', ximage.contents.red_mask.toString(), 'green_mask:', ximage.contents.green_mask.toString(), 'blue_mask:', ximage.contents.blue_mask.toString(), '_END_');
 
+	var fullLen = 4 * fullWidth * fullHeight;
+	
+	console.time('init imagedata');
+	var imagedata = new ImageData(fullWidth, fullHeight);
+	console.timeEnd('init imagedata');
+
+	console.time('memcpy');
+	ostypes.API('memcpy')(imagedata.data.buffer, ximage.contents.data, fullLen);
+	console.timeEnd('memcpy');
+	
+	console.time('make bgra to rgba');
+	var iref = imagedata.data;
+	for (var i=0; i<fullLen; i=i+4) {
+		var B = iref[i];
+		iref[i] = iref[i+2];
+		iref[i+2] = B;
+	}
+	console.timeEnd('make bgra to rgba');
+	
+	//console.info(imagedata);
+	
 	var NS_HTML = 'http://www.w3.org/1999/xhtml';
 	var can = document.createElementNS(NS_HTML, 'canvas');
 	can.width = fullWidth;
 	can.height = fullHeight;
-	 
-	var ctx = can.getContext('2d');
-	 
-	ctx.putImageData(imagedata, 0, 0);
-	 
-	gBrowser.contentDocument.documentElement.appendChild(can);
 
+	var ctx = can.getContext('2d');
+
+	ctx.putImageData(imagedata, 0, 0);
+
+	gBrowser.contentDocument.documentElement.appendChild(can);
 	
 }
 
+function getAllMons() {
+	var screen = ostypes.API('XRRGetScreenResources')(ostypes.HELPER.cachedXOpenDisplay(), ostypes.HELPER.cachedDefaultRootWindow(ostypes.HELPER.cachedXOpenDisplay()));
+	console.info('screen:', screen.contents, screen.contents.toString());
+	
+	var noutputs = cutils.jscGetDeepest(screen.contents.noutput);
+	console.info('noutputs:', noutputs, noutputs.toString());
+	
+	var screenOutputs = ctypes.cast(screen.contents.outputs, ostypes.TYPE.RROutput.array(noutputs).ptr).contents;
+	for (var i=noutputs-1; i>=0; i--) {
+		var info = ostypes.API('XRRGetOutputInfo')(ostypes.HELPER.cachedXOpenDisplay(), screen, screenOutputs[i]);
+		if (cutils.jscEquals(info.connection, ostypes.CONST.RR_Connected)) {
+			var ncrtcs = cutils.jscGetDeepest(info.contents.ncrtc);
+			var infoCrtcs = ctypes.cast(info.contents.crtcs, ostypes.TYPE.RRCrtc.array(ncrtcs).ptr).contents;
+			for (var j=ncrtcs-1; j>=0; j--) {
+				var crtc_info = ostypes.API('XRRGetCrtcInfo')(ostypes.HELPER.cachedXOpenDisplay(), screen, infoCrtcs[j]);
+				console.info('screen #' + i + ' mon#' + j + ' details:', crtc_info.contents.x, crtc_info.contents.y, crtc_info.contents.width, crtc_info.contents.height);
+				ostypes.API('XRRFreeCrtcInfo')(crtc_info);
+			}
+		}
+		ostypes.API('XRRFreeOutputInfo')(info);
+	}
+	ostypes.API('XRRFreeScreenResources')(screen);
+}
+
 try {
-	shootAllMons();
+	getAllMons();
 } finally {
 	ostypes.HELPER.ifOpenedXCloseDisplay();
 }

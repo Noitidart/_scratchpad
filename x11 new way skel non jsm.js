@@ -48,7 +48,7 @@ var xlibTypes = function() {
 	this.SubpixelOrder = ctypes.uint16_t;
 	this.RRCrtc = this.XID;
 	this.RRMode = this.XID;
-	this.XRRModeFlags = ctypes.uint32_t;
+	this.XRRModeFlags = ctypes.unsigned_long;
 	this.Rotation = ctypes.uint16_t;
 	
 	// ADVANCED TYPES
@@ -133,8 +133,7 @@ var xlibTypes = function() {
 	// start - xrandr stuff
 		// resources:
 		// http://cgit.freedesktop.org/xorg/proto/randrproto/tree/randrproto.txt
-		// http://hackage.haskell.org/package/X11-1.6.1/docs/Graphics-X11-Xrandr.html#t:XRRScreenResources
-	
+		// http://www.xfree86.org/current/Xrandr.3.html
 	this.XRRModeInfo = ctypes.StructType('_XRRModeInfo', [
 		{ id: this.RRMode },
 		{ width: this.unsigned_int },

@@ -73,6 +73,16 @@ var CONST = {
 	WM_RBUTTONUP: 0x0205
 };
 
+var justMouseConsts = {
+	WM_LBUTTONDOWN: 0x0201,
+	WM_LBUTTONUP: 0x0202,
+	WM_MOUSEMOVE: 0x0200,
+	WM_MOUSEWHEEL: 0x020A,
+	WM_MOUSEHWHEEL: 0x020E,
+	WM_RBUTTONDOWN: 0x0204,
+	WM_RBUTTONUP: 0x0205
+}
+
 var user32 = ctypes.open('user32');
 var SetWindowsHookEx = user32.declare(ifdef_UNICODE ? 'SetWindowsHookExW' : 'SetWindowsHookExA', TYPES.ABI, TYPES.HHOOK, TYPES.INT, TYPES.HOOKPROC, TYPES.HINSTANCE, TYPES.DWORD);
 var UnhookWindowsHookEx = user32.declare('UnhookWindowsHookEx', TYPES.ABI, TYPES.BOOL, TYPES.HHOOK);
@@ -100,12 +110,25 @@ try {
 	var tpidMain = GetWindowThreadProcessId(hwndMain, null); // thread id of main thread
 	console.info('tpidMain:', tpidMain);
 	*/
+	var cancelFinally = false;
 	
 	var myLLMouseHook_js = function(nCode, wParam, lParam) {
 		
-		var rez_CallNext = CallNextHookEx(null, nCode, wParam, lParam);
-		console.info('rez_CallNext:', rez_CallNext, rez_CallNext.toString());
+		var eventType;
+		for (var p in justMouseConsts) {
+			if (justMouseConsts[p] == wParam) {
+				eventType = p;
+				break;
+			}
+		}
 		
+		// var mhs = ctypes.cast(lParam, TYPES.MSLLHOOKSTRUCT);
+		var mhs = TYPES.MSLLHOOKSTRUCT.ptr(ctypes.UInt64(lParam));
+		
+		console.info('myLLMouseHook | ', p, 'nCode:', nCode, nCode.toString(), 'wParam:', wParam, wParam.toString(), 'lParam:', lParam, lParam.toString(), 'mhs:', mhs, mhs.toString(), 'mhs.contents:', mhs.contents, mhs.contents.toString());
+		
+		var rez_CallNext = CallNextHookEx(null, nCode, wParam, lParam);
+		// console.info('rez_CallNext:', rez_CallNext, rez_CallNext.toString());
 		return rez_CallNext;
 	};
 	var myLLMouseHook_c = TYPES.LowLevelMouseProc.ptr(myLLMouseHook_js);
@@ -117,6 +140,8 @@ try {
 		throw new Error('failed to set hook');
 	}
 	
+	
+	cancelFinally = true; // cancel as i will handle it in the setTimeout
 	setTimeout(function() {
 		var rez_Unhook = UnhookWindowsHookEx(aHhk);
 		console.info('rez_Unhook:', rez_Unhook);
@@ -125,6 +150,8 @@ try {
 		console.log('user32 closed');		
 	}, 5000);
 } finally {
-    // user32.close();
-    // console.log('user32 closed');
+	if (!cancelFinally) {
+		user32.close();
+		console.log('user32 closed');
+	}
 }

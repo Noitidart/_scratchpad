@@ -6,14 +6,15 @@ var is64bit = ctypes.voidptr_t.size == 4 ? false : true;
 // BASIC TYPES
 var TYPES = {
 	char: ctypes.char,
-	ID: ctypes.voidptr_t,
+	id: ctypes.voidptr_t,
 	IMP: ctypes.voidptr_t,
 	SEL: ctypes.voidptr_t,
 	Class: ctypes.voidptr_t,
 	NSEventMask: ctypes.unsigned_long_long,
 	NSUInteger: is64bit ? ctypes.unsigned_long : ctypes.unsigned_int,
 	NSInteger: is64bit ? ctypes.long: ctypes.int,
-	BOOL: ctypes.signed_char
+	BOOL: ctypes.signed_char,
+	NSEvent: ctypes.voidptr_t
 };
 
 // advanced types
@@ -95,8 +96,8 @@ CONST.NSEventMaskPressure = 1 << CONST.NSEventTypePressure;	// 1ULL << NSEventTy
 CONST.NSAnyEventMask = CONST.NSUIntegerMax; //0xffffffffU
 
 // COMMON FUNCTIONS
-var objc_getClass = objc.declare('objc_getClass', ctypes.default_abi, TYPES.ID, TYPES.char.ptr);
-var objc_msgSend = objc.declare('objc_msgSend', ctypes.default_abi, TYPES.ID, TYPES.ID, TYPES.SEL, '...');
+var objc_getClass = objc.declare('objc_getClass', ctypes.default_abi, TYPES.id, TYPES.char.ptr);
+var objc_msgSend = objc.declare('objc_msgSend', ctypes.default_abi, TYPES.id, TYPES.id, TYPES.SEL, '...');
 var sel_registerName = objc.declare('sel_registerName', ctypes.default_abi, TYPES.SEL, TYPES.char.ptr);
 
 // COMMON SELECTORS
@@ -167,6 +168,7 @@ function createBlock(aFuncTypePtr) {
 }
 
 // my personal globals for this code
+var cancelFinally;
 var releaseThese = [];
 
 function shutdown() {
@@ -185,20 +187,44 @@ function main() {
 	var NSEvent = objc_getClass('NSEvent');
 	var addLocalMonitorForEventsMatchingMask = sel_registerName('addLocalMonitorForEventsMatchingMask:handler:');
 
-	myHandler_js = function(c_arg1__self, objc_arg1__aNSEvent) {
-		console.log('in myHandler', objc_arg1__aNSEvent.toString());
-		return null;
+	var type = sel_registerName('type');
+	var myHandler_js = function(c_arg1__self, objc_arg1__aNSEventPtr) {
+		console.log('in myHandler', objc_arg1__aNSEventPtr.toString());
+		
+		var cType = objc_msgSend(objc_arg1__aNSEventPtr, type);
+		console.info('cType:', cType, cType.toString());
+		
+		cType = ctypes.cast(cType, TYPES.NSEventType);
+		console.info('cType:', cType, cType.toString());
+		
+		
+		return objc_arg1__aNSEventPtr; // return null to block
 	};
-	var IMP_for_imageNamed = ctypes.FunctionType(ctypes.default_abi, TYPES.ID, [TYPES.ID, TYPES.ID]);
-	myHandler_c = IMP_for_imageNamed.ptr(myHandler_js);
-	myBlock_c = createBlock(myHandler_c);
+	var IMP_for_imageNamed = ctypes.FunctionType(ctypes.default_abi, TYPES.NSEvent.ptr, [TYPES.id, TYPES.NSEvent.ptr]);
+	var myHandler_c = IMP_for_imageNamed.ptr(myHandler_js);
+	var myBlock_c = createBlock(myHandler_c);
 	
 	console.info('myBlock_c:', myBlock_c, myBlock_c.toString());
 	console.info('myBlock_c.address():', myBlock_c.address(), myBlock_c.address().toString());
 	
 	var rez_add = objc_msgSend(NSEvent, addLocalMonitorForEventsMatchingMask, TYPES.NSEventMask(CONST.NSKeyDownMask), myBlock_c.address());
 	console.log('rez_add:', rez_add, rez_add.toString());
-
+	
+	cancelFinally = true;
+	setTimeout(function() {
+		console.log('time up');
+		
+		var removeMonitor = sel_registerName('removeMonitor:');
+		var rez_remove = objc_msgSend(NSEvent, removeMonitor, rez_add);
+		console.log('rez_remove:', rez_remove, rez_remove.toString());
+		
+		myHandler_js = null;
+		myHandler_c = null;
+		myBlock_c = null;
+		
+		shutdown();
+	}, 5000);
+	
 }
 
 try {
@@ -206,5 +232,7 @@ try {
 } catch(ex) {
 	console.error('Exception Occoured:', ex);
 } finally {
-	shutdown();
+	if (!cancelFinally) {
+		shutdown();
+	}
 }

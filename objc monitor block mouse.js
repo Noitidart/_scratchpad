@@ -14,7 +14,8 @@ var TYPES = {
 	NSUInteger: is64bit ? ctypes.unsigned_long : ctypes.unsigned_int,
 	NSInteger: is64bit ? ctypes.long: ctypes.int,
 	BOOL: ctypes.signed_char,
-	NSEvent: ctypes.voidptr_t
+	NSEvent: ctypes.voidptr_t,
+	CGFloat: is64bit ? ctypes.double : ctypes.float
 };
 
 // advanced types
@@ -187,27 +188,37 @@ function main() {
 	var NSEvent = objc_getClass('NSEvent');
 	var addLocalMonitorForEventsMatchingMask = sel_registerName('addLocalMonitorForEventsMatchingMask:handler:');
 
-	var type = sel_registerName('type');
+	var objc_msgSend_CGFloat = objc.declare('objc_msgSend', ctypes.default_abi, TYPES.CGFloat, TYPES.id, TYPES.SEL, '...');
+	
+	var deltaX = sel_registerName('scrollingDeltaX');
+	var deltaY = sel_registerName('scrollingDeltaY');
+	// var deltaZ = sel_registerName('deltaZ');
 	var myHandler_js = function(c_arg1__self, objc_arg1__aNSEventPtr) {
 		console.log('in myHandler', objc_arg1__aNSEventPtr.toString());
 		
-		var cType = objc_msgSend(objc_arg1__aNSEventPtr, type);
-		console.info('cType:', cType, cType.toString());
+		var cY = objc_msgSend_CGFloat(objc_arg1__aNSEventPtr, deltaY);
+		console.info('cY:', cY, cY.toString());
 		
-		cType = ctypes.cast(cType, TYPES.NSEventType);
-		console.info('cType:', cType, cType.toString());
+		// for perf, if cY is 0 then test cX as its more likely user does vertical scroll then horizontal scroll
 		
+		var cX = objc_msgSend_CGFloat(objc_arg1__aNSEventPtr, deltaX);
+		console.info('cX:', cX, cX.toString());	
+		
+		// var cZ = objc_msgSend(objc_arg1__aNSEventPtr, deltaZ);
+		// console.info('cZ:', cZ, cZ.toString());
+		// cZ = ctypes.cast(cZ, TYPES.CGFloat);
+		// console.info('cZ:', cZ, cZ.toString(), parseInt(cZ));
 		
 		return objc_arg1__aNSEventPtr; // return null to block
 	};
-	var IMP_for_imageNamed = ctypes.FunctionType(ctypes.default_abi, TYPES.NSEvent.ptr, [TYPES.id, TYPES.NSEvent.ptr]);
-	var myHandler_c = IMP_for_imageNamed.ptr(myHandler_js);
+	var IMP_for_EventMonitorCallback = ctypes.FunctionType(ctypes.default_abi, TYPES.NSEvent.ptr, [TYPES.id, TYPES.NSEvent.ptr]);
+	var myHandler_c = IMP_for_EventMonitorCallback.ptr(myHandler_js);
 	var myBlock_c = createBlock(myHandler_c);
 	
 	console.info('myBlock_c:', myBlock_c, myBlock_c.toString());
 	console.info('myBlock_c.address():', myBlock_c.address(), myBlock_c.address().toString());
 	
-	var rez_add = objc_msgSend(NSEvent, addLocalMonitorForEventsMatchingMask, TYPES.NSEventMask(CONST.NSKeyDownMask), myBlock_c.address());
+	var rez_add = objc_msgSend(NSEvent, addLocalMonitorForEventsMatchingMask, TYPES.NSEventMask(CONST.NSScrollWheelMask), myBlock_c.address());
 	console.log('rez_add:', rez_add, rez_add.toString());
 	
 	cancelFinally = true;

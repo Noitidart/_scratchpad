@@ -102,6 +102,70 @@ var sel_registerName = objc.declare('sel_registerName', ctypes.default_abi, TYPE
 // COMMON SELECTORS
 var release = sel_registerName('release');
 
+// OBJC HELPERS
+function createBlock(aFuncTypePtr) {
+	/**
+	 * Creates a C block instance from a JS Function.
+	 * Blocks are regular Objective-C objects in Obj-C, and can be sent messages;
+	 * thus Block instances need are creted using the core.wrapId() function.
+	 */
+	// Apple Docs :: Working with blocks - https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/ProgrammingWithObjectiveC/WorkingwithBlocks/WorkingwithBlocks.html
+
+	var _NSConcreteGlobalBlock = objc.declare('_NSConcreteGlobalBlock', ctypes.voidptr_t); // https://dxr.mozilla.org/mozilla-central/source/js/src/ctypes/Library.cpp?offset=0#271
+	
+	/**
+	 * The "block descriptor" is a static singleton struct. Probably used in more
+	 * complex Block scenarios involving actual closure variables needing storage
+	 * (in `NodObjC`, JavaScript closures are leveraged instead).
+	 */
+	// struct is seen here in docs: http://clang.llvm.org/docs/Block-ABI-Apple.html
+	var Block_descriptor_1 = ctypes.StructType('Block_descriptor_1', [
+		{ reserved: ctypes.unsigned_long_long },
+		{ size: ctypes.unsigned_long_long }
+	]);
+	
+	/**
+	 * We have to simulate what the llvm compiler does when it encounters a Block
+	 * literal expression (see `Block-ABI-Apple.txt` above).
+	 * The "block literal" is the struct type for each Block instance.
+	 */
+	// struct is seen here in docs: http://clang.llvm.org/docs/Block-ABI-Apple.html
+	var Block_literal_1 = ctypes.StructType('Block_literal_1', [
+		{ isa: ctypes.voidptr_t },
+		{ flags: ctypes.int32_t },
+		{ reserved: ctypes.int32_t },
+		{ invoke: ctypes.voidptr_t },
+		{ descriptor: Block_descriptor_1.ptr }
+	]);
+	
+	var BLOCK_CONST = {
+		BLOCK_HAS_COPY_DISPOSE: 1 << 25,
+		BLOCK_HAS_CTOR: 1 << 26,
+		BLOCK_IS_GLOBAL: 1 << 28,
+		BLOCK_HAS_STRET: 1 << 29,
+		BLOCK_HAS_SIGNATURE: 1 << 30
+	};
+	
+	// based on work from here: https://github.com/trueinteractions/tint2/blob/f6ce18b16ada165b98b07869314dad1d7bee0252/modules/Bridge/core.js#L370-L394
+	var bl = Block_literal_1();
+	// Set the class of the instance
+	bl.isa = _NSConcreteGlobalBlock;
+	// Global flags
+	bl.flags = BLOCK_CONST.BLOCK_HAS_STRET;
+	bl.reserved = 0;
+	bl.invoke = aFuncTypePtr;
+	
+	// create descriptor
+	var desc = Block_descriptor_1();
+	desc.reserved = 0;
+	desc.size = Block_literal_1.size;
+	
+	// set descriptor into block literal
+	bl.descriptor = desc.address();
+
+	return bl;
+}
+
 // my personal globals for this code
 var releaseThese = [];
 
@@ -115,21 +179,26 @@ function shutdown() {
 
 var myHandler_js;
 var myHandler_c;
+var myBlock_c;
 function main() {
 
-	// current_application = [NSRunningApplication currentApplciation];
 	var NSEvent = objc_getClass('NSEvent');
 	var addLocalMonitorForEventsMatchingMask = sel_registerName('addLocalMonitorForEventsMatchingMask:handler:');
 
-	myHandler_js = function(c_arg1__self, c_arg2__sel) {
-		console.log('in myHandler', c_arg2__sel.toString());
-		return TYPES.ID(0);
+	myHandler_js = function(c_arg1__self, objc_arg1__aNSEvent) {
+		console.log('in myHandler', objc_arg1__aNSEvent.toString());
+		return null;
 	};
 	var IMP_for_imageNamed = ctypes.FunctionType(ctypes.default_abi, TYPES.ID, [TYPES.ID, TYPES.ID]);
 	myHandler_c = IMP_for_imageNamed.ptr(myHandler_js);
+	myBlock_c = createBlock(myHandler_c);
 	
-	var rez_add = objc_msgSend(NSEvent, addLocalMonitorForEventsMatchingMask, TYPES.NSEventMask(CONST.NSKeyDownMask), myHandler_c);
-	console.log('rez_add:', rez_add, rez_add.toString());
+	console.info('myBlock_c:', myBlock_c, myBlock_c.toString());
+	console.info('myBlock_c.address():', myBlock_c.address(), myBlock_c.address().toString());
+	
+	// var rez_add = objc_msgSend(NSEvent, addLocalMonitorForEventsMatchingMask, TYPES.NSEventMask(CONST.NSKeyDownMask), myHandler_c);
+	// console.log('rez_add:', rez_add, rez_add.toString());
+
 }
 
 try {

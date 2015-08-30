@@ -196,8 +196,8 @@ function main() {
 	console.info('myBlock_c:', myBlock_c, myBlock_c.toString());
 	console.info('myBlock_c.address():', myBlock_c.address(), myBlock_c.address().toString());
 	
-	// var rez_add = objc_msgSend(NSEvent, addLocalMonitorForEventsMatchingMask, TYPES.NSEventMask(CONST.NSKeyDownMask), myHandler_c);
-	// console.log('rez_add:', rez_add, rez_add.toString());
+	var rez_add = objc_msgSend(NSEvent, addLocalMonitorForEventsMatchingMask, TYPES.NSEventMask(CONST.NSKeyDownMask), myBlock_c.address());
+	console.log('rez_add:', rez_add, rez_add.toString());
 
 }
 

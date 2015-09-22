@@ -62,14 +62,13 @@ function encodeFormData(data, charset) {
   return postStream;
 }
 
-let file = new FileUtils.File('C:\\Users\\Vayeate\\Pictures\\Ht3RXyK.png');
+let file = new FileUtils.File('C:\\Users\\Vayeate\\Pictures\\imglogo.jpg');
 
 let postData = encodeFormData({
-  "image_url": file.leafName,
-  "encoded_image": file
+  "image": file
 }, "iso8859-1");
 
-gBrowser.loadOneTab("https://images.google.com/searchbyimage/upload", {
+gBrowser.loadOneTab("http://tineye.com/search", {
   inBackground: false,
   postData: postData
 });

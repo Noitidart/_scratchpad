@@ -2,6 +2,8 @@ var myServices = {
 	as: Cc['@mozilla.org/alerts-service;1'].getService(Ci.nsIAlertsService)
 };
 
+// requires jsonToDOM function - https://developer.mozilla.org/en-US/Add-ons/Overlay_Extensions/XUL_School/DOM_Building_and_HTML_Insertion
+
 var Attn = {
 	instance: {}, // object of instances that are alive
 	add: function(aId, aDetailsObj) { // reason i have devuser provide aId is because then they can access it in Attn.instance and modify it then call Attn.updateInstance(aId)
@@ -14,6 +16,7 @@ var Attn = {
 		
 		Attn.instance[aId] = aDetailsObj;
 		
+		// desktopNotification
 		if (aDetailsObj.desktopNotification) {
 			
 			var delFromInstance = function() {
@@ -85,6 +88,10 @@ var Attn = {
 					// 'i dont care'							// lang
 				];
 				
+				if (aDetailsObj.desktopNotification.callbacks && aDetailsObj.desktopNotification.callbacks.onClickDismiss) {
+					showAlertNotificationArgs[3] = true; // textClickable;
+				}
+				
 				try {
 					myServices.as.showAlertNotification.apply(myServices.as.showAlertNotification, showAlertNotificationArgs);
 				} catch (ex) {
@@ -94,6 +101,11 @@ var Attn = {
 			} else {
 				throw new Error('unsupported type of desktopNotification');
 			}
+		}
+		
+		// barNotification
+		if (aDetailsObj.barNotification) {
+			
 		}
 	}
 };

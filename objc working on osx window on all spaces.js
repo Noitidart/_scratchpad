@@ -36,7 +36,7 @@ setTimeout(function() {
 	//var NSApp = objc_msgSend(NSApplication, sel_registerName('sharedApplication'));
 	//objc_msgSend(NSApp, sel_registerName('activateIgnoringOtherApps:'), YES);
  
-	var setB = objc_msgSend(NSWindowPtr, sel_registerName('setCollectionBehavior:'), NSUInteger(NSWindowCollectionBehaviorStationary | NSWindowCollectionBehaviorMoveToActiveSpace | NSWindowCollectionBehaviorFullScreenAuxiliary));
+	var setB = objc_msgSend(NSWindowPtr, sel_registerName('setCollectionBehavior:'), NSUInteger(NSWindowCollectionBehaviorCanJoinAllSpaces));
 	//objc_msgSend(NSWindowPtr, sel_registerName('orderFront:'), NIL);
 	console.log('setB:', setB.toString(), setB);
 	

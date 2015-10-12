@@ -10,7 +10,10 @@ var rooms = [
   'jsctypes',
   'nightly',
   //'amo',
-  'mobile'
+  'mobile',
+  'jetpack',
+  'webextensions',
+  'amo-editors'
 ];
 
 //var doc = gBrowser.contentDocument;

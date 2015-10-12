@@ -30,7 +30,7 @@ var Attn = {
 			};
 			
 			if (aDetailsObj.desktopNotification.type == 'once') {
-				aDetailsObj.desktopNotification.programatic = {}; // note: progrmaattic is things the code adds to handle stuff
+				aDetailsObj.desktopNotification.programatic = {}; // note: programatic is things the code adds to handle stuff
 				aDetailsObj.desktopNotification.programatic.dismissListener = {
 					observe: function(aSubject, aTopic, aData) {
 						// aSubject
@@ -105,7 +105,60 @@ var Attn = {
 		
 		// barNotification
 		if (aDetailsObj.barNotification) {
-			
+			if (aDetailsObj.barNotification.type == 'browser') {
+				
+				if (!Attn.instance[aId].programatic) {
+					Attn.instance[aId].programatic = {};
+				}
+				Attn.instance[aId].programatic.barNotification = {
+					lastObjOnDomApply: JSON.parse(JSON.stringify(Attn.instance[aId].barNotification)) // note: stored dom elements are wiped, this is only used for comparing when running updateBarDom
+				};
+				
+				// iterate through all open windows and execute updateBarDom with initSingleWindow set to element
+				// Attn.updateBarDom(aId, aDOMWindow);
+				var DOMWindows = Services.wm.getEnumerator(null);
+				while (DOMWindows.hasMoreElements()) {
+					var aDOMWindow = DOMWindows.getNext();
+					if (aDOMWindow.document.readyState == 'complete') { //on startup `aDOMWindow.document.readyState` is `uninitialized`
+						Attn.updateBarDom(aId, aDOMWindow);
+					} else {
+						aDOMWindow.addEventListener('load', function () {
+							aDOMWindow.removeEventListener('load', arguments.callee, false);
+							Attn.updateBarDom(aId, aDOMWindow);
+						}, false);
+					}
+				}
+				
+				// create windowlistener to listen to future opened windows
+				aDetailsObj.barNotification.programatic.windowListener = {
+					//DO NOT EDIT HERE
+					onOpenWindow: function (aXULWindow) {
+						// Wait for the window to finish loading
+						var aDOMWindow = aXULWindow.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowInternal || Ci.nsIDOMWindow);
+						aDOMWindow.addEventListener('load', function () {
+							aDOMWindow.removeEventListener('load', arguments.callee, false);
+							Attn.updateBarDom(aId, aDOMWindow);
+						}, false);
+					},
+					onCloseWindow: function (aXULWindow) {},
+					onWindowTitleChange: function (aXULWindow, aNewTitle) {},
+				};
+				
+				Services.wm.addListener(aDetailsObj.barNotification.programatic.windowListener);
+			} else {
+				throw new Error('aDetailsObj.barNotification not yet supported:' + aDetailsObj.barNotification);
+			}
+		}
+	},
+	updateBarDom: function(aId, initSingleWindow) {
+		// reads obj to window
+		// if initSingleWindow is set to aDOMWindow element, it does the whole process starting at appendNotification, this should only be used by the aDOMWindow loop in `add` and the `onOpenWindow` callback of the window listener added by add
+		if (Attn.instance[aId].barNotification.type == 'browser') {
+			if (initSingleWindow) {
+				// no comparison to remembered obj
+			} else {
+				// iteratre through all windows, and whatever is different from the remembered obj, to the dom then execute it
+			}
 		}
 	}
 };
